@@ -1,0 +1,191 @@
+[
+  {
+    "origin": "vp",
+    "file": "C:\\Users\\marce\\OneDrive\\Área de Trabalho\\VPCODEX2026\\EAP_Orcamento_Via_Permanente_2026.xlsx",
+    "sheet": "Comparativo",
+    "rows": 33,
+    "columns": 7,
+    "formula_count": 20,
+    "sha256": "bc2825d7a75494936dda952c8caff780f7f5f4c3e20238633bfe8699a4cb8f51"
+  },
+  {
+    "origin": "vp",
+    "file": "C:\\Users\\marce\\OneDrive\\Área de Trabalho\\VPCODEX2026\\EAP_Orcamento_Via_Permanente_2026.xlsx",
+    "sheet": "Premissas",
+    "rows": 49,
+    "columns": 4,
+    "formula_count": 5,
+    "sha256": "bc2825d7a75494936dda952c8caff780f7f5f4c3e20238633bfe8699a4cb8f51"
+  },
+  {
+    "origin": "vp",
+    "file": "C:\\Users\\marce\\OneDrive\\Área de Trabalho\\VPCODEX2026\\EAP_Orcamento_Via_Permanente_2026.xlsx",
+    "sheet": "Superfície",
+    "rows": 52,
+    "columns": 12,
+    "formula_count": 213,
+    "sha256": "bc2825d7a75494936dda952c8caff780f7f5f4c3e20238633bfe8699a4cb8f51"
+  },
+  {
+    "origin": "vp",
+    "file": "C:\\Users\\marce\\OneDrive\\Área de Trabalho\\VPCODEX2026\\EAP_Orcamento_Via_Permanente_2026.xlsx",
+    "sheet": "Elevado",
+    "rows": 69,
+    "columns": 12,
+    "formula_count": 298,
+    "sha256": "bc2825d7a75494936dda952c8caff780f7f5f4c3e20238633bfe8699a4cb8f51"
+  },
+  {
+    "origin": "vp",
+    "file": "C:\\Users\\marce\\OneDrive\\Área de Trabalho\\VPCODEX2026\\EAP_Orcamento_Via_Permanente_2026.xlsx",
+    "sheet": "Resumo por Grupo (curva ABC)",
+    "rows": 30,
+    "columns": 9,
+    "formula_count": 64,
+    "sha256": "bc2825d7a75494936dda952c8caff780f7f5f4c3e20238633bfe8699a4cb8f51"
+  },
+  {
+    "origin": "vp",
+    "file": "C:\\Users\\marce\\OneDrive\\Área de Trabalho\\VPCODEX2026\\EAP_Orcamento_Via_Permanente_2026.xlsx",
+    "sheet": "AMV",
+    "rows": 26,
+    "columns": 4,
+    "formula_count": 12,
+    "sha256": "bc2825d7a75494936dda952c8caff780f7f5f4c3e20238633bfe8699a4cb8f51"
+  },
+  {
+    "origin": "vp",
+    "file": "C:\\Users\\marce\\OneDrive\\Área de Trabalho\\VPCODEX2026\\EAP_Orcamento_Via_Permanente_2026.xlsx",
+    "sheet": "SIEC_SERVIÇOS",
+    "rows": 10161,
+    "columns": 7,
+    "formula_count": 0,
+    "sha256": "bc2825d7a75494936dda952c8caff780f7f5f4c3e20238633bfe8699a4cb8f51"
+  },
+  {
+    "origin": "vp",
+    "file": "C:\\Users\\marce\\OneDrive\\Área de Trabalho\\VPCODEX2026\\EAP_Orcamento_Via_Permanente_2026.xlsx",
+    "sheet": "SIEC_INSUMOS",
+    "rows": 3023,
+    "columns": 7,
+    "formula_count": 0,
+    "sha256": "bc2825d7a75494936dda952c8caff780f7f5f4c3e20238633bfe8699a4cb8f51"
+  },
+  {
+    "origin": "p2",
+    "file": "C:\\Users\\marce\\OneDrive\\Área de Trabalho\\CODEX_PARAMETRICO_GERAL\\EAP_Orcamento_Via_Permanente_2026_Parte2.xlsx",
+    "sheet": "Comparativo Parte 2",
+    "rows": 64,
+    "columns": 8,
+    "formula_count": 70,
+    "sha256": "9e31cb8b13be8b66128260f944147827cf09c0c4b7e51b31bf38d547e8621c9a"
+  },
+  {
+    "origin": "p2",
+    "file": "C:\\Users\\marce\\OneDrive\\Área de Trabalho\\CODEX_PARAMETRICO_GERAL\\EAP_Orcamento_Via_Permanente_2026_Parte2.xlsx",
+    "sheet": "Premissas Parte 2",
+    "rows": 49,
+    "columns": 4,
+    "formula_count": 0,
+    "sha256": "9e31cb8b13be8b66128260f944147827cf09c0c4b7e51b31bf38d547e8621c9a"
+  },
+  {
+    "origin": "p2",
+    "file": "C:\\Users\\marce\\OneDrive\\Área de Trabalho\\CODEX_PARAMETRICO_GERAL\\EAP_Orcamento_Via_Permanente_2026_Parte2.xlsx",
+    "sheet": "1 Via permanente",
+    "rows": 126,
+    "columns": 12,
+    "formula_count": 484,
+    "sha256": "9e31cb8b13be8b66128260f944147827cf09c0c4b7e51b31bf38d547e8621c9a"
+  },
+  {
+    "origin": "p2",
+    "file": "C:\\Users\\marce\\OneDrive\\Área de Trabalho\\CODEX_PARAMETRICO_GERAL\\EAP_Orcamento_Via_Permanente_2026_Parte2.xlsx",
+    "sheet": "2 Topografia",
+    "rows": 54,
+    "columns": 12,
+    "formula_count": 124,
+    "sha256": "9e31cb8b13be8b66128260f944147827cf09c0c4b7e51b31bf38d547e8621c9a"
+  },
+  {
+    "origin": "p2",
+    "file": "C:\\Users\\marce\\OneDrive\\Área de Trabalho\\CODEX_PARAMETRICO_GERAL\\EAP_Orcamento_Via_Permanente_2026_Parte2.xlsx",
+    "sheet": "3 Drenagem",
+    "rows": 71,
+    "columns": 12,
+    "formula_count": 209,
+    "sha256": "9e31cb8b13be8b66128260f944147827cf09c0c4b7e51b31bf38d547e8621c9a"
+  },
+  {
+    "origin": "p2",
+    "file": "C:\\Users\\marce\\OneDrive\\Área de Trabalho\\CODEX_PARAMETRICO_GERAL\\EAP_Orcamento_Via_Permanente_2026_Parte2.xlsx",
+    "sheet": "4 Vedação",
+    "rows": 32,
+    "columns": 12,
+    "formula_count": 12,
+    "sha256": "9e31cb8b13be8b66128260f944147827cf09c0c4b7e51b31bf38d547e8621c9a"
+  },
+  {
+    "origin": "p2",
+    "file": "C:\\Users\\marce\\OneDrive\\Área de Trabalho\\CODEX_PARAMETRICO_GERAL\\EAP_Orcamento_Via_Permanente_2026_Parte2.xlsx",
+    "sheet": "5 AMVs",
+    "rows": 37,
+    "columns": 12,
+    "formula_count": 49,
+    "sha256": "9e31cb8b13be8b66128260f944147827cf09c0c4b7e51b31bf38d547e8621c9a"
+  },
+  {
+    "origin": "p2",
+    "file": "C:\\Users\\marce\\OneDrive\\Área de Trabalho\\CODEX_PARAMETRICO_GERAL\\EAP_Orcamento_Via_Permanente_2026_Parte2.xlsx",
+    "sheet": "6 Banco de dutos",
+    "rows": 40,
+    "columns": 12,
+    "formula_count": 51,
+    "sha256": "9e31cb8b13be8b66128260f944147827cf09c0c4b7e51b31bf38d547e8621c9a"
+  },
+  {
+    "origin": "p2",
+    "file": "C:\\Users\\marce\\OneDrive\\Área de Trabalho\\CODEX_PARAMETRICO_GERAL\\EAP_Orcamento_Via_Permanente_2026_Parte2.xlsx",
+    "sheet": "Ponte Parte 1",
+    "rows": 22,
+    "columns": 5,
+    "formula_count": 20,
+    "sha256": "9e31cb8b13be8b66128260f944147827cf09c0c4b7e51b31bf38d547e8621c9a"
+  },
+  {
+    "origin": "p2",
+    "file": "C:\\Users\\marce\\OneDrive\\Área de Trabalho\\CODEX_PARAMETRICO_GERAL\\EAP_Orcamento_Via_Permanente_2026_Parte2.xlsx",
+    "sheet": "Base Parte 1",
+    "rows": 87,
+    "columns": 8,
+    "formula_count": 0,
+    "sha256": "9e31cb8b13be8b66128260f944147827cf09c0c4b7e51b31bf38d547e8621c9a"
+  },
+  {
+    "origin": "p2",
+    "file": "C:\\Users\\marce\\OneDrive\\Área de Trabalho\\CODEX_PARAMETRICO_GERAL\\EAP_Orcamento_Via_Permanente_2026_Parte2.xlsx",
+    "sheet": "SIEC_SERVIÇOS",
+    "rows": 10161,
+    "columns": 7,
+    "formula_count": 0,
+    "sha256": "9e31cb8b13be8b66128260f944147827cf09c0c4b7e51b31bf38d547e8621c9a"
+  },
+  {
+    "origin": "p2",
+    "file": "C:\\Users\\marce\\OneDrive\\Área de Trabalho\\CODEX_PARAMETRICO_GERAL\\EAP_Orcamento_Via_Permanente_2026_Parte2.xlsx",
+    "sheet": "SIEC_INSUMOS",
+    "rows": 3023,
+    "columns": 7,
+    "formula_count": 0,
+    "sha256": "9e31cb8b13be8b66128260f944147827cf09c0c4b7e51b31bf38d547e8621c9a"
+  },
+  {
+    "origin": "p2",
+    "file": "C:\\Users\\marce\\OneDrive\\Área de Trabalho\\CODEX_PARAMETRICO_GERAL\\EAP_Orcamento_Via_Permanente_2026_Parte2.xlsx",
+    "sheet": "Mercado e pendências",
+    "rows": 16,
+    "columns": 6,
+    "formula_count": 0,
+    "sha256": "9e31cb8b13be8b66128260f944147827cf09c0c4b7e51b31bf38d547e8621c9a"
+  }
+]
