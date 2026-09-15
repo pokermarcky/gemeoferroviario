@@ -7,7 +7,8 @@ from xml.etree import ElementTree as ET
 from zipfile import ZipFile, ZIP_DEFLATED
 from html import escape
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 from openpyxl.formatting.rule import FormulaRule
 from openpyxl.chart import BarChart, Reference
 from openpyxl.worksheet.pagebreak import Break
@@ -124,8 +125,61 @@ def make_excel(r,catalog):
     for row in range(5,eap.max_row+1):eap.row_dimensions[row].height=75;eap[f'G{row}'].number_format='#,##0.000000'
     prem.column_dimensions['A'].width=34;prem.column_dimensions['B'].width=30
     for sh in sheets.values():sh.column_dimensions['C'].width=75;sh.column_dimensions['G'].width=100
+    add_group_sheets(w,r,refs,caches)
     data=BytesIO();w.save(data)
     return cache_formulas(data.getvalue(),caches)
+
+
+def add_group_sheets(workbook,result,refs,caches):
+    """Visões por grupo vinculadas à EAP consolidada, sem duplicar cálculos."""
+    edge=Side(style='thin',color='CBD5E1')
+    money_format='"R$" #,##0.00'
+    for group,direct in result['groups'].items():
+        sheet=workbook.create_sheet(group[:31])
+        cache={};caches[f'xl/worksheets/sheet{len(workbook.worksheets)}.xml']=cache
+        rows=[(n,x) for n,x in enumerate(result['items'],5) if x['group']==group]
+        included=group in result.get('selected_groups',result['groups'])
+        sheet['B2']=group;sheet.merge_cells('B2:J2')
+        sheet['B3']=caption(result);sheet.merge_cells('B3:J3')
+        sheet['B4']='Incluído no total selecionado' if included else 'Excluído do total selecionado'
+        sheet.merge_cells('B4:J4')
+        sheet['B5']='Valores vinculados à EAP consolidada. A seleção de escopo é feita na aplicação.'
+        sheet.merge_cells('B5:J5')
+        measures=[('Subtotal direto',f'=SUM(I13:I{12+len(rows)})' if rows else '=0',direct),
+            ('Direto por km de corredor',f"=C6/'Premissas'!B{refs['km']}",direct/result['scenario']['km']),
+            ('Participação no total direto','=IF(Resumo!B10=0,0,C6/Resumo!B10)',direct/result['direct'] if result['direct'] else 0),
+            ('BDI','=Resumo!B11',result['scenario']['bdi'])]
+        for n,(label,formula,value) in enumerate(measures,6):
+            sheet.cell(n,2,label);sheet.cell(n,3,formula);cache[f'C{n}']=value
+        headers=['EAP','Código','Fonte','Descrição do serviço','Unidade','Quantidade','Custo unitário','Custo total','Data-base']
+        for col,label in enumerate(headers,2):sheet.cell(12,col,label)
+        source_cols=['A','C','D','E','F','G','H','I','J']
+        for n,(source_row,item) in enumerate(rows,13):
+            values=[item['eap'],item['code'],item['source'],item['label']+' — '+item['description'],item['unit'],item['quantity'],item['unit_cost'],item['total'],item['date']]
+            for col,source_col,value in zip(range(2,11),source_cols,values):
+                sheet.cell(n,col,f"='EAP'!{source_col}{source_row}");cache[f'{get_column_letter(col)}{n}']=value
+            sheet.row_dimensions[n].height=100
+        if not rows:sheet['B13']='Sem serviços incluídos neste grupo.';sheet.merge_cells('B13:J13')
+        for row in sheet.iter_rows(min_row=2,min_col=2,max_row=max(13,12+len(rows)),max_col=10):
+            for cell in row:
+                cell.font=Font(name='Aptos',size=12,color=NAVY)
+                cell.alignment=Alignment(horizontal='left' if cell.column==5 else 'center',vertical='center',wrap_text=True)
+                if cell.row>=12 or (6<=cell.row<=9 and cell.column<=3):cell.border=Border(left=edge,right=edge,top=edge,bottom=edge)
+        for cell in sheet[12][1:10]:cell.fill=PatternFill('solid',fgColor=NAVY);cell.font=Font(name='Aptos',size=12,bold=True,color='FFFFFF')
+        sheet['B2'].font=Font(name='Aptos',size=16,bold=True,color=NAVY)
+        for n in (6,7):sheet[f'C{n}'].number_format=money_format
+        for n in (8,9):sheet[f'C{n}'].number_format='0.00%'
+        for n in range(13,13+len(rows)):
+            sheet[f'G{n}'].number_format='#,##0.000000'
+            for col in ('H','I'):sheet[f'{col}{n}'].number_format=money_format
+        for col,width in {'A':3,'B':30,'C':27,'D':14,'E':76,'F':14,'G':22,'H':24,'I':24,'J':18}.items():sheet.column_dimensions[col].width=width
+        for n in range(2,13):sheet.row_dimensions[n].height=32 if n==12 else 28
+        sheet.freeze_panes='G13';sheet.sheet_view.showGridLines=False
+        sheet.auto_filter.ref=f'B12:J{max(12,12+len(rows))}'
+        sheet.print_title_rows='2:12';sheet.print_area=f'B2:J{max(13,12+len(rows))}'
+        sheet.sheet_properties.pageSetUpPr.fitToPage=True
+        sheet.page_setup.orientation='landscape';sheet.page_setup.paperSize=sheet.PAPERSIZE_A3
+        sheet.page_setup.fitToWidth=1;sheet.page_setup.fitToHeight=0
 
 def make_word(r):
     d=Document();sec=d.sections[0];sec.top_margin=sec.bottom_margin=Cm(2);sec.left_margin=sec.right_margin=Cm(2)

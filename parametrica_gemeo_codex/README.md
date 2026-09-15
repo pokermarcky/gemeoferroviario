@@ -22,6 +22,20 @@ O servidor está configurado apenas em `127.0.0.1`. Não depende das pastas orig
 
 ## Modelos
 
+### Orçamento consolidado e segregado por item — Ajuste 1
+
+Ao abrir, o cenário de referência de 1 km já aparece calculado no modo **Orçamento Segregado por Item**, com a composição de cada grupo aberta. Use as caixas **Grupos incluídos no total** para selecionar via permanente, topografia, drenagem, vedação, AMVs e banco de dutos. A atualização é imediata; cada cenário A/B tem seleção independente. A seleção permanece ao navegar entre as áreas da aplicação. Nenhum grupo selecionado produz total zero e desabilita a preparação dos documentos.
+
+O seletor **Modo de visualização** alterna entre **Orçamento Consolidado** e **Orçamento Segregado por Item**. No modo segregado, cada grupo tem subtotal direto, subtotal com o BDI aplicado, custo final por km de corredor, participação no custo direto selecionado e composição detalhada. Os grupos excluídos continuam mostrando seu custo de referência, claramente identificado, com participação zero. Os indicadores principais mostram o total selecionado com BDI, aplicado uma única vez.
+
+Para consultar muro por km, selecione **Muro** no formulário, calcule e mantenha apenas **Vedação** marcada. Para drenagem ou dutos, mantenha apenas o grupo correspondente. Grupos sem serviços seguem com custo zero conforme os parâmetros do formulário.
+
+A seleção é financeira: não redimensiona geometria, duração, plataforma nem abatimentos de AMVs da via corrida. As notas dos documentos identificam os grupos efetivamente incluídos. Alterar a seleção descarta os arquivos preparados anteriormente.
+
+O Excel inclui uma aba por grupo, além de **Resumo** e **EAP** consolidados. As células das novas abas se vinculam à EAP, de modo que alterações de preços se propagam. Grupos excluídos têm uma aba identificada sem serviços incluídos. As novas abas começam em B2, com fonte Aptos 12, alinhamento e bordas; a padronização global das abas e documentos existentes está reservada ao Ajuste 5.
+
+Rede aérea, sinalização e material rodante serão incorporados no Ajuste 2, após confirmação do Ajuste 1. O registro da sequência está em `docs/PLANO_APRIMORAMENTOS.md`.
+
 - **SIEC (padrão):** via lastreada e AMV nº14 do VPCODEX2026; complementos gerais da Parte 2. Remove topografia, drenagem e dutos anteriores antes de inserir os substitutos. Preserva proteções do tabuleiro como grupo 1; vedação da faixa é outra função.
 - **Legado Parte 2:** reproduz os quatro orçamentos anteriores, incluindo elevado em placa e AMV nº9 com preços provisórios. Não atribui o preço nº14 ao nº9.
 - **Via dupla SIEC:** extrapolação explícita de plataforma compartilhada e fatores de gestão/fundações em `config/rules.json`; não existe planilha manual prévia dessa combinação. Não equivale a dimensionamento estrutural.
@@ -62,3 +76,10 @@ Quatro cenários completos do legado fecham com as planilhas manuais: R$ 53.552.
 Dois testes adicionais reconciliam os cenários consolidados SIEC com os subtotais e linhas das duas origens, incluindo substituições e harmonização de prazo/geometria. Não são apresentados como um orçamento manual consolidado anteriormente existente. Testes automatizados de desenvolvimento usam pytest; não oferecem interação com o usuário fora do Streamlit.
 
 O Excel exportado inclui preços por PROCV exato, quantidades por fórmulas, caches numéricos para leitura imediata e recálculo no Excel. Alterar modelo ou seleção de grupos deve ser feito no aplicativo e reexportado; o arquivo representa um cenário, não uma segunda aplicação de seleção.
+
+
+### BDI personalizável
+
+O painel **BDI do orçamento**, junto aos resultados, permite editar **BDI personalizado (%)** e marcar ou desmarcar **Aplicar BDI**. A atualização ocorre ao confirmar o campo com Enter ou sair dele. O percentual escolhido é conservado ao desmarcar a aplicação do BDI. Cada cenário A/B tem seu próprio percentual.
+
+O total, os subtotais dos grupos e os custos por km acompanham a escolha. A participação percentual continua baseada no custo direto. Um eventual centavo de arredondamento é ajustado no último grupo selecionado para que seus subtotais fechem com o consolidado. Excel, Word e PDFs usam o percentual efetivamente aplicado; com a opção desmarcada, o BDI exportado é zero. Alterar o BDI descarta downloads anteriores.

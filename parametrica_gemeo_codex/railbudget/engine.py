@@ -4,9 +4,48 @@ import json
 import math
 import sqlite3
 from pathlib import Path
+from copy import deepcopy
 from .expressions import evaluate, money
 
 ROOT=Path(__file__).resolve().parents[1]
+
+def select_groups(result, selected_groups, bdi_rate=None):
+    """Recorte financeiro puro; conserva as quantidades do cenário calculado."""
+    chosen=set(selected_groups)
+    if chosen-set(result['groups']):
+        raise ValueError('Grupo de orçamento desconhecido.')
+    out=deepcopy(result)
+    rate=result['scenario']['bdi'] if bdi_rate is None else bdi_rate
+    if not math.isfinite(rate) or not 0<=rate<=1:
+        raise ValueError('BDI deve estar entre 0% e 100%.')
+    out['scenario']['bdi']=rate
+    out['context']['bdi']=rate
+    out['items']=[x for x in out['items'] if x['group'] in chosen]
+    out['groups']={g:v if g in chosen else 0.0 for g,v in result['groups'].items()}
+    direct=money(sum(out['groups'].values()))
+    bdi=money(direct*rate)
+    total=money(direct+bdi)
+    km=result['scenario']['km']
+    out.update(direct=direct,bdi_amount=bdi,total=total,per_km=money(total/km),
+               per_line_km=money(total/(km*result['scenario']['lines'])),
+               counts=dict(Counter(x['source'] for x in out['items'])),
+               selected_groups=[g for g in result['groups'] if g in chosen])
+    out['scope_summary']=[{'group':g,'selected':g in chosen,'direct':v,
+        'per_km':money(v/km),'share':100*v/direct if direct and g in chosen else 0.0}
+        for g,v in result['groups'].items()]
+    for group in out['scope_summary']:
+        group['bdi_amount']=money(group['direct']*rate)
+    included=[g for g in out['scope_summary'] if g['selected'] and g['direct']]
+    if included:
+        included[-1]['bdi_amount']=money(included[-1]['bdi_amount']+bdi-sum(g['bdi_amount'] for g in included))
+    for group in out['scope_summary']:
+        group['total']=money(group['direct']+group['bdi_amount'])
+        group['per_km_with_bdi']=money(group['total']/km)
+    if chosen!=set(result['groups']):
+        out['warnings'].append('Recorte financeiro: grupos incluídos no total: '+
+            (', '.join(out['selected_groups']) or 'nenhum')+
+            '. Quantidades e geometria permanecem as do cenário calculado; excluir um grupo não redimensiona os demais.')
+    return out
 
 @dataclass(frozen=True)
 class Scenario:
