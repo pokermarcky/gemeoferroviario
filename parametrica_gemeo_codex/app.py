@@ -39,14 +39,17 @@ def form(key,default_double=False):
         drainage=st.selectbox('Drenagem',['Normal','Reforçada','Complexa'],index=1,key=key+'_drainage')
         fence=st.selectbox('Vedação da faixa',['Cerca','Muro','Nenhuma'],key=key+'_fence')
         amvs=st.number_input('Quantidade total de AMVs',min_value=0,max_value=100000,value=2 if default_double else 1,step=1,key=key+'_amvs',help='Total no corredor, distribuído entre as linhas. Não é quantidade por km.')
-        ducts=st.checkbox('Incluir banco de seis dutos',value=True,key=key+'_ducts')
-        topo=st.checkbox('Incluir topografia',value=True,key=key+'_topography')
+        overhead=st.checkbox('Incluir rede aérea',value=True,key=key+'_overhead')
+        signaling=st.checkbox('Incluir sinalização',value=True,key=key+'_signaling')
+        detection=st.selectbox('Detecção de trens',['Circuito de via','Contador de eixos'],key=key+'_detection')
+        rolling_stock=st.checkbox('Incluir material rodante',value=True,key=key+'_rolling_stock')
+        trainsets=st.number_input('Quantidade de composições de 8 carros',min_value=0,max_value=10000,value=1,step=1,key=key+'_trainsets',help='Custo calculado por composição. O indicador por km rateia a frota pela extensão do corredor.')
         months=st.number_input('Prazo da obra (meses; 0 = referência)',min_value=0,max_value=1200,value=0,step=1,key=key+'_months',help='SIEC: 6 meses superfície / 18 elevado. Legado: 12 / 24 meses.')
         bdi=st.session_state.get(key+'_bdi_personalizado',27.84182802164763)
         submit=st.form_submit_button('Calcular Orçamento',type='primary',width='stretch')
     if submit:
         try:
-            p=Scenario(km=km,configuration=configuration,lines=lines,drainage=drainage,fence=fence,amvs=int(amvs),ducts=ducts,topography=topo,profile=profile,bdi=bdi/100,months=int(months))
+            p=Scenario(km=km,configuration=configuration,lines=lines,drainage=drainage,fence=fence,amvs=int(amvs),overhead=overhead,signaling=signaling,detection=detection,rolling_stock=rolling_stock,trainsets=int(trainsets),profile=profile,bdi=bdi/100,months=int(months))
             st.session_state.results[key]=calculate(p,rules,catalog)
             st.session_state.downloads.pop(key,None)
         except (ValueError,KeyError,ZeroDivisionError) as exc:
@@ -94,16 +97,27 @@ def render_result(r,key,compact=False):
         st.dataframe(pd.DataFrame([{'Grupo':g,'Custo direto (R$)':v} for g,v in r['groups'].items()]),hide_index=True,column_config={'Custo direto (R$)':st.column_config.NumberColumn(format='%.2f')})
         return
     st.caption(f"Custo direto: {currency(r['direct'])} | BDI aplicado: {br(r['scenario']['bdi']*100,6)}% | Acréscimo de BDI: {currency(r['bdi_amount'])}")
-    mode=st.segmented_control('Modo de visualização',
-        ['Orçamento Consolidado','Orçamento Segregado por Item'],
-        default='Orçamento Segregado por Item',key=key+'_visualizacao',persist_state='session')
-    if mode=='Orçamento Segregado por Item':
-        st.caption('Cada bloco mostra o custo direto e o valor final com o BDI escolhido. A participação usa o custo direto selecionado. Eventual centavo de arredondamento do BDI é ajustado no último grupo selecionado para fechar com o total.')
+    columns={'eap':'EAP','group':'Grupo','code':'Código','source':'Fonte','label':'Aplicação','description':'Descrição','unit':'Unidade','quantity':'Quantidade','unit_cost':'Custo unitário (R$)','total':'Custo total (R$)','date':'Data-base'}
+    frame=pd.DataFrame(r['items'])[list(columns)].rename(columns=columns) if r['items'] else pd.DataFrame(columns=columns.values())
+    summary_tab,detail_tab=st.tabs(['Resumo geral','Detalhamento por grupo'])
+    with summary_tab:
+        st.caption('Visão consolidada do total selecionado. Consulte o detalhamento para conferir cada serviço, quantidade, código, fonte e preço.')
+        st.subheader('Participação por grupo')
+        group_frame=pd.DataFrame([{'Grupo':g.split(' ',1)[1],'Custo direto (R$)':v} for g,v in r['groups'].items()])
+        st.dataframe(group_frame,hide_index=True,column_config={'Custo direto (R$)':st.column_config.NumberColumn(format='%.2f')})
+        st.bar_chart(group_frame,x='Grupo',y='Custo direto (R$)',horizontal=True,color='#147D83')
+        st.subheader('EAP orçada')
+        st.dataframe(frame,hide_index=True,height=530,column_config={'Quantidade':st.column_config.NumberColumn(format='%.6f'),'Custo unitário (R$)':st.column_config.NumberColumn(format='%.2f'),'Custo total (R$)':st.column_config.NumberColumn(format='%.2f')})
+    with detail_tab:
+        st.caption('Cada cartão mostra custo direto, valor com o BDI escolhido e participação no total. Abra a composição somente quando quiser conferir as linhas de preço.')
         for group in r['scope_summary']:
             with st.container(border=True):
                 st.subheader(group['group'].split(' ',1)[1])
                 if group['group'].startswith('3 '):st.caption('Drenagem '+r['scenario']['drainage'].lower())
                 if group['group'].startswith('4 '):st.caption('Vedação: '+r['scenario']['fence'].lower())
+                if group['group'].startswith('6 '):st.caption('Banco subterrâneo de seis dutos' if r['scenario']['configuration']=='Superfície' else 'Canaletas e passa-fios embutidos no tabuleiro elevado')
+                if group['group'].startswith('8 '):st.caption('Detecção: '+r['scenario']['detection'].lower())
+                if group['group'].startswith('9 '):st.caption(f"Frota: {r['scenario']['trainsets']} composição(ões) de 8 carros; custo por composição e rateio por km atendido.")
                 if not group['selected']:st.caption('Fora do total selecionado. Valores abaixo são a referência deste grupo no cenário completo.')
                 if not group['direct']:st.info('Sem serviços neste cenário. Verifique os parâmetros do formulário para incluir este grupo.')
                 with st.container(horizontal=True):
@@ -113,12 +127,11 @@ def render_result(r,key,compact=False):
                     st.metric('Participação no total selecionado',br(group['share'],2)+'%')
                 rows=[x for x in r['items'] if x['group']==group['group']]
                 if rows:
-                    with st.expander('Composição e preços de '+group['group'].split(' ',1)[1],expanded=True):
+                    with st.expander('Ver composição e preços de '+group['group'].split(' ',1)[1],expanded=False):
                         st.dataframe(pd.DataFrame(rows)[['code','source','label','unit','quantity','unit_cost','total']].rename(columns={
                             'code':'Código','source':'Fonte','label':'Serviço','unit':'Unidade','quantity':'Quantidade',
                             'unit_cost':'Custo unitário (R$)','total':'Custo total (R$)'}),hide_index=True)
-    st.subheader('Composição do investimento')
-    st.bar_chart(pd.DataFrame({'Grupo':list(r['groups']),'Custo direto (R$)':list(r['groups'].values())}),x='Grupo',y='Custo direto (R$)',horizontal=True,color='#147D83')
+    st.subheader('Rastreabilidade das fontes')
     counts=r['counts'];n=len(r['items'])
     with st.container(horizontal=True):
         for source in ['SIEC','SINAPI','SICRO','Mercado','Provisão']:
@@ -127,11 +140,6 @@ def render_result(r,key,compact=False):
     if not r['items']:
         st.info('Nenhum serviço incluído no total. Selecione ao menos um grupo com serviços para gerar documentos.')
         return
-    columns={'eap':'EAP','group':'Grupo','code':'Código','source':'Fonte','label':'Aplicação','description':'Descrição','unit':'Unidade','quantity':'Quantidade','unit_cost':'Custo unitário (R$)','total':'Custo total (R$)','date':'Data-base'}
-    frame=pd.DataFrame(r['items'])[list(columns)].rename(columns=columns)
-    if mode=='Orçamento Consolidado':
-        st.subheader('EAP orçada')
-        st.dataframe(frame,hide_index=True,height=530,column_config={'Quantidade':st.column_config.NumberColumn(format='%.6f'),'Custo unitário (R$)':st.column_config.NumberColumn(format='%.2f'),'Custo total (R$)':st.column_config.NumberColumn(format='%.2f')})
     with st.expander('Memórias, origem dos itens e limites'):
         for warning in r['warnings']:st.write('• '+warning)
         st.caption(f"Prazo: {r['duration']} meses. Regra {r['rule_version']}.")
@@ -155,8 +163,8 @@ if page=='Orçamento':
     else:
         st.info('Configure o cenário à esquerda e selecione Calcular Orçamento.')
         with st.container(border=True):
-            st.subheader('Uma base, seis grupos de serviço')
-            st.write('Via permanente, topografia, drenagem, vedação, AMVs e banco de dutos, com memória de cálculo e rastreabilidade dos preços.')
+            st.subheader('Uma base, nove grupos de serviço')
+            st.write('Via permanente, topografia, drenagem, vedação, AMVs, infraestrutura de cabos, rede aérea, sinalização e material rodante, com memória de cálculo e rastreabilidade dos preços.')
             st.write('O modelo SIEC usa via lastreada e AMV nº 14. O modelo legado reproduz a Parte 2, incluindo elevado em placa e AMV nº 9 provisório.')
             st.caption('Custos por km se referem ao corredor. Uma via dupla contém dois km de linha por km de corredor.')
 elif page=='Comparar cenários':

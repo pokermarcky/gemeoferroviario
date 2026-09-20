@@ -24,7 +24,7 @@ def test_four_manual_complete_budgets(model,cfg,lines,expected):
 def test_two_combined_budgets_reconcile_to_both_manual_workbooks(model,cfg):
     """Ponte independente de subtotais manuais; não é um terceiro orçamento original."""
     rules,catalog=model
-    result=calculate(Scenario(configuration=cfg),rules,catalog)
+    result=calculate(Scenario(configuration=cfg,ducts=False,overhead=False,signaling=False,rolling_stock=False),rules,catalog)
     snapshots=json.loads((ROOT/'data/snapshots.json').read_text(encoding='utf-8'))
     rows=snapshots['vp'][cfg]['values']
     kept=[row for row in rows if len(row)>10 and isinstance(row[3],str) and row[3].startswith('SIEC-') and row[2]!='Topografia' and row[1]!='02 Drenagem' and row[2] not in ('Canaletas de cabos','Passa-fios','Conexões')]
@@ -32,7 +32,7 @@ def test_two_combined_budgets_reconcile_to_both_manual_workbooks(model,cfg):
     topo=63301.67 if cfg=='Superfície' else 148069.67 # Monitoramento 6 / 18 meses; demais itens gerais mantidos.
     drainage=1291857.60
     if cfg=='Elevado':drainage+=773871.23 # 2.000m canaletas + 51x8m descidas + 51 caixas.
-    expected_direct=money(original_kept+topo+drainage+691300+829930.32)
+    expected_direct=money(original_kept+topo+drainage+691300)
     assert result['direct']==expected_direct
     for item in result['items']:
         if item['origin']=='vp':
@@ -42,8 +42,9 @@ def test_two_combined_budgets_reconcile_to_both_manual_workbooks(model,cfg):
 
 def test_price_sources_and_duplicates(model):
     r,c=model
-    assert len(c)==13260
+    assert len(c)==13261
     assert sum(x['source']=='SIEC' for x in c.values())==13176
+    assert sum(x['source']=='Mercado' for x in c.values())==2
     for row in c.values():
         if row['source']=='SIEC':assert len(json.loads(row['provenance']))==2
     assert len(json.loads((ROOT/'config/coverage.json').read_text(encoding='utf-8')))==281
@@ -67,7 +68,7 @@ def test_invalid_inputs(model,params):
 def test_lengths_zero_amvs_and_optional_groups(model,profile):
     for km in [.01,.55,1.3,5]:
         result=calculate(Scenario(km=km,lines=2,amvs=0,profile=profile,ducts=False,topography=False,fence='Nenhuma'),*model)
-        assert result['groups']['2 Topografia']==result['groups']['4 Vedação']==result['groups']['5 AMVs']==result['groups']['6 Banco de dutos']==0
+        assert result['groups']['2 Topografia']==result['groups']['4 Vedação']==result['groups']['5 AMVs']==result['groups']['6 Infraestrutura de cabos']==0
         assert all(x['quantity']>=0 for x in result['items'])
         assert result['per_line_km']==money(result['total']/(2*km))
     a=calculate(Scenario(km=1,lines=2,amvs=1,profile=profile),*model)
@@ -81,3 +82,33 @@ def test_monotonic_alternatives(model):
     totals=[calculate(Scenario(drainage=d),*model)['total'] for d in ['Normal','Reforçada','Complexa']]
     assert totals==sorted(totals)
     assert calculate(Scenario(fence='Muro'),*model)['total']>calculate(Scenario(),*model)['total']
+
+
+def test_new_scope_groups_and_parameters(model):
+    rules,catalog=model
+    result=calculate(Scenario(km=2,lines=2,amvs=3,trainsets=2),rules,catalog)
+    assert all(result['groups'][g]>0 for g in ['7 Rede aérea','8 Sinalização','9 Material rodante'])
+    assert result['groups']['9 Material rodante']==money(2*39590100.875)
+    assert next(x for x in result['items'] if x['id']=='a2:7:04')['quantity']==4000
+    assert next(x for x in result['items'] if x['id']=='a2:8:04')['quantity']==3
+    circuit=calculate(Scenario(detection='Circuito de via'),rules,catalog)
+    axle=calculate(Scenario(detection='Contador de eixos'),rules,catalog)
+    assert any(x['id']=='a2:8:02' for x in circuit['items'])
+    assert not any(x['id']=='a2:8:03' for x in circuit['items'])
+    assert any(x['id']=='a2:8:03' for x in axle['items'])
+    assert not any(x['id']=='a2:8:02' for x in axle['items'])
+    disabled=calculate(Scenario(overhead=False,signaling=False,rolling_stock=False),rules,catalog)
+    assert all(disabled['groups'][g]==0 for g in ['7 Rede aérea','8 Sinalização','9 Material rodante'])
+
+
+def test_cable_infrastructure_matches_track_configuration(model):
+    rules,catalog=model
+    surface=calculate(Scenario(configuration='Superfície'),rules,catalog)
+    elevated=calculate(Scenario(configuration='Elevado'),rules,catalog)
+    surface_items=[x for x in surface['items'] if x['group']=='6 Infraestrutura de cabos']
+    elevated_items=[x for x in elevated['items'] if x['group']=='6 Infraestrutura de cabos']
+    assert surface_items and all(x['id'].startswith('p2:6 ') for x in surface_items)
+    assert {x['id'] for x in elevated_items}=={'a2:6:E:01','a2:6:E:02'}
+    assert next(x for x in elevated_items if x['id']=='a2:6:E:01')['quantity']==1000
+    assert next(x for x in elevated_items if x['id']=='a2:6:E:02')['quantity']==51
+    assert any('Não há banco de dutos enterrado' in warning for warning in elevated['warnings'])

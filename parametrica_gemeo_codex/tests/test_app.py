@@ -4,11 +4,12 @@ from streamlit.testing.v1 import AppTest
 APP=Path(__file__).resolve().parents[1]/'app.py'
 
 def test_streamlit_calculate_and_error_clear_stale_results():
+    from railbudget.engine import Scenario,calculate,load_model
     a=AppTest.from_file(str(APP)).run(timeout=30)
     assert not a.exception
     a.button(key='FormSubmitter:form_main-Calcular Orçamento').click().run(timeout=30)
     assert not a.exception
-    assert a.session_state['results']['main']['total']==9929071.15
+    assert a.session_state['results']['main']['total']==calculate(Scenario(),*load_model())['total']
     a.number_input(key='main_km').set_value(.01)
     a.button(key='FormSubmitter:form_main-Calcular Orçamento').click().run(timeout=30)
     assert a.error
@@ -40,8 +41,7 @@ def test_live_scope_selection_and_stale_downloads():
     a=AppTest.from_file(str(APP)).run(timeout=30)
     a.button(key='FormSubmitter:form_main-Calcular Orçamento').click().run(timeout=30)
     a.button(key='main_prepare').click().run(timeout=60)
-    a.segmented_control(key='main_visualizacao').set_value('Orçamento Segregado por Item')
-    for i in (0,1,2,4,5):a.checkbox(key=f'main_grupo_{i}').uncheck()
+    for i in (0,1,2,4,5,6,7,8):a.checkbox(key=f'main_grupo_{i}').uncheck()
     a.run(timeout=30)
     assert not a.exception
     assert 'main' not in a.session_state['downloads']
@@ -62,23 +62,23 @@ def test_scope_is_independent_in_comparison():
     a.button(key='FormSubmitter:form_A-Calcular Orçamento').click().run(timeout=30)
     a.button(key='FormSubmitter:form_B-Calcular Orçamento').click().run(timeout=30)
     old_b=a.metric[2].value
-    for i in range(6):a.checkbox(key=f'A_grupo_{i}').uncheck()
+    for i in range(9):a.checkbox(key=f'A_grupo_{i}').uncheck()
     a.run(timeout=30)
     assert not a.exception
     assert a.metric[0].value=='R$ 0,00'
     assert a.metric[2].value==old_b
 
 
-def test_initial_screen_already_shows_separate_groups():
+def test_initial_screen_has_clear_summary_and_group_detail():
     a=AppTest.from_file(str(APP)).run(timeout=30)
     assert not a.exception
-    assert a.segmented_control(key='main_visualizacao').value=='Orçamento Segregado por Item'
+    assert [t.label for t in a.tabs]==['Resumo geral','Detalhamento por grupo']
     headings=[h.value for h in a.subheader]
-    for name in ['Via permanente','Topografia','Drenagem','Vedação','AMVs','Banco de dutos']:
+    for name in ['Via permanente','Topografia','Drenagem','Vedação','AMVs','Infraestrutura de cabos','Rede aérea','Sinalização','Material rodante','EAP orçada']:
         assert name in headings
-    assert 'EAP orçada' not in headings
-    a.segmented_control(key='main_visualizacao').set_value('Orçamento Consolidado').run(timeout=30)
-    assert 'EAP orçada' in [h.value for h in a.subheader]
+    sidebar_labels=[x.label for x in a.checkbox if x.key and (x.key.startswith('main_') and '_grupo_' not in x.key)]
+    assert 'Incluir banco de seis dutos' not in sidebar_labels
+    assert 'Incluir topografia' not in sidebar_labels
 
 
 def test_custom_bdi_updates_immediately_and_can_be_disabled():
@@ -94,8 +94,9 @@ def test_custom_bdi_updates_immediately_and_can_be_disabled():
 
     a.button(key='main_prepare').click().run(timeout=60)
     values=load_workbook(BytesIO(a.session_state['downloads']['main']['orcamento.xlsx']),data_only=True)
-    assert values['Resumo']['B11'].value==.25
-    assert values['Resumo']['B13'].value==money(direct+money(direct*.25))
+    rows={values['Resumo'][f'A{n}'].value:n for n in range(1,values['Resumo'].max_row+1)}
+    assert values['Resumo'][f'B{rows["BDI"]}'].value==.25
+    assert values['Resumo'][f'B{rows["Total"]}'].value==money(direct+money(direct*.25))
     a.checkbox(key='main_aplicar_bdi').uncheck().run(timeout=30)
     assert not a.exception
     assert a.metric[0].value==currency(direct)
@@ -113,10 +114,10 @@ def test_select_and_clear_all_preserves_bdi():
     a.button(key='main_desmarcar_todas').click().run(timeout=30)
     assert not a.exception
     assert a.metric[0].value=='R$ 0,00'
-    assert all(not a.checkbox(key=f'main_grupo_{i}').value for i in range(6))
+    assert all(not a.checkbox(key=f'main_grupo_{i}').value for i in range(9))
     assert a.number_input(key='main_bdi_personalizado').value==25.0
     assert a.checkbox(key='main_aplicar_bdi').value
     a.button(key='main_selecionar_todas').click().run(timeout=30)
     assert not a.exception
     assert a.metric[0].value==original
-    assert all(a.checkbox(key=f'main_grupo_{i}').value for i in range(6))
+    assert all(a.checkbox(key=f'main_grupo_{i}').value for i in range(9))

@@ -12,10 +12,10 @@
 
 ## Sequência combinada com o usuário
 
-1. Seleção financeira dos grupos e visualização segregada; abas de grupo no Excel. Preservar as quantidades do cenário de referência e explicitar a base das participações. Testar seleção vazia, isolada, múltipla, comparação e descarte de downloads antigos.
-2. Após confirmação: rede aérea, sinalização e material rodante; validar referências e registrar lacunas de preços sem inventar valores.
+1. **Concluído:** seleção financeira dos grupos; abas claras de resumo e detalhamento; abas de grupo no Excel; seleção vazia, isolada, múltipla e comparação testadas.
+2. **Concluído:** rede aérea, sinalização e material rodante, com composições SIEC, referência contratual CPTM por composição e premissas paramétricas documentadas. A infraestrutura de cabos agora usa banco subterrâneo na superfície e canaletas/passa-fios embutidos no tabuleiro elevado. Os controles redundantes de topografia e banco de dutos foram retirados do formulário lateral.
 3. Após confirmação: nomenclatura integralmente em português, incluindo memórias e variáveis exibidas.
 4. Após confirmação: figuras e memoriais; incorporar PowerPoint e reutilizar as figuras na interface e documentos.
 5. Após confirmação: padronização global Aptos 12, Excel com margens B2, alinhamentos e bordas; cenário de exemplo com verificação visual.
 
-A publicação no Streamlit Community Cloud permanece preparada, mas depende da autenticação do usuário. Esta sequência de aprimoramentos deve ser concluída antes de publicar a versão atualizada.
+A aplicação está publicada no Streamlit Community Cloud; cada ajuste confirmado pode ser promovido ao repositório principal antes do início da etapa seguinte.

@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "2.0.0",
   "source_priority": [
     "SIEC",
     "SINAPI",
@@ -31,12 +31,20 @@
     "3 Drenagem",
     "4 Vedação",
     "5 AMVs",
-    "6 Banco de dutos"
+    "6 Infraestrutura de cabos",
+    "7 Rede aérea",
+    "8 Sinalização",
+    "9 Material rodante"
   ],
   "constants": {
     "double_width_add": 4,
     "double_foundation_factor": 1.5,
-    "double_management_factor": 1.25
+    "double_management_factor": 1.25,
+    "overhead_span": 50,
+    "tension_length": 1500,
+    "sectioning_length": 3000,
+    "signal_block_length": 500,
+    "interlocking_length": 10000
   },
   "parameters": {
     "V5": 1000,
@@ -193,6 +201,30 @@
     [
       "V21",
       "duration"
+    ],
+    [
+      "overhead_supports",
+      "ceil(L/overhead_span)+1"
+    ],
+    [
+      "tension_sections",
+      "max(1,ceil(L/tension_length))*2*lines"
+    ],
+    [
+      "sectioning_points",
+      "max(1,ceil(L/sectioning_length))*lines"
+    ],
+    [
+      "signal_blocks",
+      "max(1,ceil(L/signal_block_length))*lines"
+    ],
+    [
+      "signal_points",
+      "max(2,ceil(L/1000)*2)*lines"
+    ],
+    [
+      "interlockings",
+      "max(1,ceil(L/interlocking_length))"
     ]
   ],
   "rules": [
@@ -5555,8 +5587,8 @@
       "id": "p2:6 Banco de dutos:5",
       "profile": "both",
       "configuration": null,
-      "group": "6 Banco de dutos",
-      "variant": "6",
+      "group": "6 Infraestrutura de cabos",
+      "variant": "6.S",
       "eap": "6.01",
       "label": "Escavação da vala",
       "candidates": [
@@ -5576,8 +5608,8 @@
       "id": "p2:6 Banco de dutos:6",
       "profile": "both",
       "configuration": null,
-      "group": "6 Banco de dutos",
-      "variant": "6",
+      "group": "6 Infraestrutura de cabos",
+      "variant": "6.S",
       "eap": "6.02",
       "label": "Envelopamento de concreto",
       "candidates": [
@@ -5597,8 +5629,8 @@
       "id": "p2:6 Banco de dutos:7",
       "profile": "both",
       "configuration": null,
-      "group": "6 Banco de dutos",
-      "variant": "6",
+      "group": "6 Infraestrutura de cabos",
+      "variant": "6.S",
       "eap": "6.03",
       "label": "Lançamento do envelopamento",
       "candidates": [
@@ -5618,8 +5650,8 @@
       "id": "p2:6 Banco de dutos:8",
       "profile": "both",
       "configuration": null,
-      "group": "6 Banco de dutos",
-      "variant": "6",
+      "group": "6 Infraestrutura de cabos",
+      "variant": "6.S",
       "eap": "6.04",
       "label": "Berço de areia",
       "candidates": [
@@ -5639,8 +5671,8 @@
       "id": "p2:6 Banco de dutos:9",
       "profile": "both",
       "configuration": null,
-      "group": "6 Banco de dutos",
-      "variant": "6",
+      "group": "6 Infraestrutura de cabos",
+      "variant": "6.S",
       "eap": "6.05",
       "label": "Dutos PVC rígido DN110",
       "candidates": [
@@ -5660,8 +5692,8 @@
       "id": "p2:6 Banco de dutos:10",
       "profile": "both",
       "configuration": null,
-      "group": "6 Banco de dutos",
-      "variant": "6",
+      "group": "6 Infraestrutura de cabos",
+      "variant": "6.S",
       "eap": "6.06",
       "label": "Luvas DN110",
       "candidates": [
@@ -5681,8 +5713,8 @@
       "id": "p2:6 Banco de dutos:11",
       "profile": "both",
       "configuration": null,
-      "group": "6 Banco de dutos",
-      "variant": "6",
+      "group": "6 Infraestrutura de cabos",
+      "variant": "6.S",
       "eap": "6.07",
       "label": "Reaterro compactado",
       "candidates": [
@@ -5702,8 +5734,8 @@
       "id": "p2:6 Banco de dutos:12",
       "profile": "both",
       "configuration": null,
-      "group": "6 Banco de dutos",
-      "variant": "6",
+      "group": "6 Infraestrutura de cabos",
+      "variant": "6.S",
       "eap": "6.08",
       "label": "Poços/caixas de passagem",
       "candidates": [
@@ -5723,8 +5755,8 @@
       "id": "p2:6 Banco de dutos:13",
       "profile": "both",
       "configuration": null,
-      "group": "6 Banco de dutos",
-      "variant": "6",
+      "group": "6 Infraestrutura de cabos",
+      "variant": "6.S",
       "eap": "6.09",
       "label": "Escavação dos poços",
       "candidates": [
@@ -5744,8 +5776,8 @@
       "id": "p2:6 Banco de dutos:14",
       "profile": "both",
       "configuration": null,
-      "group": "6 Banco de dutos",
-      "variant": "6",
+      "group": "6 Infraestrutura de cabos",
+      "variant": "6.S",
       "eap": "6.10",
       "label": "Reaterro dos poços",
       "candidates": [
@@ -5760,6 +5792,66 @@
       "original_total": 552.78,
       "original_formula": "=(ROUNDUP('Premissas Parte 2'!$B$5/'Premissas Parte 2'!$B$29,0)+1)*(2*2*1.5-1.8*1.8*1.4)",
       "note": "Desconta volume externo estimado1,8 x1,8 x1,4 m"
+    },
+    {
+      "id": "a2:6:E:01", "profile": "siec", "configuration": "Elevado", "group": "6 Infraestrutura de cabos", "variant": "6.E", "eap": "6.01", "label": "Canaletas de cabos no tabuleiro", "candidates": ["Provisão|Serviços|setembro/2026 declarado|P1-E-8.1"], "quantity": "L*lines", "unit": "m", "origin": "Ajuste 2", "sheet": "Via elevada", "row": 1, "original_formula": "Extensão elevada por linha", "note": "Canaleta técnica embutida no tabuleiro. Substitui o banco subterrâneo de dutos na configuração elevada."
+    },
+    {
+      "id": "a2:6:E:02", "profile": "siec", "configuration": "Elevado", "group": "6 Infraestrutura de cabos", "variant": "6.E", "eap": "6.02", "label": "Passa-fios embutidos na placa", "candidates": ["Provisão|Serviços|setembro/2026 declarado|P1-E-8.2"], "quantity": "ROUNDUP(L/20,0)+1", "unit": "un", "origin": "Ajuste 2", "sheet": "Via elevada", "row": 2, "original_formula": "Um ponto a cada 20 m, incluindo a extremidade", "note": "Travessias e mudanças de face no tabuleiro; quantidade paramétrica sujeita ao projeto de encaminhamento."
+    },
+    {
+      "id": "a2:7:01", "profile": "siec", "configuration": null, "group": "7 Rede aérea", "variant": "7", "eap": "7.01", "label": "Postes metálicos de sustentação", "candidates": ["SIEC|Serviços|junho/2026|SIEC-04.01.01.100.05"], "quantity": "overhead_supports*lines", "unit": "un", "origin": "Ajuste 2", "sheet": "Rede aérea", "row": 1, "original_formula": "Vão paramétrico de 50 m", "note": "Um suporte por linha em cada seção de 50 m, incluindo as extremidades. O projeto pode substituir postes por pórticos compartilhados."
+    },
+    {
+      "id": "a2:7:02", "profile": "siec", "configuration": null, "group": "7 Rede aérea", "variant": "7", "eap": "7.02", "label": "Implantação e selamento dos postes", "candidates": ["SIEC|Serviços|junho/2026|SIEC-04.01.02.100.15"], "quantity": "overhead_supports*lines", "unit": "un", "origin": "Ajuste 2", "sheet": "Rede aérea", "row": 2, "original_formula": "Mesma quantidade de postes", "note": "Montagem e selamento da base; fundação definitiva depende de sondagem e projeto estrutural."
+    },
+    {
+      "id": "a2:7:03", "profile": "siec", "configuration": null, "group": "7 Rede aérea", "variant": "7", "eap": "7.03", "label": "Mísulas e conjuntos de suspensão", "candidates": ["SIEC|Serviços|junho/2026|SIEC-04.01.07.100.08"], "quantity": "overhead_supports*lines", "unit": "cj", "origin": "Ajuste 2", "sheet": "Rede aérea", "row": 3, "original_formula": "Um conjunto por suporte e linha", "note": "Triângulo articulado completo, com isoladores, tubos, puxadores, conexões e fixação."
+    },
+    {
+      "id": "a2:7:04", "profile": "siec", "configuration": null, "group": "7 Rede aérea", "variant": "7", "eap": "7.04", "label": "Cabo mensageiro", "candidates": ["SIEC|Serviços|junho/2026|SIEC-04.01.02.100.42"], "quantity": "L*lines", "unit": "m", "origin": "Ajuste 2", "sheet": "Rede aérea", "row": 4, "original_formula": "Extensão de linha eletrificada", "note": "Lançamento do mensageiro com encabeçamento, por linha."
+    },
+    {
+      "id": "a2:7:05", "profile": "siec", "configuration": null, "group": "7 Rede aérea", "variant": "7", "eap": "7.05", "label": "Fio de contato", "candidates": ["SIEC|Serviços|junho/2026|SIEC-04.01.02.100.43"], "quantity": "L*lines", "unit": "m", "origin": "Ajuste 2", "sheet": "Rede aérea", "row": 5, "original_formula": "Extensão de linha eletrificada", "note": "Lançamento de fio trolley 107/180 mm², com encabeçamento e suspensórios."
+    },
+    {
+      "id": "a2:7:06", "profile": "siec", "configuration": null, "group": "7 Rede aérea", "variant": "7", "eap": "7.06", "label": "Isoladores da rede aérea", "candidates": ["SIEC|Serviços|junho/2026|SIEC-04.01.02.100.90"], "quantity": "overhead_supports*lines", "unit": "pç", "origin": "Ajuste 2", "sheet": "Rede aérea", "row": 6, "original_formula": "Um isolador por suporte e linha", "note": "Isolador polimérico classe 15 kV como referência paramétrica."
+    },
+    {
+      "id": "a2:7:07", "profile": "siec", "configuration": null, "group": "7 Rede aérea", "variant": "7", "eap": "7.07", "label": "Aparelhos de tensionamento", "candidates": ["SIEC|Serviços|junho/2026|SIEC-04.01.01.100.54"], "quantity": "tension_sections", "unit": "cj", "origin": "Ajuste 2", "sheet": "Rede aérea", "row": 7, "original_formula": "Dois aparelhos por trecho de 1,5 km e por linha", "note": "Aparelho tensor completo com ferragens, contrapesos, proteção e cabo."
+    },
+    {
+      "id": "a2:7:08", "profile": "siec", "configuration": null, "group": "7 Rede aérea", "variant": "7", "eap": "7.08", "label": "Montagem dos aparelhos de tensionamento", "candidates": ["SIEC|Serviços|junho/2026|SIEC-04.01.02.100.41"], "quantity": "tension_sections", "unit": "cj", "origin": "Ajuste 2", "sheet": "Rede aérea", "row": 8, "original_formula": "Mesma quantidade dos aparelhos tensores", "note": "Montagem completa do conjunto de tensionamento."
+    },
+    {
+      "id": "a2:7:09", "profile": "siec", "configuration": null, "group": "7 Rede aérea", "variant": "7", "eap": "7.09", "label": "Seccionamentos elétricos", "candidates": ["SIEC|Serviços|junho/2026|SIEC-04.01.02.100.66"], "quantity": "sectioning_points", "unit": "cj", "origin": "Ajuste 2", "sheet": "Rede aérea", "row": 9, "original_formula": "Um ponto por 3 km ou fração e por linha", "note": "Montagem completa de seccionamento elétrico."
+    },
+    {
+      "id": "a2:7:10", "profile": "siec", "configuration": null, "group": "7 Rede aérea", "variant": "7", "eap": "7.10", "label": "Seccionamentos mecânicos", "candidates": ["SIEC|Serviços|junho/2026|SIEC-04.01.02.100.67"], "quantity": "sectioning_points", "unit": "cj", "origin": "Ajuste 2", "sheet": "Rede aérea", "row": 10, "original_formula": "Um ponto por 3 km ou fração e por linha", "note": "Montagem completa de seccionamento mecânico."
+    },
+    {
+      "id": "a2:8:01", "profile": "siec", "configuration": null, "group": "8 Sinalização", "variant": "8", "eap": "8.01", "label": "Sinais altos", "candidates": ["SIEC|Serviços|junho/2026|SIEC-05.02.01.100.05"], "quantity": "signal_points", "unit": "cj", "origin": "Ajuste 2", "sheet": "Sinalização", "row": 1, "original_formula": "Dois sinais por km ou fração e por linha", "note": "Instalação e montagem do sinal; localização definitiva depende do plano operacional."
+    },
+    {
+      "id": "a2:8:02", "profile": "siec", "configuration": null, "group": "8 Sinalização", "variant": "8.C", "eap": "8.02", "label": "Circuitos de via", "candidates": ["SIEC|Serviços|junho/2026|SIEC-05.02.01.100.01"], "quantity": "signal_blocks", "unit": "cj", "origin": "Ajuste 2", "sheet": "Sinalização", "row": 2, "original_formula": "Um bloco de detecção a cada 500 m e por linha", "note": "Alternativa de detecção selecionada pelo usuário; não acumula com contador de eixos."
+    },
+    {
+      "id": "a2:8:03", "profile": "siec", "configuration": null, "group": "8 Sinalização", "variant": "8.E", "eap": "8.03", "label": "Sistema contador de eixos", "candidates": ["SIEC|Serviços|junho/2026|SIEC-05.02.01.100.38"], "quantity": "interlockings", "unit": "cj", "origin": "Ajuste 2", "sheet": "Sinalização", "row": 3, "original_formula": "Um sistema por setor de intertravamento", "note": "Alternativa completa nos abrigos; não acumula com circuito de via."
+    },
+    {
+      "id": "a2:8:04", "profile": "siec", "configuration": null, "group": "8 Sinalização", "variant": "8.A", "eap": "8.04", "label": "Acionamento e leiaute dos AMVs", "candidates": ["SIEC|Serviços|junho/2026|SIEC-05.02.01.100.02"], "quantity": "amvs", "unit": "cj", "origin": "Ajuste 2", "sheet": "Sinalização", "row": 4, "original_formula": "Uma máquina de chave por AMV", "note": "Montagem da máquina de chave e seu respectivo leiaute; o aparelho de via permanece no grupo de AMVs."
+    },
+    {
+      "id": "a2:8:05", "profile": "siec", "configuration": null, "group": "8 Sinalização", "variant": "8", "eap": "8.05", "label": "Intertravamento vital", "candidates": ["SIEC|Serviços|junho/2026|SIEC-05.02.01.100.12"], "quantity": "interlockings", "unit": "cj", "origin": "Ajuste 2", "sheet": "Sinalização", "row": 5, "original_formula": "Um conjunto a cada 10 km ou fração", "note": "Instalação e montagem do intertravamento vital em abrigo técnico."
+    },
+    {
+      "id": "a2:8:06", "profile": "siec", "configuration": null, "group": "8 Sinalização", "variant": "8", "eap": "8.06", "label": "Cabo óptico de sinalização", "candidates": ["SIEC|Serviços|junho/2026|SIEC-05.01.07.100.06"], "quantity": "L*1.1", "unit": "m", "origin": "Ajuste 2", "sheet": "Sinalização", "row": 6, "original_formula": "Extensão do corredor acrescida de 10%", "note": "Cabo óptico monomodo de 36 fibras; reserva paramétrica para folgas e conexões."
+    },
+    {
+      "id": "a2:8:07", "profile": "siec", "configuration": null, "group": "8 Sinalização", "variant": "8", "eap": "8.07", "label": "Testes integrados via e CCO", "candidates": ["SIEC|Serviços|junho/2026|SIEC-05.02.01.200.04"], "quantity": "interlockings", "unit": "cj", "origin": "Ajuste 2", "sheet": "Sinalização", "row": 7, "original_formula": "Um conjunto de testes por setor", "note": "Testes de aceitação e operacionais integrados nas fases de implantação."
+    },
+    {
+      "id": "a2:9:01", "profile": "siec", "configuration": null, "group": "9 Material rodante", "variant": "9", "eap": "9.01", "label": "Composição metropolitana de 8 carros", "candidates": ["Mercado|Composições|abril/2016|CPTM-8186142011-TREM"], "quantity": "trainsets", "unit": "composição", "origin": "Ajuste 2", "sheet": "Material rodante", "row": 1, "original_formula": "Quantidade de composições informada pelo usuário", "note": "Referência contratual CPTM: projeto, fabricação e comissionamento de 8 trens de 8 carros. O preço unitário é o valor global dividido por 8, sem reajuste monetário."
     }
   ]
 }

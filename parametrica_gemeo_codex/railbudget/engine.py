@@ -57,6 +57,11 @@ class Scenario:
     amvs: int=1
     ducts: bool=True
     topography: bool=True
+    overhead: bool=True
+    signaling: bool=True
+    detection: str='Circuito de via'
+    rolling_stock: bool=True
+    trainsets: int=1
     profile: str='siec'
     bdi: float=0.2784182802164763
     months: int=0
@@ -67,6 +72,10 @@ def load_model(root=ROOT):
     with sqlite3.connect(root/'data/catalog.sqlite') as con:
         con.row_factory=sqlite3.Row
         catalog={r['key']:dict(r) for r in con.execute('SELECT * FROM prices')}
+    extra=root/'data/scope2_prices.json'
+    if extra.exists():
+        for row in json.loads(extra.read_text(encoding='utf-8')):
+            catalog[row['key']]=row
     return rules,catalog
 
 def resolve_price(candidates,catalog,priority):
@@ -81,9 +90,11 @@ def validate(p,rules):
     if not math.isfinite(p.km) or not 0.01<=p.km<=10000:raise ValueError('Extensão deve estar entre 0,01 e 10.000 km.')
     for value,options,name in [(p.configuration,['Superfície','Elevado'],'configuração'),(p.lines,[1,2],'número de linhas'),
        (p.drainage,['Normal','Reforçada','Complexa'],'drenagem'),(p.fence,['Cerca','Muro','Nenhuma'],'vedação'),
+       (p.detection,['Circuito de via','Contador de eixos'],'detecção de trens'),
        (p.profile,rules['profiles'],'modelo')]:
         if value not in options:raise ValueError('Valor inválido para '+name)
     if type(p.amvs) is not int or p.amvs<0:raise ValueError('Quantidade de AMVs deve ser inteira e não negativa.')
+    if type(p.trainsets) is not int or not 0<=p.trainsets<=10000:raise ValueError('Quantidade de composições deve ser inteira entre 0 e 10.000.')
     if type(p.months) is not int or not 0<=p.months<=1200:raise ValueError('Prazo inválido.')
     if not math.isfinite(p.bdi) or not 0<=p.bdi<=1:raise ValueError('BDI deve estar entre 0% e 100%.')
     if math.ceil(p.amvs/p.lines)*rules['profiles'][p.profile]['envelope']>=p.km*1000:
@@ -97,7 +108,18 @@ def selected(r,p):
     if g=='3':return v=={'Normal':'3.1','Reforçada':'3.2','Complexa':'3.3'}[p.drainage] or (v=='3.E' and p.configuration=='Elevado')
     if g=='4':return v=={'Cerca':'4.1','Muro':'4.2','Nenhuma':None}[p.fence]
     if g=='5':return p.amvs>0 and (p.profile=='siec' or v==('5.E' if p.configuration=='Elevado' else '5.S'))
-    if g=='6':return p.ducts
+    if g=='6':
+        if not p.ducts:return False
+        if p.profile=='legacy':return v=='6.S'
+        return v==('6.E' if p.configuration=='Elevado' else '6.S')
+    if g=='7':return p.overhead
+    if g=='8':
+        if not p.signaling:return False
+        if v=='8.C':return p.detection=='Circuito de via'
+        if v=='8.E':return p.detection=='Contador de eixos'
+        if v=='8.A':return p.amvs>0
+        return True
+    if g=='9':return p.rolling_stock and p.trainsets>0
     return True
 
 def calculate(p,rules,catalog):
@@ -137,8 +159,13 @@ def calculate(p,rules,catalog):
               'O BDI é uma premissa editável; não houve validação tributária nem reajuste das datas-base.']
     if p.profile=='siec' and p.lines==2:warnings.append('Via dupla SIEC extrapolada: entrevia de 4 m e fatores configuráveis de compartilhamento; não há orçamento manual original para esta combinação.')
     if p.profile=='legacy':warnings.append('Perfil legado: preços da via e AMV nº9 são provisões herdadas, sem cotação validada.')
-    if p.ducts:warnings.append('Banco de seis dutos ao nível do solo, inclusive no elevado; cabos, subidas e interfaces ativas não incluídos.')
+    if p.ducts and p.configuration=='Superfície':warnings.append('Infraestrutura de cabos em superfície: banco subterrâneo de seis dutos. Cabos e interfaces ativas não incluídos.')
+    if p.ducts and p.configuration=='Elevado' and p.profile=='siec':warnings.append('Infraestrutura de cabos no elevado: canaletas e passa-fios embutidos no tabuleiro. Não há banco de dutos enterrado nesta configuração; cabos e interfaces ativas não incluídos.')
+    if p.ducts and p.configuration=='Elevado' and p.profile=='legacy':warnings.append('Perfil legado: conserva o banco subterrâneo de seis dutos da planilha histórica para reproduzir seu total. Use o modelo SIEC para a solução elevada com canaletas e passa-fios no tabuleiro.')
     if p.drainage=='Complexa':warnings.append('Bombeamento por estação de referência; capacidade hidráulica e alimentação externa não dimensionadas. Anúncio do quadro estava esgotado.')
+    if p.overhead:warnings.append('Rede aérea paramétrica: vãos de 50 m, um suporte por linha, dois pontos de tensionamento por trecho de 1,5 km e seccionamento por trecho de 3 km. Projeto eletromecânico define arranjos finais.')
+    if p.signaling:warnings.append(f'Sinalização paramétrica com detecção por {p.detection.lower()}, blocos de 500 m e um intertravamento de referência a cada 10 km ou fração.')
+    if p.rolling_stock:warnings.append(f'Material rodante: {p.trainsets} composição(ões) de 8 carros pelo custo unitário do contrato CPTM 8186142011, data-base abril/2016. O custo da frota é por composição; o valor por km é somente o rateio pela extensão atendida, sem reajuste monetário.')
     return {'scenario':asdict(p),'model_label':model['label'],'duration':duration,'items':items,'groups':groups,
             'direct':direct,'bdi_amount':bdi,'total':total,'per_km':money(total/p.km),'per_line_km':money(total/(p.km*p.lines)),
             'counts':dict(Counter(x['source'] for x in items)),'warnings':warnings,'rule_version':rules['version'],

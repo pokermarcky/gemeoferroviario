@@ -28,8 +28,8 @@ def test_individual_group_retains_quantities_and_applies_bdi_once(model):
 
 def test_multiple_none_and_all_groups(model):
     full,_=model
-    some=select_groups(full,['3 Drenagem','6 Banco de dutos'])
-    assert some['direct']==money(full['groups']['3 Drenagem']+full['groups']['6 Banco de dutos'])
+    some=select_groups(full,['3 Drenagem','6 Infraestrutura de cabos'])
+    assert some['direct']==money(full['groups']['3 Drenagem']+full['groups']['6 Infraestrutura de cabos'])
     assert sum(x['share'] for x in some['scope_summary'])==pytest.approx(100)
     assert select_groups(full,full['groups'])['total']==full['total']
     empty=select_groups(full,[])
@@ -54,11 +54,12 @@ def test_custom_bdi_reconciles_groups_and_export_context(model):
 
 def test_segregated_excel_and_selected_documents(model):
     full,catalog=model
-    chosen=select_groups(full,['4 Vedação','6 Banco de dutos'])
+    chosen=select_groups(full,['4 Vedação','6 Infraestrutura de cabos'])
     files=export_all(chosen,catalog)
     values=load_workbook(BytesIO(files['orcamento.xlsx']),data_only=True)
     formulas=load_workbook(BytesIO(files['orcamento.xlsx']),data_only=False)
-    assert values['Resumo']['B13'].value==chosen['total']
+    total_row=next(n for n in range(1,values['Resumo'].max_row+1) if values['Resumo'][f'A{n}'].value=='Total')
+    assert values['Resumo'][f'B{total_row}'].value==chosen['total']
     assert sum(values[g]['C6'].value for g in full['groups'])==chosen['direct']
     for g in full['groups']:
         sh=values[g]

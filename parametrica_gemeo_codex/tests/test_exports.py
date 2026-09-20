@@ -12,7 +12,8 @@ def test_export_values_formulas_and_documents():
     files=export_all(result,catalog)
     f=load_workbook(BytesIO(files['orcamento.xlsx']),data_only=False)
     v=load_workbook(BytesIO(files['orcamento.xlsx']),data_only=True)
-    assert v['Resumo']['B13'].value==result['total']
+    total_row=next(n for n in range(1,v['Resumo'].max_row+1) if v['Resumo'][f'A{n}'].value=='Total')
+    assert v['Resumo'][f'B{total_row}'].value==result['total']
     assert len(f['Resumo']._charts)==1
     assert f['EAP']['H5'].value.startswith('=VLOOKUP(')
     assert f['EAP'].freeze_panes=='A5'

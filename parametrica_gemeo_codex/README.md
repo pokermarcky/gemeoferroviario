@@ -1,4 +1,4 @@
-# Gêmeo digital de orçamentação ferroviária — Codex
+# Parametric Rails
 
 Aplicação **Streamlit** que consolida VPCODEX2026 e CODEX_PARAMETRICO_GERAL. Calcula EAP, custo total com BDI e custos por km de corredor e de linha. Inclui comparação lado a lado, pesquisa das bases e downloads Excel, Word e dois PDFs.
 
@@ -18,15 +18,17 @@ O resultado mostrado pertence ao último formulário enviado, identificado no ca
 
 Python 3.12 recomendado. O ambiente `.venv` já foi preparado nesta máquina. Para ativá-lo no PowerShell, execute `.\.venv\Scripts\Activate.ps1` dentro da pasta do projeto. Em outra instalação, crie um ambiente Python e instale as dependências de `requirements.txt` com pip. Essa preparação não é um modo alternativo de uso da aplicação.
 
-O servidor está configurado apenas em `127.0.0.1`. Não depende das pastas originais após a extração; o banco local, as regras e a documentação acompanham o projeto. PDFs usam ReportLab, sem necessidade de Office ou LibreOffice. São versões equivalentes do mesmo resultado, com paginação própria, e não impressões idênticas do Excel/Word.
+A aplicação pode ser executada localmente ou no Streamlit Community Cloud. Não depende das pastas originais após a extração; o banco local, as regras e a documentação acompanham o projeto. PDFs usam ReportLab, sem necessidade de Office ou LibreOffice. São versões equivalentes do mesmo resultado, com paginação própria, e não impressões idênticas do Excel/Word.
 
 ## Modelos
 
-### Orçamento consolidado e segregado por item — Ajuste 1
+### Resumo geral e detalhamento por grupo — Ajuste 1
 
-Ao abrir, o cenário de referência de 1 km já aparece calculado no modo **Orçamento Segregado por Item**, com a composição de cada grupo aberta. Use as caixas **Grupos incluídos no total** para selecionar via permanente, topografia, drenagem, vedação, AMVs e banco de dutos. A atualização é imediata; cada cenário A/B tem seleção independente. A seleção permanece ao navegar entre as áreas da aplicação. Nenhum grupo selecionado produz total zero e desabilita a preparação dos documentos.
+Ao abrir, o cenário de referência de 1 km já aparece calculado no modo **Orçamento Segregado por Item**, com a composição de cada grupo aberta. Use as caixas **Grupos incluídos no total** para selecionar via permanente, topografia, drenagem, vedação, AMVs, banco de dutos, rede aérea, sinalização e material rodante. Os botões **Selecionar todas** e **Desmarcar todas** alteram o conjunto inteiro. A atualização é imediata; cada cenário A/B tem seleção independente. A seleção permanece ao navegar entre as áreas da aplicação. Nenhum grupo selecionado produz total zero e desabilita a preparação dos documentos.
 
-O seletor **Modo de visualização** alterna entre **Orçamento Consolidado** e **Orçamento Segregado por Item**. No modo segregado, cada grupo tem subtotal direto, subtotal com o BDI aplicado, custo final por km de corredor, participação no custo direto selecionado e composição detalhada. Os grupos excluídos continuam mostrando seu custo de referência, claramente identificado, com participação zero. Os indicadores principais mostram o total selecionado com BDI, aplicado uma única vez.
+O orçamento usa duas abas claras: **Resumo geral**, com participação por grupo, gráfico e EAP consolidada; e **Detalhamento por grupo**, com subtotal direto, subtotal com BDI, custo por km, participação e composição recolhida por padrão. Os grupos excluídos continuam mostrando seu custo de referência, claramente identificado, com participação zero. Os indicadores principais mostram o total selecionado com BDI, aplicado uma única vez.
+
+Topografia e infraestrutura de cabos fazem parte da formação técnica do cenário e deixaram de aparecer como chaves redundantes no formulário lateral. A inclusão financeira continua controlada na seleção de grupos. Em superfície, **Infraestrutura de cabos** representa o banco subterrâneo de seis dutos; no elevado, representa canaletas e passa-fios embutidos no tabuleiro, sem banco enterrado.
 
 Para consultar muro por km, selecione **Muro** no formulário, calcule e mantenha apenas **Vedação** marcada. Para drenagem ou dutos, mantenha apenas o grupo correspondente. Grupos sem serviços seguem com custo zero conforme os parâmetros do formulário.
 
@@ -34,7 +36,13 @@ A seleção é financeira: não redimensiona geometria, duração, plataforma ne
 
 O Excel inclui uma aba por grupo, além de **Resumo** e **EAP** consolidados. As células das novas abas se vinculam à EAP, de modo que alterações de preços se propagam. Grupos excluídos têm uma aba identificada sem serviços incluídos. As novas abas começam em B2, com fonte Aptos 12, alinhamento e bordas; a padronização global das abas e documentos existentes está reservada ao Ajuste 5.
 
-Rede aérea, sinalização e material rodante serão incorporados no Ajuste 2, após confirmação do Ajuste 1. O registro da sequência está em `docs/PLANO_APRIMORAMENTOS.md`.
+### Rede aérea, sinalização e material rodante — Ajuste 2
+
+A rede aérea inclui postes e sua implantação, mísulas, cabo mensageiro, fio de contato, isoladores, aparelhos de tensionamento e seccionamentos elétricos e mecânicos. As quantidades usam vãos paramétricos de 50 m, trechos de tensionamento de 1,5 km e seccionamentos a cada 3 km ou fração. Os preços são SIEC de junho/2026.
+
+A sinalização inclui sinais, detecção de trens, acionamento dos AMVs, intertravamento, cabo óptico e testes integrados. O usuário escolhe **Circuito de via** ou **Contador de eixos**; as alternativas não são somadas. A estimativa adota blocos de 500 m e um setor de intertravamento a cada 10 km ou fração.
+
+O material rodante é calculado pela quantidade de composições de oito carros informada pelo usuário. A referência unitária é R$ 39.590.100,875 por composição, obtida do contrato CPTM 8186142011 (R$ 316.720.807,00 para oito trens; data-base abril/2016), sem reajuste monetário. O subtotal representa o custo da frota; o indicador por km apenas rateia esse custo pela extensão atendida.
 
 - **SIEC (padrão):** via lastreada e AMV nº14 do VPCODEX2026; complementos gerais da Parte 2. Remove topografia, drenagem e dutos anteriores antes de inserir os substitutos. Preserva proteções do tabuleiro como grupo 1; vedação da faixa é outra função.
 - **Legado Parte 2:** reproduz os quatro orçamentos anteriores, incluindo elevado em placa e AMV nº9 com preços provisórios. Não atribui o preço nº14 ao nº9.
@@ -43,7 +51,7 @@ Rede aérea, sinalização e material rodante serão incorporados no Ajuste 2, a
 
 ## Rastreabilidade e dados
 
-`data/catalog.sqlite` tem 13.260 referências únicas: 13.176 SIEC, 83 registros herdados e 1 anúncio de mercado. Os 83 registros incluem rateios informativos não somados ao orçamento. Linhas sem preço permanecem `NULL`, nunca zero. Fontes SIEC duplicadas entre as duas planilhas foram unificadas, preservando ambas as proveniências.
+O catálogo carregado tem 13.261 referências: 13.260 do banco original e uma referência contratual adicional de material rodante em `data/scope2_prices.json`. São 13.176 registros SIEC, 83 registros herdados e 2 referências de mercado/contrato. Os 83 registros incluem rateios informativos não somados ao orçamento. Linhas sem preço permanecem `NULL`, nunca zero. Fontes SIEC duplicadas entre as duas planilhas foram unificadas, preservando ambas as proveniências.
 
 Não havia bases de preços SINAPI/SICRO nas duas planilhas. A hierarquia está implementada e testada, mas essas fontes não aparecem artificialmente nos cenários. Para adicionar uma referência alternativa, é necessário cadastrá-la com fonte, código, unidade, preço, data e proveniência e incluí-la explicitamente como candidata equivalente na regra. O motor não infere equivalência apenas por descrição. Divergências de preço na mesma chave interrompem a importação. Unidades incompatíveis ou ausência de todos os preços interrompem o cálculo, sem gerar total subestimado.
 
@@ -61,6 +69,7 @@ railbudget/build_rules.py    estruturação inicial das memórias extraídas
 config/rules.json            seleção, candidatos, expressões e parâmetros
 config/coverage.json         destino das 281 linhas das EAPs originais
 data/catalog.sqlite         banco de preços com índice por código
+data/scope2_prices.json     referência contratual de material rodante
 data/inventory.json          inventário das 21 abas e hashes das fontes
 data/snapshots.json          fórmulas e valores originais preservados
 docs/MAPEAMENTO.md           decisões de consolidação e extrapolação
