@@ -1,13 +1,19 @@
 from pathlib import Path
 import sqlite3
 import json
+import re
 import pandas as pd
 import streamlit as st
-from railbudget.engine import Scenario, load_model, calculate, select_groups, public_provenance
+from railbudget.engine import Scenario, load_model, calculate, select_groups
 from railbudget.exporters import export_all, currency, br, caption
 from railbudget.header import render_header, TRAIN_HTML, TRAIN_CSS
 
 ROOT=Path(__file__).resolve().parent
+
+def public_provenance(value):
+    if not value:return ''
+    return 'Referência registrada na base técnica.' if re.search(r'(?i)([a-z]:\\|/users/|https?://|file://)',str(value)) else str(value)
+
 st.set_page_config(page_title='Parametric Rails',page_icon=':material/train:',layout='wide')
 train_component = st.components.v2.component("parametric_rails_train", html=TRAIN_HTML, css=TRAIN_CSS)
 render_header(train_component)
