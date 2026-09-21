@@ -75,6 +75,7 @@ def test_lengths_zero_amvs_and_optional_groups(model,profile):
     assert a['context']['sleepers']==(math.ceil(1000/.6)+math.ceil((1000-a['context']['envelope'])/.6))
 
 def test_no_code_execution():
+    assert evaluate('trainsets',{'trainsets':2})==2
     for expr in ["__import__('os').system('echo bad')",'(1).__class__','[1][0]','2**1000000']:
         with pytest.raises(ValueError):evaluate(expr,{})
 

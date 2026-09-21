@@ -17,6 +17,13 @@ FUNCS = {'ROUNDUP': roundup, 'PI': lambda: math.pi, 'ceil': math.ceil,
          'floor': math.floor, 'min': min, 'max': max, 'abs': abs}
 
 def evaluate(expression, context):
+    # Resolve identificadores simples diretamente para manter o resultado
+    # estável entre as versões do AST usadas localmente e no Streamlit Cloud.
+    if isinstance(expression, str) and expression in context:
+        result=context[expression]
+        if not isinstance(result, (int, float)) or not math.isfinite(result):
+            raise ValueError('Resultado numérico inválido.')
+        return float(result)
     tree = ast.parse(str(expression).lstrip('=').replace('^', '**'), mode='eval')
     if len(list(ast.walk(tree))) > 300:
         raise ValueError('Expressão excede o limite de complexidade.')
