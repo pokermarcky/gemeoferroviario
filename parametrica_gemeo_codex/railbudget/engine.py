@@ -127,7 +127,7 @@ def calculate(p,rules,catalog):
     validate(p,rules)
     model=rules['profiles'][p.profile]
     duration=p.months or model['elevated_months' if p.configuration=='Elevado' else 'surface_months']
-    ctx={**rules['parameters'],**rules['constants'],**asdict(p),'envelope':model['envelope'],
+    ctx={**rules['parameters'],**rules['constants'],**asdict(p),'trainsets':float(p.trainsets),'envelope':model['envelope'],
          'duration':duration,'span':model['span'],'height':model['height']}
     for name,expression in rules['derived']:ctx[name]=evaluate(expression,ctx)
     items=[]
