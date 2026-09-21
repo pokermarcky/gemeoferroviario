@@ -1,6 +1,6 @@
 # Parametric Rails
 
-Aplicação **Streamlit** que consolida VPCODEX2026 e CODEX_PARAMETRICO_GERAL. Calcula EAP, custo total com BDI e custos por km de corredor e de linha. Inclui comparação lado a lado, pesquisa das bases e downloads Excel, Word e dois PDFs.
+Aplicação **Streamlit** que consolida bases técnicas ferroviárias. Calcula EAP, custo total com BDI e custos por km de corredor e de linha. Inclui comparação lado a lado, pesquisa das bases e downloads Excel, Word e dois PDFs.
 
 ## Uso
 
@@ -24,11 +24,11 @@ A aplicação pode ser executada localmente ou no Streamlit Community Cloud. Nã
 
 ### Resumo geral e detalhamento por grupo — Ajuste 1
 
-Ao abrir, o cenário de referência de 1 km já aparece calculado no modo **Orçamento Segregado por Item**, com a composição de cada grupo aberta. Use as caixas **Grupos incluídos no total** para selecionar via permanente, topografia, drenagem, vedação, AMVs, banco de dutos, rede aérea, sinalização e material rodante. Os botões **Selecionar todas** e **Desmarcar todas** alteram o conjunto inteiro. A atualização é imediata; cada cenário A/B tem seleção independente. A seleção permanece ao navegar entre as áreas da aplicação. Nenhum grupo selecionado produz total zero e desabilita a preparação dos documentos.
+Não há barra lateral. As características gerais ficam em um bloco compacto e os nove grupos aparecem logo abaixo de **Selecionar todas** e **Desmarcar todas**. Marcar um grupo abre suas opções específicas: tipo de drenagem, Cerca ou Muro, quantidade de AMVs, tecnologia de detecção e quantidade de composições. Desmarcar um grupo recolhe essas opções e remove seu custo do total. Cada cenário A/B conserva sua configuração de forma independente.
 
 O orçamento usa duas abas claras: **Resumo geral**, com participação por grupo, gráfico e EAP consolidada; e **Detalhamento por grupo**, com subtotal direto, subtotal com BDI, custo por km, participação e composição recolhida por padrão. Os grupos excluídos continuam mostrando seu custo de referência, claramente identificado, com participação zero. Os indicadores principais mostram o total selecionado com BDI, aplicado uma única vez.
 
-Topografia e infraestrutura de cabos fazem parte da formação técnica do cenário e deixaram de aparecer como chaves redundantes no formulário lateral. A inclusão financeira continua controlada na seleção de grupos. Em superfície, **Infraestrutura de cabos** representa o banco subterrâneo de seis dutos; no elevado, representa canaletas e passa-fios embutidos no tabuleiro, sem banco enterrado.
+Em superfície, **Infraestrutura de cabos** representa o banco subterrâneo de seis dutos; no elevado, representa canaletas e passa-fios embutidos no tabuleiro, sem banco enterrado.
 
 Para consultar muro por km, selecione **Muro** no formulário, calcule e mantenha apenas **Vedação** marcada. Para drenagem ou dutos, mantenha apenas o grupo correspondente. Grupos sem serviços seguem com custo zero conforme os parâmetros do formulário.
 
@@ -51,7 +51,9 @@ O material rodante é calculado pela quantidade de composições de oito carros 
 
 ## Rastreabilidade e dados
 
-O catálogo carregado tem 13.261 referências: 13.260 do banco original e uma referência contratual adicional de material rodante em `data/scope2_prices.json`. São 13.176 registros SIEC, 83 registros herdados e 2 referências de mercado/contrato. Os 83 registros incluem rateios informativos não somados ao orçamento. Linhas sem preço permanecem `NULL`, nunca zero. Fontes SIEC duplicadas entre as duas planilhas foram unificadas, preservando ambas as proveniências.
+O catálogo carregado tem 13.261 referências: 13.260 do banco original e uma referência contratual adicional de material rodante em `data/scope2_prices.json`. São 13.176 registros SIEC, 83 registros herdados e 2 referências de mercado/contrato. Os 83 registros incluem rateios informativos não somados ao orçamento. Linhas sem preço permanecem `NULL`, nunca zero. Fontes duplicadas foram unificadas, preservando a rastreabilidade técnica por fonte, aba e linha.
+
+Caminhos locais, nomes de usuário, pastas do computador e endereços eletrônicos não são exibidos na aplicação nem gravados nos arquivos Excel, Word e PDF. O catálogo e o inventário publicados também armazenam somente referências técnicas sanitizadas.
 
 Não havia bases de preços SINAPI/SICRO nas duas planilhas. A hierarquia está implementada e testada, mas essas fontes não aparecem artificialmente nos cenários. Para adicionar uma referência alternativa, é necessário cadastrá-la com fonte, código, unidade, preço, data e proveniência e incluí-la explicitamente como candidata equivalente na regra. O motor não infere equivalência apenas por descrição. Divergências de preço na mesma chave interrompem a importação. Unidades incompatíveis ou ausência de todos os preços interrompem o cálculo, sem gerar total subestimado.
 

@@ -7,11 +7,11 @@ def test_streamlit_calculate_and_error_clear_stale_results():
     from railbudget.engine import Scenario,calculate,load_model
     a=AppTest.from_file(str(APP)).run(timeout=30)
     assert not a.exception
-    a.button(key='FormSubmitter:form_main-Calcular Orçamento').click().run(timeout=30)
+    a.button(key='main_calculate').click().run(timeout=30)
     assert not a.exception
     assert a.session_state['results']['main']['total']==calculate(Scenario(),*load_model())['total']
     a.number_input(key='main_km').set_value(.01)
-    a.button(key='FormSubmitter:form_main-Calcular Orçamento').click().run(timeout=30)
+    a.button(key='main_calculate').click().run(timeout=30)
     assert a.error
     assert 'main' not in a.session_state['results']
 
@@ -19,8 +19,8 @@ def test_streamlit_compare_and_base():
     a=AppTest.from_file(str(APP)).run(timeout=30)
     a.segmented_control(key='page').set_value('Comparar cenários').run(timeout=30)
     assert not a.exception
-    a.button(key='FormSubmitter:form_A-Calcular Orçamento').click().run(timeout=30)
-    a.button(key='FormSubmitter:form_B-Calcular Orçamento').click().run(timeout=30)
+    a.button(key='A_calculate').click().run(timeout=30)
+    a.button(key='B_calculate').click().run(timeout=30)
     assert not a.exception
     assert {'A','B'}<=set(a.session_state['results'])
     assert len(a.metric)>=7
@@ -30,16 +30,25 @@ def test_streamlit_compare_and_base():
     assert not a.exception
 
 def test_streamlit_exports():
+    from io import BytesIO
+    from zipfile import ZipFile
     a=AppTest.from_file(str(APP)).run(timeout=30)
-    a.button(key='FormSubmitter:form_main-Calcular Orçamento').click().run(timeout=30)
+    a.button(key='main_calculate').click().run(timeout=30)
     a.button(key='main_prepare').click().run(timeout=60)
     assert not a.exception
     assert len(a.session_state['downloads']['main'])==4
+    for name in ('orcamento.xlsx','relatorio.docx'):
+        with ZipFile(BytesIO(a.session_state['downloads']['main'][name])) as archive:
+            text=' '.join(archive.read(member).decode('utf-8','ignore') for member in archive.namelist())
+        assert 'C:\\Users\\' not in text
+        assert 'marce' not in text.lower()
+        assert 'sis.cptm.sp.gov.br' not in text.lower()
+        assert 'file://' not in text.lower()
 
 
 def test_live_scope_selection_and_stale_downloads():
     a=AppTest.from_file(str(APP)).run(timeout=30)
-    a.button(key='FormSubmitter:form_main-Calcular Orçamento').click().run(timeout=30)
+    a.button(key='main_calculate').click().run(timeout=30)
     a.button(key='main_prepare').click().run(timeout=60)
     for i in (0,1,2,4,5,6,7,8):a.checkbox(key=f'main_grupo_{i}').uncheck()
     a.run(timeout=30)
@@ -59,8 +68,8 @@ def test_live_scope_selection_and_stale_downloads():
 def test_scope_is_independent_in_comparison():
     a=AppTest.from_file(str(APP)).run(timeout=30)
     a.segmented_control(key='page').set_value('Comparar cenários').run(timeout=30)
-    a.button(key='FormSubmitter:form_A-Calcular Orçamento').click().run(timeout=30)
-    a.button(key='FormSubmitter:form_B-Calcular Orçamento').click().run(timeout=30)
+    a.button(key='A_calculate').click().run(timeout=30)
+    a.button(key='B_calculate').click().run(timeout=30)
     old_b=a.metric[2].value
     for i in range(9):a.checkbox(key=f'A_grupo_{i}').uncheck()
     a.run(timeout=30)
@@ -79,6 +88,19 @@ def test_initial_screen_has_clear_summary_and_group_detail():
     sidebar_labels=[x.label for x in a.checkbox if x.key and (x.key.startswith('main_') and '_grupo_' not in x.key)]
     assert 'Incluir banco de seis dutos' not in sidebar_labels
     assert 'Incluir topografia' not in sidebar_labels
+    assert not any(h.value=='Defina o cenário' for h in a.header)
+    assert a.selectbox(key='main_fence').label=='Tipo de vedação'
+
+
+def test_group_options_open_only_when_selected():
+    a=AppTest.from_file(str(APP)).run(timeout=30)
+    assert a.selectbox(key='main_fence').value=='Cerca'
+    a.checkbox(key='main_grupo_3').uncheck().run(timeout=30)
+    assert not any(x.key=='main_fence' for x in a.selectbox)
+    a.checkbox(key='main_grupo_3').check().run(timeout=30)
+    a.selectbox(key='main_fence').set_value('Muro')
+    a.button(key='main_calculate').click().run(timeout=30)
+    assert a.session_state['results']['main']['scenario']['fence']=='Muro'
 
 
 def test_custom_bdi_updates_immediately_and_can_be_disabled():

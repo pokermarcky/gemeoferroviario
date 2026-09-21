@@ -2,6 +2,7 @@ from pathlib import Path
 import copy
 import json
 import math
+import re
 import pytest
 from railbudget.engine import *
 from railbudget.expressions import evaluate, money
@@ -47,6 +48,7 @@ def test_price_sources_and_duplicates(model):
     assert sum(x['source']=='Mercado' for x in c.values())==2
     for row in c.values():
         if row['source']=='SIEC':assert len(json.loads(row['provenance']))==2
+        assert not re.search(r'(?i)([a-z]:\\|/users/|https?://|file://)',row['provenance'])
     assert len(json.loads((ROOT/'config/coverage.json').read_text(encoding='utf-8')))==281
 
 def test_hierarchy_missing_price_and_unit(model):

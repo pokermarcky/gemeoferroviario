@@ -3,11 +3,27 @@ from collections import Counter
 import json
 import math
 import sqlite3
+import re
 from pathlib import Path
 from copy import deepcopy
 from .expressions import evaluate, money
 
 ROOT=Path(__file__).resolve().parents[1]
+
+def public_provenance(value):
+    """Preserva a referência técnica sem expor caminhos locais ou URLs."""
+    if not value:return ''
+    try:
+        parsed=json.loads(value)
+    except (TypeError,json.JSONDecodeError):
+        return 'Referência registrada na base técnica.' if re.search(r'(?i)([a-z]:\\|/users/|https?://|file://)',str(value)) else str(value)
+    if isinstance(parsed,list):
+        clean=[]
+        for entry in parsed:
+            if isinstance(entry,dict):
+                clean.append({k:entry[k] for k in ('sheet','row','original_row') if k in entry})
+        return json.dumps(clean,ensure_ascii=False)
+    return 'Referência registrada na base técnica.'
 
 def select_groups(result, selected_groups, bdi_rate=None):
     """Recorte financeiro puro; conserva as quantidades do cenário calculado."""
@@ -71,11 +87,11 @@ def load_model(root=ROOT):
     rules=json.loads((root/'config/rules.json').read_text(encoding='utf-8'))
     with sqlite3.connect(root/'data/catalog.sqlite') as con:
         con.row_factory=sqlite3.Row
-        catalog={r['key']:dict(r) for r in con.execute('SELECT * FROM prices')}
+        catalog={r['key']:{**dict(r),'provenance':public_provenance(r['provenance'])} for r in con.execute('SELECT * FROM prices')}
     extra=root/'data/scope2_prices.json'
     if extra.exists():
         for row in json.loads(extra.read_text(encoding='utf-8')):
-            catalog[row['key']]=row
+            catalog[row['key']]={**row,'provenance':public_provenance(row.get('provenance',''))}
     return rules,catalog
 
 def resolve_price(candidates,catalog,priority):

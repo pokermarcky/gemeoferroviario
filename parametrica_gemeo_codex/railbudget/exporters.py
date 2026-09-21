@@ -211,7 +211,7 @@ def make_word(r):
     d.add_heading('Fontes e limites',1)
     d.add_paragraph('; '.join(f'{k}: {v} linhas' for k,v in r['counts'].items()))
     for note in r['warnings']:d.add_paragraph(note)
-    d.add_paragraph('Planilhas de origem: VPCODEX2026 e CODEX_PARAMETRICO_GERAL. Preços SIEC de junho/2026. Material rodante baseado no contrato CPTM 8186142011, data-base abril/2016, sem reajuste. Código, data-base, aba e linha são preservados na memória detalhada e no Excel.')
+    d.add_paragraph('Preços SIEC de junho/2026. Material rodante baseado no contrato CPTM 8186142011, data-base abril/2016, sem reajuste. Código, data-base, aba e linha são preservados na memória detalhada e no Excel; caminhos locais e endereços eletrônicos não são publicados.')
     d.add_page_break();d.add_heading('Memória de quantidades e preços',1)
     for g in r['groups']:
         rows=[x for x in r['items'] if x['group']==g]

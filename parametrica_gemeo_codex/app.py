@@ -3,7 +3,7 @@ import sqlite3
 import json
 import pandas as pd
 import streamlit as st
-from railbudget.engine import Scenario, load_model, calculate, select_groups
+from railbudget.engine import Scenario, load_model, calculate, select_groups, public_provenance
 from railbudget.exporters import export_all, currency, br, caption
 from railbudget.header import render_header, TRAIN_HTML, TRAIN_CSS
 
@@ -17,7 +17,9 @@ def data(version):return load_model(ROOT)
 
 @st.cache_data(ttl=300,max_entries=2)
 def base(version):
-    with sqlite3.connect(ROOT/'data/catalog.sqlite') as con:return pd.read_sql_query('SELECT * FROM prices ORDER BY source,code',con)
+    with sqlite3.connect(ROOT/'data/catalog.sqlite') as con:frame=pd.read_sql_query('SELECT * FROM prices ORDER BY source,code',con)
+    frame['provenance']=frame['provenance'].map(public_provenance)
+    return frame
 
 @st.cache_data(ttl=900,max_entries=8,show_spinner=False)
 def exports(result,version):return export_all(result,data(version)[1])
@@ -30,61 +32,84 @@ if not st.session_state.get('referencia_inicial_carregada'):
     st.session_state.results.setdefault('main',calculate(Scenario(),rules,catalog))
     st.session_state.referencia_inicial_carregada=True
 
-def form(key,default_double=False):
-    with st.form('form_'+key):
-        profile=st.selectbox('Modelo de referência',list(rules['profiles']),format_func=lambda k:rules['profiles'][k]['label'],key=key+'_profile')
-        km=st.number_input('Extensão do corredor (km)',min_value=0.01,max_value=10000.0,value=1.0,step=0.1,format='%.3f',key=key+'_km')
-        configuration=st.selectbox('Configuração',['Superfície','Elevado'],key=key+'_configuration')
-        lines=st.selectbox('Via',[1,2],index=int(default_double),format_func=lambda n:'Simples' if n==1 else 'Dupla',key=key+'_lines')
-        drainage=st.selectbox('Drenagem',['Normal','Reforçada','Complexa'],index=1,key=key+'_drainage')
-        fence=st.selectbox('Vedação da faixa',['Cerca','Muro','Nenhuma'],key=key+'_fence')
-        amvs=st.number_input('Quantidade total de AMVs',min_value=0,max_value=100000,value=2 if default_double else 1,step=1,key=key+'_amvs',help='Total no corredor, distribuído entre as linhas. Não é quantidade por km.')
-        overhead=st.checkbox('Incluir rede aérea',value=True,key=key+'_overhead')
-        signaling=st.checkbox('Incluir sinalização',value=True,key=key+'_signaling')
-        detection=st.selectbox('Detecção de trens',['Circuito de via','Contador de eixos'],key=key+'_detection')
-        rolling_stock=st.checkbox('Incluir material rodante',value=True,key=key+'_rolling_stock')
-        trainsets=st.number_input('Quantidade de composições de 8 carros',min_value=0,max_value=10000,value=1,step=1,key=key+'_trainsets',help='Custo calculado por composição. O indicador por km rateia a frota pela extensão do corredor.')
-        months=st.number_input('Prazo da obra (meses; 0 = referência)',min_value=0,max_value=1200,value=0,step=1,key=key+'_months',help='SIEC: 6 meses superfície / 18 elevado. Legado: 12 / 24 meses.')
-        bdi=st.session_state.get(key+'_bdi_personalizado',27.84182802164763)
-        submit=st.form_submit_button('Calcular Orçamento',type='primary',width='stretch')
-    if submit:
-        try:
-            p=Scenario(km=km,configuration=configuration,lines=lines,drainage=drainage,fence=fence,amvs=int(amvs),overhead=overhead,signaling=signaling,detection=detection,rolling_stock=rolling_stock,trainsets=int(trainsets),profile=profile,bdi=bdi/100,months=int(months))
-            st.session_state.results[key]=calculate(p,rules,catalog)
-            st.session_state.downloads.pop(key,None)
-        except (ValueError,KeyError,ZeroDivisionError) as exc:
-            st.session_state.results.pop(key,None);st.session_state.downloads.pop(key,None);st.error(str(exc))
-
 def set_all_groups(key,count,selected):
     for i in range(count):
         st.session_state[f'{key}_grupo_{i}']=selected
 
 
-def scope_controls(r,key):
-    st.markdown('**Grupos incluídos no total**')
-    st.caption('Marque os grupos desejados. O total é atualizado imediatamente, mantendo a geometria do cenário calculado.')
+def budget_controls(key,default_double=False,compact=False):
+    st.subheader('Configure o cenário')
+    st.caption('Primeiro defina as características gerais. Depois escolha os grupos e suas opções técnicas no mesmo lugar.')
+    with st.container(border=True):
+        st.markdown('**Características gerais**')
+        general=st.columns(2 if compact else 5)
+        with general[0]:
+            profile=st.selectbox('Modelo de referência',list(rules['profiles']),format_func=lambda k:rules['profiles'][k]['label'],key=key+'_profile')
+        with general[1]:
+            km=st.number_input('Extensão do corredor (km)',min_value=0.01,max_value=10000.0,value=1.0,step=0.1,format='%.3f',key=key+'_km')
+        with general[2%len(general)]:
+            configuration=st.selectbox('Configuração',['Superfície','Elevado'],key=key+'_configuration')
+        with general[3%len(general)]:
+            lines=st.selectbox('Via',[1,2],index=int(default_double),format_func=lambda n:'Simples' if n==1 else 'Dupla',key=key+'_lines')
+        with general[4%len(general)]:
+            months=st.number_input('Prazo da obra (meses)',min_value=0,max_value=1200,value=0,step=1,key=key+'_months',help='Use zero para adotar o prazo de referência do modelo.')
+
+    st.markdown('**O que incluir no orçamento**')
+    st.caption('Marque um grupo para exibir suas opções. Desmarcar o grupo remove seu custo do total.')
     all_on,all_off=st.columns(2)
-    all_on.button('Selecionar todas',key=key+'_selecionar_todas',on_click=set_all_groups,args=(key,len(r['groups']),True),width='stretch')
-    all_off.button('Desmarcar todas',key=key+'_desmarcar_todas',on_click=set_all_groups,args=(key,len(r['groups']),False),width='stretch')
+    all_on.button('Selecionar todas',key=key+'_selecionar_todas',on_click=set_all_groups,args=(key,len(rules['groups']),True),width='stretch')
+    all_off.button('Desmarcar todas',key=key+'_desmarcar_todas',on_click=set_all_groups,args=(key,len(rules['groups']),False),width='stretch')
     chosen=[]
-    columns=st.columns(2)
-    for i,g in enumerate(r['groups']):
-        with columns[i%2]:
-            if st.checkbox(g.split(' ',1)[1],value=True,key=f'{key}_grupo_{i}',persist_state='session'):
+    enabled={}
+    drainage=st.session_state.get(key+'_drainage','Reforçada')
+    fence=st.session_state.get(key+'_fence','Cerca')
+    amvs=st.session_state.get(key+'_amvs',2 if default_double else 1)
+    detection=st.session_state.get(key+'_detection','Circuito de via')
+    trainsets=st.session_state.get(key+'_trainsets',1)
+    group_columns=st.columns(1 if compact else 3)
+    for i,g in enumerate(rules['groups']):
+        with group_columns[i%len(group_columns)]:
+            with st.container(border=True):
+                enabled[i]=st.checkbox(g.split(' ',1)[1],value=True,key=f'{key}_grupo_{i}',persist_state='session')
+                if enabled[i]:
+                    if i==0:st.caption(('Via em superfície' if configuration=='Superfície' else 'Via elevada')+' • '+('simples' if lines==1 else 'dupla'))
+                    elif i==1:st.caption('Levantamentos e acompanhamento topográfico.')
+                    elif i==2:drainage=st.selectbox('Tipo de drenagem',['Normal','Reforçada','Complexa'],index=['Normal','Reforçada','Complexa'].index(drainage),key=key+'_drainage')
+                    elif i==3:fence=st.selectbox('Tipo de vedação',['Cerca','Muro'],index=['Cerca','Muro'].index(fence if fence in ('Cerca','Muro') else 'Cerca'),key=key+'_fence')
+                    elif i==4:amvs=st.number_input('Quantidade total de AMVs',min_value=0,max_value=100000,value=int(amvs),step=1,key=key+'_amvs',help='Total no corredor, distribuído entre as linhas.')
+                    elif i==5:st.caption('Banco subterrâneo de seis dutos.' if configuration=='Superfície' else 'Canaletas e passa-fios embutidos no tabuleiro.')
+                    elif i==6:st.caption('Rede aérea de alimentação e seus suportes.')
+                    elif i==7:detection=st.selectbox('Detecção de trens',['Circuito de via','Contador de eixos'],index=['Circuito de via','Contador de eixos'].index(detection),key=key+'_detection')
+                    elif i==8:trainsets=st.number_input('Composições de 8 carros',min_value=0,max_value=10000,value=int(trainsets),step=1,key=key+'_trainsets',help='Custo por composição; o indicador por km é um rateio.')
+                else:
+                    st.caption('Não incluído no total.')
+            if enabled[i]:
                 chosen.append(g)
     with st.container(border=True):
         st.subheader('BDI do orçamento')
         apply_bdi=st.checkbox('Aplicar BDI',value=True,key=key+'_aplicar_bdi',persist_state='session')
         percentage=st.number_input('BDI personalizado (%)',min_value=0.0,max_value=100.0,
-            value=r['scenario']['bdi']*100,step=0.5,format='%.6f',
+            value=27.84182802164763,step=0.5,format='%.6f',
             key=key+'_bdi_personalizado',persist_state='session')
-        st.caption('Edite o percentual e pressione Enter ou clique fora do campo. Marque Aplicar BDI para incluir o acréscimo no total e nos grupos. Desmarque para consultar os custos sem BDI.')
+        st.caption('O percentual é aplicado uma única vez ao total e aos subtotais selecionados.')
+    calculate_now=st.button('Calcular orçamento',key=key+'_calculate',type='primary',icon=':material/calculate:',width='stretch')
+    if calculate_now:
+        try:
+            p=Scenario(km=km,configuration=configuration,lines=lines,drainage=drainage,
+                fence=fence if enabled[3] else 'Nenhuma',amvs=int(amvs) if enabled[4] else 0,
+                ducts=enabled[5],topography=enabled[1],overhead=enabled[6],signaling=enabled[7],
+                detection=detection,rolling_stock=enabled[8],trainsets=int(trainsets) if enabled[8] else 0,
+                profile=profile,bdi=percentage/100,months=int(months))
+            st.session_state.results[key]=calculate(p,rules,catalog)
+            st.session_state.downloads.pop(key,None)
+        except (ValueError,KeyError,ZeroDivisionError) as exc:
+            st.session_state.results.pop(key,None);st.session_state.downloads.pop(key,None);st.error(str(exc))
     rate=percentage/100 if apply_bdi else 0.0
     signature=(tuple(chosen),rate)
     if st.session_state.get(key+'_selecao_anterior')!=signature:
         st.session_state.downloads.pop(key,None)
         st.session_state[key+'_selecao_anterior']=signature
-    return select_groups(r,chosen,bdi_rate=rate)
+    return chosen,rate
 
 
 def render_result(r,key,compact=False):
@@ -156,12 +181,11 @@ def render_result(r,key,compact=False):
 
 page=st.segmented_control('Área de trabalho',['Orçamento','Comparar cenários','Base de dados','Regras e validação'],default='Orçamento',key='page',selection_mode='single')
 if page=='Orçamento':
-    with st.sidebar:st.header('Defina o cenário');form('main')
-    st.caption('Ao abrir, exibimos o cenário de referência de 1 km. Para mudar suas características, ajuste o formulário e clique em Calcular Orçamento.')
+    chosen,rate=budget_controls('main')
     r=st.session_state.results.get('main')
-    if r:render_result(scope_controls(r,'main'),'main')
+    if r:render_result(select_groups(r,chosen,bdi_rate=rate),'main')
     else:
-        st.info('Configure o cenário à esquerda e selecione Calcular Orçamento.')
+        st.info('Revise as opções acima e selecione Calcular orçamento.')
         with st.container(border=True):
             st.subheader('Uma base, nove grupos de serviço')
             st.write('Via permanente, topografia, drenagem, vedação, AMVs, infraestrutura de cabos, rede aérea, sinalização e material rodante, com memória de cálculo e rastreabilidade dos preços.')
@@ -173,9 +197,10 @@ elif page=='Comparar cenários':
     effective={}
     for col,key in zip(st.columns(2),['A','B']):
         with col:
-            st.markdown('### Cenário '+key);form(key,key=='B')
+            st.markdown('### Cenário '+key)
+            selected,rate=budget_controls(key,key=='B',compact=True)
             if key in st.session_state.results:
-                effective[key]=scope_controls(st.session_state.results[key],key)
+                effective[key]=select_groups(st.session_state.results[key],selected,bdi_rate=rate)
                 render_result(effective[key],key,True)
     a,b=effective.get('A'),effective.get('B')
     if a and b:
@@ -202,12 +227,14 @@ elif page=='Base de dados':
     if search:frame=frame[frame.code.str.contains(search,case=False,regex=False)|frame.description.str.contains(search,case=False,regex=False)]
     if kind!='Todas':frame=frame[frame.price.notna() if kind=='Com preço' else frame.price.isna()]
     st.caption(f'{len(frame):,} referências no filtro')
-    st.dataframe(frame.rename(columns={'code':'Código','description':'Descrição','unit':'Unidade','price':'Preço unitário','source':'Fonte','date':'Data-base','provenance':'Arquivo / aba / linha'}),hide_index=True,height=600)
+    st.dataframe(frame.rename(columns={'code':'Código','description':'Descrição','unit':'Unidade','price':'Preço unitário','source':'Fonte','date':'Data-base','provenance':'Referência técnica'}),hide_index=True,height=600)
 else:
     st.subheader('Regras e rastreabilidade')
     st.markdown((ROOT/'docs/MAPEAMENTO.md').read_text(encoding='utf-8'))
     with st.expander('Cobertura de todos os itens originais'):st.dataframe(pd.DataFrame(json.loads((ROOT/'config/coverage.json').read_text(encoding='utf-8'))),hide_index=True)
-    with st.expander('Inventário das planilhas de origem'):st.dataframe(pd.DataFrame(json.loads((ROOT/'data/inventory.json').read_text(encoding='utf-8'))),hide_index=True)
+    with st.expander('Inventário das planilhas de origem'):
+        inventory=pd.DataFrame(json.loads((ROOT/'data/inventory.json').read_text(encoding='utf-8'))).drop(columns=['file'],errors='ignore')
+        st.dataframe(inventory,hide_index=True)
     if st.button('Conferir quatro cenários da Parte 2',key='validate'):
         expected={('Elevado',1):53552530.02,('Elevado',2):80467223.28,('Superfície',1):13321596.60,('Superfície',2):20597620.85}
         rows=[]
