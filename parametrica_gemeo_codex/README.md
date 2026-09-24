@@ -1,5 +1,7 @@
 # Parametric Rails
 
+O cabeçalho exibe uma cena panorâmica de ferrovia de carga, trem de passageiros e VLT. A imagem otimizada está em `assets/hero-trens-vermelhos-v1.webp` e acompanha a aplicação publicada.
+
 Aplicação Streamlit para orçamentos paramétricos ferroviários. Passageiros usa a base **SIEC • lastro / AMV nº 14** em superfície ou elevado. Carga tem uma primeira estimativa de **infraestrutura em superfície**, a partir das composições identificadas na mesma base. Ambos apresentam EAP, BDI editável, custos por km e orçamento em Excel.
 
 ## Uso
