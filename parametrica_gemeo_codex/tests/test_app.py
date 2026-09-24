@@ -104,6 +104,7 @@ def test_estacoes_precisam_preco_e_entram_no_excel():
 def test_carga_orca_so_infraestrutura_com_siec():
     app=AppTest.from_file(str(APP)).run(timeout=30)
     assert app.checkbox(key='cargo_grupo_5').value is False
+    assert app.checkbox(key='cargo_grupo_4').value is False
     assert app.checkbox(key='cargo_grupo_6').value is False
     assert app.checkbox(key='cargo_grupo_7').value is False
     app.number_input(key='cargo_wagons').set_value(80).run(timeout=30)
