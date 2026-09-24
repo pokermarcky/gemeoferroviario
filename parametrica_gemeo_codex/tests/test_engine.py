@@ -10,6 +10,10 @@ from railbudget.expressions import evaluate, money
 @pytest.fixture(scope='module')
 def model():return load_model()
 
+def test_subterraneo_sem_base_nao_produz_orcamento(model):
+    with pytest.raises(ValueError,match='orçamento subterrâneo'):
+        calculate(Scenario(configuration='Subterrâneo'),*model)
+
 @pytest.mark.parametrize('cfg,lines,expected',[('Elevado',1,53552530.02),('Elevado',2,80467223.28),('Superfície',1,13321596.60),('Superfície',2,20597620.85)])
 def test_four_manual_complete_budgets(model,cfg,lines,expected):
     r,c=model
