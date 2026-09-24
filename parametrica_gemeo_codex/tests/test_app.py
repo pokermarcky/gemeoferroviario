@@ -25,7 +25,8 @@ def test_navegacao_e_controles_solicitados():
     assert [tab.label for tab in app.tabs] == [
         'ORÇAMENTOS',
         'Ferrovia de passageiro', 'Resumo geral', 'Detalhamento por grupo',
-        'Ferrovia de carga', 'VLT - Veículo leve sobre Trilho', 'Shortline',
+        'Ferrovia de carga', 'Resumo geral', 'Detalhamento por grupo',
+        'VLT - Veículo leve sobre Trilho', 'Shortline',
         'BASES DE REFERÊNCIA', 'Insumos', 'Serviços']
     assert any(h.value == 'Parametric Rails' for h in app.title)
     assert app.selectbox(key='main_profile').options == ['SIEC • lastro / AMV nº 14']
@@ -33,7 +34,7 @@ def test_navegacao_e_controles_solicitados():
     assert app.checkbox(key='main_grupo_5').label == 'Banco de dutos'
     assert not any(x.label == 'Prazo da obra (meses)' for x in app.number_input)
     assert [(x.key, x.proto.label) for x in app.get('download_button')] == [
-        ('main_excel', 'Baixar orçamento em Excel')]
+        ('main_excel', 'Baixar orçamento em Excel'), ('cargo_excel', 'Baixar orçamento em Excel')]
     assert not any(x.key == 'main_prepare' for x in app.button)
     assert len(app.get('file_uploader')) == 6
     assert app.button(key='main_selecionar_todas').proto.type != 'primary'
@@ -44,8 +45,7 @@ def test_subterraneo_nao_reaproveita_preco_de_superficie():
     app.selectbox(key='main_configuration').set_value('Subterrâneo').run(timeout=30)
     assert not app.exception
     assert app.button(key='main_calculate').proto.disabled
-    assert not app.metric
-    assert not app.get('download_button')
+    assert not any(x.key == 'main_excel' for x in app.get('download_button'))
 
 
 def test_selecao_de_grupos_e_bdi_no_resultado():
@@ -60,10 +60,10 @@ def test_selecao_de_grupos_e_bdi_no_resultado():
     assert app.metric[0].value == currency(direct)
     app.button(key='main_desmarcar_todas').click().run(timeout=30)
     assert app.metric[0].value == 'R$ 0,00'
-    assert not app.get('download_button')
+    assert not any(x.key == 'main_excel' for x in app.get('download_button'))
     app.button(key='main_selecionar_todas').click().run(timeout=30)
     assert app.metric[0].value == currency(direct)
-    assert len(app.get('download_button')) == 1
+    assert len(app.get('download_button')) == 2
 
 
 def test_banco_de_dutos_e_opcoes_do_grupo():
@@ -89,9 +89,9 @@ def test_estacoes_precisam_preco_e_entram_no_excel():
     app=AppTest.from_file(str(APP)).run(timeout=30)
     app.number_input(key='main_station_0').set_value(2).run(timeout=30)
     assert app.button(key='main_calculate').proto.disabled
-    assert not app.get('download_button')
+    assert not any(x.key == 'main_excel' for x in app.get('download_button'))
     app.number_input(key='main_station_price_0').set_value(1200000.0).run(timeout=30)
-    assert not app.get('download_button')  # orçamento antigo oculto até recalcular
+    assert not any(x.key == 'main_excel' for x in app.get('download_button'))  # orçamento antigo oculto até recalcular
     app.button(key='main_calculate').click().run(timeout=30)
     assert not app.exception
     result=app.session_state['results']['main']
@@ -109,7 +109,6 @@ def test_carga_orca_so_infraestrutura_com_siec():
     assert app.checkbox(key='cargo_grupo_6').value is False
     assert app.checkbox(key='cargo_grupo_7').value is False
     app.number_input(key='cargo_wagons').set_value(80).run(timeout=30)
-    app.button(key='cargo_calculate').click().run(timeout=30)
     assert not app.exception
     cargo=app.session_state['results']['cargo']
     passenger=app.session_state['results']['main']
