@@ -19,3 +19,10 @@
 5. Após confirmação: padronização global Aptos 12, Excel com margens B2, alinhamentos e bordas; cenário de exemplo com verificação visual.
 
 A aplicação está publicada no Streamlit Community Cloud; cada ajuste confirmado pode ser promovido ao repositório principal antes do início da etapa seguinte.
+
+## Reorganização dos orçamentos
+
+- A interface passa a ter **ORÇAMENTOS** com quatro abas: Ferrovia de passageiro, Ferrovia de carga, VLT - Veículo leve sobre Trilho e Shortline.
+- Passageiros conserva apenas SIEC • lastro / AMV nº 14 na interface, superfície/elevado e o Excel do orçamento. O banco de dutos volta a aparecer explicitamente entre os grupos de superfície. O prazo deixa de ser informado pelo usuário; o motor adota a referência do modelo.
+- Subterrâneo é selecionável, mas o cálculo é bloqueado até haver quantitativos e preços próprios para túnel e sistemas associados. O motor rejeita essa configuração para impedir totais de superfície apresentados como subterrâneos.
+- Carga, VLT e Shortline apresentam os dados necessários à parametrização. Seus orçamentos dependem de bases e regras técnicas específicas; nenhum valor de passageiro é reutilizado como custo dessas modalidades.
