@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 from railbudget.engine import Scenario, load_model, calculate, select_groups
 from railbudget.exporters import make_excel, currency, br, caption
-from railbudget.header import render_header, TRAIN_HTML, TRAIN_CSS
+from railbudget.header import render_header
 from railbudget.stations import include_stations, STATION_SIZES, STATION_GROUP
 
 ROOT=Path(__file__).resolve().parent
@@ -13,11 +13,13 @@ st.set_page_config(page_title='railparametric | Parametric Rails',page_icon=':ma
 st.markdown('''<style>
 div[data-testid="stAppViewContainer"] {background:#f5f8fa;color:#203747}
 .block-container {max-width:1320px;padding-top:2.25rem;padding-bottom:4rem}
-.st-key-hero {padding:1.45rem 2rem;border-radius:18px;background:linear-gradient(115deg,#102b3e,#1a4a59);
+.st-key-hero {padding:1.2rem 1.7rem 1.35rem;border-radius:18px;background:linear-gradient(115deg,#102b3e,#1a4a59);
  border:1px solid #305668;box-shadow:0 16px 32px #102b3e18}
-.st-key-hero h1 {color:#fff;font-size:2.55rem;letter-spacing:-.035em;margin:.12rem 0}
+.st-key-hero h1 {color:#fff;font-size:2.55rem;letter-spacing:-.035em;margin:.08rem 0}
 .st-key-hero [data-testid="stMarkdownContainer"] p {color:#d7e6e9;font-size:1rem}
 .st-key-hero .hero-eyebrow {color:#74d0c8;font-weight:700;font-size:.72rem;letter-spacing:.15em}
+.st-key-hero [data-testid="stImage"] img {width:100%;height:270px;object-fit:cover;
+ object-position:center 52%;border-radius:12px;border:1px solid #547081}
 div[data-testid="stTabs"] [role="tablist"] {gap:.45rem;flex-wrap:wrap;border-bottom:0!important;margin:.7rem 0 1.1rem}
 div[data-testid="stTabs"] [data-testid="stTab"] {border:1px solid #c7d8df;border-radius:10px;background:#fff;
  padding:.52rem .9rem;color:#284458;font-weight:600;box-shadow:0 2px 8px #102b3e0b;transition:background .2s,border-color .2s}
@@ -28,10 +30,10 @@ div[data-testid="stTabs"] .react-aria-SelectionIndicator {display:none}
 div[data-testid="stMetric"] {border-radius:12px;background:#fff;border:1px solid #dce7eb}
 div[data-testid="stVerticalBlockBorderWrapper"] {border-radius:13px}
 @media(max-width:640px) {.st-key-hero {padding:1rem 1.25rem}.st-key-hero h1 {font-size:2rem}
+ .st-key-hero [data-testid="stImage"] img {height:auto;aspect-ratio:3/1;object-fit:contain}
  div[data-testid="stTabs"] [data-testid="stTab"] {padding:.38rem .55rem;font-size:.87rem}}
 </style>''',unsafe_allow_html=True)
-train_component = st.components.v2.component("parametric_rails_train", html=TRAIN_HTML, css=TRAIN_CSS)
-render_header(train_component)
+render_header(ROOT/'assets/hero-trens-vermelhos-v1.webp')
 
 @st.cache_data(ttl=300,max_entries=2)
 def data(version):return load_model(ROOT)
