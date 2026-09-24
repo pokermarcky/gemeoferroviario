@@ -17,11 +17,16 @@ def test_export_values_formulas_and_documents():
     assert len(f['Resumo']._charts)==1
     assert f['EAP']['H5'].value.startswith('=VLOOKUP(')
     assert f['EAP'].freeze_panes=='A5'
+    assert f['Premissas']['A2'].value=='Parâmetro V5'
+    assert 'fator de gestão' in f['EAP']['L5'].value
     for n,item in enumerate(result['items'],5):
         assert v['EAP'][f'I{n}'].value==item['total']
         assert v['EAP'][f'G{n}'].value==pytest.approx(item['quantity'])
-    assert Document(BytesIO(files['relatorio.docx'])).tables
+    word=Document(BytesIO(files['relatorio.docx']))
+    assert word.tables
+    assert any('Memória de cálculo:' in paragraph.text for paragraph in word.paragraphs)
     for name in ['orcamento.pdf','relatorio.pdf']:
         doc=PdfReader(BytesIO(files[name]));assert len(doc.pages)>1
         text=''.join(page.extract_text() for page in doc.pages)
         assert all(item['code'] in text for item in result['items'])
+        if name=='relatorio.pdf':assert 'Memória de cálculo:' in text

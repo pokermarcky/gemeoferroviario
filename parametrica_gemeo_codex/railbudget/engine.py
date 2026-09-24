@@ -104,6 +104,8 @@ def resolve_price(candidates,catalog,priority):
 
 def validate(p,rules):
     if not math.isfinite(p.km) or not 0.01<=p.km<=10000:raise ValueError('Extensão deve estar entre 0,01 e 10.000 km.')
+    if p.configuration=='Subterrâneo':
+        raise ValueError('O orçamento subterrâneo ainda precisa de quantitativos e preços específicos de túneis e sistemas associados.')
     for value,options,name in [(p.configuration,['Superfície','Elevado'],'configuração'),(p.lines,[1,2],'número de linhas'),
        (p.drainage,['Normal','Reforçada','Complexa'],'drenagem'),(p.fence,['Cerca','Muro','Nenhuma'],'vedação'),
        (p.detection,['Circuito de via','Contador de eixos'],'detecção de trens'),

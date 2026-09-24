@@ -2,10 +2,13 @@
 from io import BytesIO
 import ast
 import json
+from pathlib import Path
+import reportlab
 from datetime import datetime
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile, ZIP_DEFLATED
 from html import escape
+from railbudget.localization import nome_variavel, formula_legivel
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -20,9 +23,18 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, 
 from reportlab.lib.pagesizes import A4, A3, landscape
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 NAVY='19364B'; TEAL='147D83'
 PALETTE={'SIEC':'E2F3EB','SINAPI':'E5EDF9','SICRO':'EEE7F7','Mercado':'DDEEF6','Provisão':'FFF0CD'}
+
+def font_pdf():
+    pasta=Path(reportlab.__file__).parent/'fonts'
+    if 'Vera' not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont('Vera',str(pasta/'Vera.ttf')))
+        pdfmetrics.registerFont(TTFont('VeraBd',str(pasta/'VeraBd.ttf')))
+    return 'Vera','VeraBd'
 
 def br(v, digits=2):
     return f'{v:,.{digits}f}'.replace(',','X').replace('.',',').replace('X','.')
@@ -92,7 +104,7 @@ def make_excel(r,catalog):
     summary[f'B{per_km_row}']=f"=B{total_row}/'Premissas'!B"+str(refs['km'])
     summary[f'B{per_line_row}']=f"=B{total_row}/('Premissas'!B"+str(refs['km'])+"*'Premissas'!B"+str(refs['lines'])+")"
     for name,val in r['context'].items():
-        prem.append([name,excel_expr(derived[name],refs) if name in derived else val]);caches['xl/worksheets/sheet3.xml'][f'B{prem.max_row}']=int(val) if isinstance(val,bool) else val
+        prem.append([nome_variavel(name),excel_expr(derived[name],refs) if name in derived else val]);caches['xl/worksheets/sheet3.xml'][f'B{prem.max_row}']=int(val) if isinstance(val,bool) else val
     sheets={};lookup={}
     used={x['price_key'] for x in r['items']}
     for k in sorted(used):
@@ -101,11 +113,11 @@ def make_excel(r,catalog):
             sheets[name]=w.create_sheet(name);sheets[name].append(['Chave exata','Código','Descrição','Unidade','Preço','Data-base','Proveniência'])
         sh=sheets[name];sh.append([k,p['code'],p['description'],p['unit'],p['price'],p['date'],p['provenance']]);lookup[k]=name
     eap.append(['EAP orçada • '+caption(r)]);eap.append(['Quantidades vinculadas às premissas; preços por PROCV exato. Bases abaixo contêm referências usadas neste cenário.'])
-    eap.append(['']);eap.append(['EAP','Grupo','Código','Fonte','Descrição / aplicação','Unidade','Quantidade','Custo unitário','Custo total','Data-base','Chave do preço','Fórmula de quantidade','Origem / memória'])
+    eap.append(['']);eap.append(['EAP','Grupo','Código','Fonte','Descrição / aplicação','Unidade','Quantidade','Custo unitário','Custo total','Data-base','Chave do preço','Memória de quantidade','Origem / memória'])
     for x in r['items']:
         n=eap.max_row+1;name=lookup[x['price_key']];span=f"'{name}'!$A$2:$G${sheets[name].max_row}"
         eap.append([x['eap'],x['group'],x['code'],x['source'],x['label']+' — '+x['description'],
-                    f'=VLOOKUP(K{n},{span},4,FALSE)',excel_expr(x['quantity_formula'],refs),f'=VLOOKUP(K{n},{span},5,FALSE)',f'=ROUND(G{n}*H{n},2)',x['date'],x['price_key'],x['quantity_formula'],f"{x['origin']} / {x['sheet']} / linha {x['row']}. {x['note']}"])
+                    f'=VLOOKUP(K{n},{span},4,FALSE)',excel_expr(x['quantity_formula'],refs),f'=VLOOKUP(K{n},{span},5,FALSE)',f'=ROUND(G{n}*H{n},2)',x['date'],x['price_key'],formula_legivel(x['quantity_formula']),f"{x['origin']} / {x['sheet']} / linha {x['row']}. {x['note']}"])
         for c,val in [('F',x['unit']),('G',x['quantity']),('H',x['unit_cost']),('I',x['total'])]:caches['xl/worksheets/sheet2.xml'][f'{c}{n}']=val
     for src,color in PALETTE.items():eap.conditional_formatting.add(f'A5:M{eap.max_row}',FormulaRule(formula=[f'$D5="{src}"'],fill=PatternFill('solid',fgColor=color)))
     for sh in w:
@@ -219,14 +231,18 @@ def make_word(r):
         d.add_heading(g,2)
         for x in rows:
             d.add_paragraph(f"{x['eap']} | {x['label']} | {x['code']} ({x['source']}, {x['date']})",style='Heading 3')
-            detail=d.add_paragraph(f"{br(x['quantity'],6)} {x['unit']} × {currency(x['unit_cost'])} = {currency(x['total'])}. Fórmula: {x['quantity_formula']}. Origem: {x['origin']} / {x['sheet']} / linha {x['row']}.")
+            detail=d.add_paragraph(f"{br(x['quantity'],6)} {x['unit']} × {currency(x['unit_cost'])} = {currency(x['total'])}. Memória de cálculo: {formula_legivel(x['quantity_formula'])}. Origem: {x['origin']} / {x['sheet']} / linha {x['row']}.")
             detail.paragraph_format.keep_with_next=True
             d.add_paragraph(x['note'])
     out=BytesIO();d.save(out);return out.getvalue()
 
 def make_pdf(r,detailed=False):
     out=BytesIO();page=landscape(A3) if detailed else A4
-    styles=getSampleStyleSheet();styles.add(ParagraphStyle(name='CellR',fontName='Helvetica',fontSize=8 if detailed else 9,leading=11));styles.add(ParagraphStyle(name='HeadR',fontName='Helvetica-Bold',fontSize=8 if detailed else 9,leading=11,textColor=colors.white))
+    regular,bold=font_pdf()
+    styles=getSampleStyleSheet()
+    for title in ('Title','Heading1','Heading2','Heading3'):styles[title].fontName=bold
+    styles.add(ParagraphStyle(name='CellR',fontName=regular,fontSize=8 if detailed else 9,leading=12))
+    styles.add(ParagraphStyle(name='HeadR',fontName=bold,fontSize=8 if detailed else 9,leading=12,textColor=colors.white))
     def p(text,style='CellR'):return Paragraph(escape(str(text)),styles[style])
     def t(headers,rows,widths):
         obj=Table([[p(h,'HeadR') for h in headers]]+[[p(v) for v in row] for row in rows],colWidths=widths,repeatRows=1,hAlign='LEFT')
@@ -244,8 +260,8 @@ def make_pdf(r,detailed=False):
     else:
         flow.append(PageBreak());flow.append(p('Memória de quantidades e preços','Heading1'))
         for x in r['items']:
-            flow.append(KeepTogether([p(x['group']+' / '+x['label'],'Heading3'),p(f"{x['code']} | {x['source']} | {x['date']}"),p(f"{br(x['quantity'],6)} {x['unit']} × {currency(x['unit_cost'])} = {currency(x['total'])}"),p('Fórmula: '+x['quantity_formula']),p(f"Origem: {x['origin']} / {x['sheet']} / linha {x['row']}. "+x['note']),Spacer(1,8)]))
-    def footer(c,d):c.setFont('Helvetica',8);c.drawString(32,18,'Gêmeo ferroviário • Orçamento paramétrico');c.drawRightString(page[0]-32,18,str(d.page))
+            flow.append(KeepTogether([p(x['group']+' / '+x['label'],'Heading3'),p(f"{x['code']} | {x['source']} | {x['date']}"),p(f"{br(x['quantity'],6)} {x['unit']} × {currency(x['unit_cost'])} = {currency(x['total'])}"),p('Memória de cálculo: '+formula_legivel(x['quantity_formula'])),p(f"Origem: {x['origin']} / {x['sheet']} / linha {x['row']}. "+x['note']),Spacer(1,8)]))
+    def footer(c,d):c.setFont(regular,8);c.drawString(32,18,'Gêmeo ferroviário • Orçamento paramétrico');c.drawRightString(page[0]-32,18,str(d.page))
     SimpleDocTemplate(out,pagesize=page,leftMargin=32,rightMargin=32,topMargin=32,bottomMargin=34).build(flow,onFirstPage=footer,onLaterPages=footer)
     return out.getvalue()
 

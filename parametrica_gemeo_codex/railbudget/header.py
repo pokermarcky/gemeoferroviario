@@ -51,7 +51,7 @@ svg {display:block;width:100%;height:170px;overflow:hidden;}
 def render_header(train_component):
     title, train = st.columns([1.4, 1], vertical_alignment='center')
     with title:
-        st.title('Parametric Rails')
+        st.title('Gêmeo Ferroviário Paramétrico')
         st.caption('Orçamentação paramétrica ferroviária')
         st.caption('Via permanente e serviços complementares')
     with train:
