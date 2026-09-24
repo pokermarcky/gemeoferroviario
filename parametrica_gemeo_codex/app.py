@@ -14,7 +14,7 @@ def public_provenance(value):
     if not value:return ''
     return 'Referência registrada na base técnica.' if re.search(r'(?i)([a-z]:\\|/users/|https?://|file://)',str(value)) else str(value)
 
-st.set_page_config(page_title='Parametric Rails',page_icon=':material/train:',layout='wide')
+st.set_page_config(page_title='Gêmeo Ferroviário Paramétrico',page_icon=':material/train:',layout='wide')
 train_component = st.components.v2.component("parametric_rails_train", html=TRAIN_HTML, css=TRAIN_CSS)
 render_header(train_component)
 
@@ -166,7 +166,7 @@ def render_result(r,key,compact=False):
     counts=r['counts'];n=len(r['items'])
     with st.container(horizontal=True):
         for source in ['SIEC','SINAPI','SICRO','Mercado','Provisão']:
-            st.metric(source,f"{counts.get(source,0)} itens",f"{br(100*counts.get(source,0)/n if n else 0,1)}% das linhas",delta_color='off',border=True)
+            st.metric(source,f"{counts.get(source,0)} {'item' if counts.get(source,0)==1 else 'itens'}",f"{br(100*counts.get(source,0)/n if n else 0,1)}% das linhas",delta_color='off',border=True)
     if counts.get('Provisão'):st.warning('Este cenário contém preços provisórios herdados, identificados separadamente de preços oficiais e anúncios de mercado.')
     if not r['items']:
         st.info('Nenhum serviço incluído no total. Selecione ao menos um grupo com serviços para gerar documentos.')
