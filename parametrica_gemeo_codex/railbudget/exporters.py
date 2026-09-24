@@ -2,6 +2,8 @@
 from io import BytesIO
 import ast
 import json
+from pathlib import Path
+import reportlab
 from datetime import datetime
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile, ZIP_DEFLATED
@@ -21,9 +23,18 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, 
 from reportlab.lib.pagesizes import A4, A3, landscape
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 NAVY='19364B'; TEAL='147D83'
 PALETTE={'SIEC':'E2F3EB','SINAPI':'E5EDF9','SICRO':'EEE7F7','Mercado':'DDEEF6','Provisão':'FFF0CD'}
+
+def font_pdf():
+    pasta=Path(reportlab.__file__).parent/'fonts'
+    if 'Vera' not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont('Vera',str(pasta/'Vera.ttf')))
+        pdfmetrics.registerFont(TTFont('VeraBd',str(pasta/'VeraBd.ttf')))
+    return 'Vera','VeraBd'
 
 def br(v, digits=2):
     return f'{v:,.{digits}f}'.replace(',','X').replace('.',',').replace('X','.')
@@ -227,7 +238,11 @@ def make_word(r):
 
 def make_pdf(r,detailed=False):
     out=BytesIO();page=landscape(A3) if detailed else A4
-    styles=getSampleStyleSheet();styles.add(ParagraphStyle(name='CellR',fontName='Helvetica',fontSize=8 if detailed else 9,leading=11));styles.add(ParagraphStyle(name='HeadR',fontName='Helvetica-Bold',fontSize=8 if detailed else 9,leading=11,textColor=colors.white))
+    regular,bold=font_pdf()
+    styles=getSampleStyleSheet()
+    for title in ('Title','Heading1','Heading2','Heading3'):styles[title].fontName=bold
+    styles.add(ParagraphStyle(name='CellR',fontName=regular,fontSize=8 if detailed else 9,leading=12))
+    styles.add(ParagraphStyle(name='HeadR',fontName=bold,fontSize=8 if detailed else 9,leading=12,textColor=colors.white))
     def p(text,style='CellR'):return Paragraph(escape(str(text)),styles[style])
     def t(headers,rows,widths):
         obj=Table([[p(h,'HeadR') for h in headers]]+[[p(v) for v in row] for row in rows],colWidths=widths,repeatRows=1,hAlign='LEFT')
@@ -246,7 +261,7 @@ def make_pdf(r,detailed=False):
         flow.append(PageBreak());flow.append(p('Memória de quantidades e preços','Heading1'))
         for x in r['items']:
             flow.append(KeepTogether([p(x['group']+' / '+x['label'],'Heading3'),p(f"{x['code']} | {x['source']} | {x['date']}"),p(f"{br(x['quantity'],6)} {x['unit']} × {currency(x['unit_cost'])} = {currency(x['total'])}"),p('Memória de cálculo: '+formula_legivel(x['quantity_formula'])),p(f"Origem: {x['origin']} / {x['sheet']} / linha {x['row']}. "+x['note']),Spacer(1,8)]))
-    def footer(c,d):c.setFont('Helvetica',8);c.drawString(32,18,'Gêmeo ferroviário • Orçamento paramétrico');c.drawRightString(page[0]-32,18,str(d.page))
+    def footer(c,d):c.setFont(regular,8);c.drawString(32,18,'Gêmeo ferroviário • Orçamento paramétrico');c.drawRightString(page[0]-32,18,str(d.page))
     SimpleDocTemplate(out,pagesize=page,leftMargin=32,rightMargin=32,topMargin=32,bottomMargin=34).build(flow,onFirstPage=footer,onLaterPages=footer)
     return out.getvalue()
 
