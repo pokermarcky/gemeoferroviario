@@ -1,18 +1,11 @@
 from pathlib import Path
-import sqlite3
-import json
-import re
 import pandas as pd
 import streamlit as st
 from railbudget.engine import Scenario, load_model, calculate, select_groups
-from railbudget.exporters import export_all, currency, br, caption
+from railbudget.exporters import make_excel, currency, br, caption
 from railbudget.header import render_header, TRAIN_HTML, TRAIN_CSS
 
 ROOT=Path(__file__).resolve().parent
-
-def public_provenance(value):
-    if not value:return ''
-    return 'Referência registrada na base técnica.' if re.search(r'(?i)([a-z]:\\|/users/|https?://|file://)',str(value)) else str(value)
 
 st.set_page_config(page_title='Gêmeo Ferroviário Paramétrico',page_icon=':material/train:',layout='wide')
 train_component = st.components.v2.component("parametric_rails_train", html=TRAIN_HTML, css=TRAIN_CSS)
@@ -21,19 +14,12 @@ render_header(train_component)
 @st.cache_data(ttl=300,max_entries=2)
 def data(version):return load_model(ROOT)
 
-@st.cache_data(ttl=300,max_entries=2)
-def base(version):
-    with sqlite3.connect(ROOT/'data/catalog.sqlite') as con:frame=pd.read_sql_query('SELECT * FROM prices ORDER BY source,code',con)
-    frame['provenance']=frame['provenance'].map(public_provenance)
-    return frame
-
 @st.cache_data(ttl=900,max_entries=8,show_spinner=False)
-def exports(result,version):return export_all(result,data(version)[1])
+def excel_orcamento(result,version):return make_excel(result,data(version)[1])
 
 version=(ROOT/'data/catalog.sqlite').stat().st_mtime_ns,(ROOT/'config/rules.json').stat().st_mtime_ns
 rules,catalog=data(version)
 st.session_state.setdefault('results',{})
-st.session_state.setdefault('downloads',{})
 if not st.session_state.get('referencia_inicial_carregada'):
     st.session_state.results.setdefault('main',calculate(Scenario(),rules,catalog))
     st.session_state.referencia_inicial_carregada=True
@@ -43,22 +29,24 @@ def set_all_groups(key,count,selected):
         st.session_state[f'{key}_grupo_{i}']=selected
 
 
-def budget_controls(key,default_double=False,compact=False):
+def budget_controls(key):
     st.subheader('Configure o cenário')
     st.caption('Primeiro defina as características gerais. Depois escolha os grupos e suas opções técnicas no mesmo lugar.')
     with st.container(border=True):
         st.markdown('**Características gerais**')
-        general=st.columns(2 if compact else 5)
+        general=st.columns(4)
         with general[0]:
-            profile=st.selectbox('Modelo de referência',list(rules['profiles']),format_func=lambda k:rules['profiles'][k]['label'],key=key+'_profile')
+            st.selectbox('Modelo de referência',['SIEC • lastro / AMV nº 14'],key=key+'_profile')
         with general[1]:
             km=st.number_input('Extensão do corredor (km)',min_value=0.01,max_value=10000.0,value=1.0,step=0.1,format='%.3f',key=key+'_km')
-        with general[2%len(general)]:
-            configuration=st.selectbox('Configuração',['Superfície','Elevado'],key=key+'_configuration')
-        with general[3%len(general)]:
-            lines=st.selectbox('Via',[1,2],index=int(default_double),format_func=lambda n:'Simples' if n==1 else 'Dupla',key=key+'_lines')
-        with general[4%len(general)]:
-            months=st.number_input('Prazo da obra (meses)',min_value=0,max_value=1200,value=0,step=1,key=key+'_months',help='Use zero para adotar o prazo de referência do modelo.')
+        with general[2]:
+            configuration=st.selectbox('Configuração',['Superfície','Elevado','Subterrâneo'],key=key+'_configuration')
+        with general[3]:
+            lines=st.selectbox('Via',[1,2],format_func=lambda n:'Simples' if n==1 else 'Dupla',key=key+'_lines')
+
+    subterraneo=configuration=='Subterrâneo'
+    if subterraneo:
+        st.warning('Subterrâneo selecionado. As quantidades e os preços de escavação, revestimento, ventilação, segurança e demais sistemas ainda precisam de uma base técnica própria. Este cenário não gera um total por enquanto.')
 
     st.markdown('**O que incluir no orçamento**')
     st.caption('Marque um grupo para exibir suas opções. Desmarcar o grupo remove seu custo do total.')
@@ -69,21 +57,22 @@ def budget_controls(key,default_double=False,compact=False):
     enabled={}
     drainage=st.session_state.get(key+'_drainage','Reforçada')
     fence=st.session_state.get(key+'_fence','Cerca')
-    amvs=st.session_state.get(key+'_amvs',2 if default_double else 1)
+    amvs=st.session_state.get(key+'_amvs',1)
     detection=st.session_state.get(key+'_detection','Circuito de via')
     trainsets=st.session_state.get(key+'_trainsets',1)
-    group_columns=st.columns(1 if compact else 3)
+    group_columns=st.columns(3)
     for i,g in enumerate(rules['groups']):
         with group_columns[i%len(group_columns)]:
             with st.container(border=True):
-                enabled[i]=st.checkbox(g.split(' ',1)[1],value=True,key=f'{key}_grupo_{i}',persist_state='session')
+                label=('Banco de dutos' if configuration=='Superfície' else 'Canaletas e passa-fios') if i==5 else g.split(' ',1)[1]
+                enabled[i]=st.checkbox(label,value=True,key=f'{key}_grupo_{i}',persist_state='session')
                 if enabled[i]:
-                    if i==0:st.caption(('Via em superfície' if configuration=='Superfície' else 'Via elevada')+' • '+('simples' if lines==1 else 'dupla'))
+                    if i==0:st.caption('Via '+configuration.lower()+' • '+('simples' if lines==1 else 'dupla'))
                     elif i==1:st.caption('Levantamentos e acompanhamento topográfico.')
                     elif i==2:drainage=st.selectbox('Tipo de drenagem',['Normal','Reforçada','Complexa'],index=['Normal','Reforçada','Complexa'].index(drainage),key=key+'_drainage')
                     elif i==3:fence=st.selectbox('Tipo de vedação',['Cerca','Muro'],index=['Cerca','Muro'].index(fence if fence in ('Cerca','Muro') else 'Cerca'),key=key+'_fence')
                     elif i==4:amvs=st.number_input('Quantidade total de AMVs',min_value=0,max_value=100000,value=int(amvs),step=1,key=key+'_amvs',help='Total no corredor, distribuído entre as linhas.')
-                    elif i==5:st.caption('Banco subterrâneo de seis dutos.' if configuration=='Superfície' else 'Canaletas e passa-fios embutidos no tabuleiro.')
+                    elif i==5:st.caption('Banco subterrâneo de seis dutos.' if configuration=='Superfície' else 'Canaletas e passa-fios embutidos no tabuleiro elevado.' if configuration=='Elevado' else 'Necessita projeto de instalações do túnel.')
                     elif i==6:st.caption('Rede aérea de alimentação e seus suportes.')
                     elif i==7:detection=st.selectbox('Detecção de trens',['Circuito de via','Contador de eixos'],index=['Circuito de via','Contador de eixos'].index(detection),key=key+'_detection')
                     elif i==8:trainsets=st.number_input('Composições de 8 carros',min_value=0,max_value=10000,value=int(trainsets),step=1,key=key+'_trainsets',help='Custo por composição; o indicador por km é um rateio.')
@@ -98,35 +87,27 @@ def budget_controls(key,default_double=False,compact=False):
             value=27.84182802164763,step=0.5,format='%.6f',
             key=key+'_bdi_personalizado',persist_state='session')
         st.caption('O percentual é aplicado uma única vez ao total e aos subtotais selecionados.')
-    calculate_now=st.button('Calcular orçamento',key=key+'_calculate',type='primary',icon=':material/calculate:',width='stretch')
+    calculate_now=st.button('Calcular orçamento',key=key+'_calculate',type='primary',icon=':material/calculate:',width='stretch',disabled=subterraneo)
     if calculate_now:
         try:
             p=Scenario(km=km,configuration=configuration,lines=lines,drainage=drainage,
                 fence=fence if enabled[3] else 'Nenhuma',amvs=int(amvs) if enabled[4] else 0,
                 ducts=enabled[5],topography=enabled[1],overhead=enabled[6],signaling=enabled[7],
                 detection=detection,rolling_stock=enabled[8],trainsets=int(trainsets) if enabled[8] else 0,
-                profile=profile,bdi=percentage/100,months=int(months))
+                profile='siec',bdi=percentage/100)
             st.session_state.results[key]=calculate(p,rules,catalog)
-            st.session_state.downloads.pop(key,None)
         except (ValueError,KeyError,ZeroDivisionError) as exc:
-            st.session_state.results.pop(key,None);st.session_state.downloads.pop(key,None);st.error(str(exc))
+            st.session_state.results.pop(key,None);st.error(str(exc))
     rate=percentage/100 if apply_bdi else 0.0
-    signature=(tuple(chosen),rate)
-    if st.session_state.get(key+'_selecao_anterior')!=signature:
-        st.session_state.downloads.pop(key,None)
-        st.session_state[key+'_selecao_anterior']=signature
-    return chosen,rate
+    return chosen,rate,subterraneo
 
 
-def render_result(r,key,compact=False):
+def render_result(r,key):
     st.caption('Cenário calculado: '+caption(r))
-    with st.container(horizontal=not compact):
+    with st.container(horizontal=True):
         st.metric('Total com BDI' if r['scenario']['bdi'] else 'Total sem BDI',currency(r['total']),border=True)
         st.metric('Por km de corredor',currency(r['per_km']),border=True)
-        if not compact:st.metric('Por km de linha',currency(r['per_line_km']),border=True)
-    if compact:
-        st.dataframe(pd.DataFrame([{'Grupo':g,'Custo direto (R$)':v} for g,v in r['groups'].items()]),hide_index=True,column_config={'Custo direto (R$)':st.column_config.NumberColumn(format='%.2f')})
-        return
+        st.metric('Por km de linha',currency(r['per_line_km']),border=True)
     st.caption(f"Custo direto: {currency(r['direct'])} | BDI aplicado: {br(r['scenario']['bdi']*100,6)}% | Acréscimo de BDI: {currency(r['bdi_amount'])}")
     columns={'eap':'EAP','group':'Grupo','code':'Código','source':'Fonte','label':'Aplicação','description':'Descrição','unit':'Unidade','quantity':'Quantidade','unit_cost':'Custo unitário (R$)','total':'Custo total (R$)','date':'Data-base'}
     frame=pd.DataFrame(r['items'])[list(columns)].rename(columns=columns) if r['items'] else pd.DataFrame(columns=columns.values())
@@ -162,91 +143,52 @@ def render_result(r,key,compact=False):
                         st.dataframe(pd.DataFrame(rows)[['code','source','label','unit','quantity','unit_cost','total']].rename(columns={
                             'code':'Código','source':'Fonte','label':'Serviço','unit':'Unidade','quantity':'Quantidade',
                             'unit_cost':'Custo unitário (R$)','total':'Custo total (R$)'}),hide_index=True)
-    st.subheader('Rastreabilidade das fontes')
-    counts=r['counts'];n=len(r['items'])
-    with st.container(horizontal=True):
-        for source in ['SIEC','SINAPI','SICRO','Mercado','Provisão']:
-            st.metric(source,f"{counts.get(source,0)} {'item' if counts.get(source,0)==1 else 'itens'}",f"{br(100*counts.get(source,0)/n if n else 0,1)}% das linhas",delta_color='off',border=True)
-    if counts.get('Provisão'):st.warning('Este cenário contém preços provisórios herdados, identificados separadamente de preços oficiais e anúncios de mercado.')
     if not r['items']:
-        st.info('Nenhum serviço incluído no total. Selecione ao menos um grupo com serviços para gerar documentos.')
+        st.info('Nenhum serviço incluído no total. Selecione ao menos um grupo com serviços para gerar o orçamento em Excel.')
         return
-    with st.expander('Memórias, origem dos itens e limites'):
-        for warning in r['warnings']:st.write('• '+warning)
-        st.caption(f"Prazo: {r['duration']} meses. Regra {r['rule_version']}.")
-        st.dataframe(pd.DataFrame(r['items'])[['label','quantity_formula','origin','sheet','row','original_formula','note','provenance']],hide_index=True)
-    st.subheader('Documentos do cenário')
-    st.caption('Excel com fórmulas e bases utilizadas; Word editável; PDFs equivalentes do orçamento e relatório, gerados sem depender do Microsoft Office.')
-    if st.button('Preparar arquivos para download',key=key+'_prepare',icon=':material/download:'):
-        with st.spinner('Preparando Excel, Word e PDFs…'):st.session_state.downloads[key]=exports(r,version)
-    if key in st.session_state.downloads:
-        labels={'orcamento.xlsx':'Excel • orçamento','relatorio.docx':'Word • relatório','orcamento.pdf':'PDF • orçamento','relatorio.pdf':'PDF • relatório'}
-        mimes={'xlsx':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','docx':'application/vnd.openxmlformats-officedocument.wordprocessingml.document','pdf':'application/pdf'}
-        with st.container(horizontal=True):
-            for name,content in st.session_state.downloads[key].items():st.download_button(labels[name],content,file_name=key+'_'+name,mime=mimes[name.split('.')[-1]],key=key+'_'+name,on_click='ignore')
+    st.download_button('Baixar orçamento em Excel',excel_orcamento(r,version),
+        file_name='orcamento_ferrovia_passageiro.xlsx',
+        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        key=key+'_excel',icon=':material/download:')
 
-page=st.segmented_control('Área de trabalho',['Orçamento','Comparar cenários','Base de dados','Regras e validação'],default='Orçamento',key='page',selection_mode='single')
-if page=='Orçamento':
-    chosen,rate=budget_controls('main')
-    r=st.session_state.results.get('main')
-    if r:render_result(select_groups(r,chosen,bdi_rate=rate),'main')
-    else:
-        st.info('Revise as opções acima e selecione Calcular orçamento.')
-        with st.container(border=True):
-            st.subheader('Uma base, nove grupos de serviço')
-            st.write('Via permanente, topografia, drenagem, vedação, AMVs, infraestrutura de cabos, rede aérea, sinalização e material rodante, com memória de cálculo e rastreabilidade dos preços.')
-            st.write('O modelo SIEC usa via lastreada e AMV nº 14. O modelo legado reproduz a Parte 2, incluindo elevado em placa e AMV nº 9 provisório.')
-            st.caption('Custos por km se referem ao corredor. Uma via dupla contém dois km de linha por km de corredor.')
-elif page=='Comparar cenários':
-    st.subheader('Compare duas alternativas')
-    st.caption('Cada cenário conserva os parâmetros do último cálculo. Altere o formulário e calcule novamente para atualizar a comparação.')
-    effective={}
-    for col,key in zip(st.columns(2),['A','B']):
-        with col:
-            st.markdown('### Cenário '+key)
-            selected,rate=budget_controls(key,key=='B',compact=True)
-            if key in st.session_state.results:
-                effective[key]=select_groups(st.session_state.results[key],selected,bdi_rate=rate)
-                render_result(effective[key],key,True)
-    a,b=effective.get('A'),effective.get('B')
-    if a and b:
-        with st.container(horizontal=True):
-            st.metric('Diferença total • B − A',currency(b['total']-a['total']),border=True)
-            st.metric('Diferença por km de corredor',currency(b['per_km']-a['per_km']),border=True)
-        comp=pd.DataFrame([{'Grupo':g,'Cenário A':a['groups'][g],'Cenário B':b['groups'][g],'Diferença B − A':b['groups'][g]-a['groups'][g]} for g in rules['groups']])
-        st.dataframe(comp,hide_index=True);st.bar_chart(comp,x='Grupo',y=['Cenário A','Cenário B'],stack=False,horizontal=True)
-        if a['scenario']['profile']!=b['scenario']['profile']:st.warning('Os modelos diferem em geometria, via e AMV. A diferença não representa apenas variação de preço.')
-        chosen=st.selectbox('Detalhar e exportar cenário',['A','B'])
-        render_result(effective[chosen],chosen)
-elif page=='Base de dados':
-    st.subheader('Referências de preço consolidadas')
-    frame=base(version)
-    with st.container(horizontal=True):
-        st.metric('Referências únicas',f'{len(frame):,}',border=True)
-        st.metric('Com preço numérico',f'{frame.price.notna().sum():,}',border=True)
-        st.metric('Sem preço',f'{frame.price.isna().sum():,}',border=True)
-    st.caption('SIEC junho/2026; provisões declaradas setembro/2026; anúncio consultado em 13/09/2026. Não há tabelas SINAPI/SICRO nos arquivos recebidos. Registros sem preço não são tratados como zero.')
-    search=st.text_input('Buscar código ou descrição',key='base_search')
-    sources=st.multiselect('Fontes',frame.source.unique().tolist(),default=frame.source.unique().tolist())
-    kind=st.selectbox('Disponibilidade',['Todas','Com preço','Sem preço'])
-    frame=frame[frame.source.isin(sources)]
-    if search:frame=frame[frame.code.str.contains(search,case=False,regex=False)|frame.description.str.contains(search,case=False,regex=False)]
-    if kind!='Todas':frame=frame[frame.price.notna() if kind=='Com preço' else frame.price.isna()]
-    st.caption(f'{len(frame):,} referências no filtro')
-    st.dataframe(frame.rename(columns={'code':'Código','description':'Descrição','unit':'Unidade','price':'Preço unitário','source':'Fonte','date':'Data-base','provenance':'Referência técnica'}),hide_index=True,height=600)
-else:
-    st.subheader('Regras e rastreabilidade')
-    st.markdown((ROOT/'docs/MAPEAMENTO.md').read_text(encoding='utf-8'))
-    with st.expander('Cobertura de todos os itens originais'):st.dataframe(pd.DataFrame(json.loads((ROOT/'config/coverage.json').read_text(encoding='utf-8'))),hide_index=True)
-    with st.expander('Inventário das planilhas de origem'):
-        inventory=pd.DataFrame(json.loads((ROOT/'data/inventory.json').read_text(encoding='utf-8'))).drop(columns=['file'],errors='ignore')
-        st.dataframe(inventory,hide_index=True)
-    if st.button('Conferir quatro cenários da Parte 2',key='validate'):
-        expected={('Elevado',1):53552530.02,('Elevado',2):80467223.28,('Superfície',1):13321596.60,('Superfície',2):20597620.85}
-        rows=[]
-        for (cfg,lines),value in expected.items():
-            got=calculate(Scenario(profile='legacy',configuration=cfg,lines=lines,amvs=lines),rules,catalog)['total']
-            rows.append({'Cenário':cfg+' '+str(lines),'Planilha manual':value,'Motor':got,'Diferença':round(got-value,2)})
-        st.dataframe(pd.DataFrame(rows),hide_index=True)
-        if all(abs(x['Diferença'])<.01 for x in rows):st.success('Os quatro totais coincidem com os orçamentos manuais.')
-        else:st.error('Há divergências. Revise as regras e bases antes de utilizar os resultados.')
+def modalidade_pendente(nome,escopo,dados):
+    st.subheader(nome)
+    st.write(escopo)
+    with st.container(border=True):
+        st.info('Orçamento paramétrico em preparação. Ainda não há quantitativos e preços calibrados para esta modalidade.')
+        st.markdown('**Bases necessárias para o cálculo**')
+        for item in dados:st.write('• '+item)
+
+
+st.header('ORÇAMENTOS')
+st.caption('Escolha a modalidade ferroviária. O orçamento de passageiros está disponível para via em superfície e elevado.')
+passageiro,carga,vlt,shortline=st.tabs([
+    'Ferrovia de passageiro','Ferrovia de carga','VLT - Veículo leve sobre Trilho','Shortline'])
+
+with passageiro:
+    chosen,rate,subterraneo=budget_controls('main')
+    if not subterraneo:
+        r=st.session_state.results.get('main')
+        if r:render_result(select_groups(r,chosen,bdi_rate=rate),'main')
+        else:st.info('Revise as opções acima e selecione Calcular orçamento.')
+
+with carga:
+    modalidade_pendente('Ferrovia de carga',
+        'O dimensionamento depende da carga por eixo, do trem-tipo, da superestrutura, dos pátios e das obras de arte.',[
+        'Traçado, extensão, número de vias e carga por eixo de projeto.',
+        'Composições de via, AMVs, pátios, pontes e drenagem com preços e datas-base.',
+        'Escopo de sinalização, telecomunicações, locomotivas e vagões.'])
+
+with vlt:
+    modalidade_pendente('VLT - Veículo leve sobre Trilho',
+        'A via urbana, as paradas, a alimentação elétrica e a frota exigem quantitativos e referências próprios.',[
+        'Traçado, tipo de via implantada e interferências urbanas.',
+        'Paradas, energia, sinalização e acessibilidade com custos de referência.',
+        'Quantidade e especificação dos veículos leves sobre trilhos.'])
+
+with shortline:
+    modalidade_pendente('Shortline',
+        'A estimativa depende de definir se a linha será implantada, reabilitada ou ampliada e qual tráfego atenderá.',[
+        'Inventário da via existente, carga por eixo e velocidade de projeto.',
+        'Extensão, dormentes, trilhos, lastro, AMVs e intervenções em pontes.',
+        'Pátios, sinalização e frota incluídos no escopo.'])
