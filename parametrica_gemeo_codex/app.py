@@ -12,15 +12,14 @@ ROOT=Path(__file__).resolve().parent
 st.set_page_config(page_title='railparametric | Parametric Rails',page_icon=':material/train:',layout='wide')
 st.markdown('''<style>
 div[data-testid="stAppViewContainer"] {background:linear-gradient(180deg,#f4f8fa 0,#ffffff 360px)}
-div[data-testid="stTabs"] [data-baseweb="tab-list"] {gap:.4rem;flex-wrap:wrap;border-bottom:0;margin:.8rem 0}
-div[data-testid="stTabs"] button[role="tab"] {border:1px solid #cbdbe0;border-radius:10px;background:#fff;
+div[data-testid="stTabs"] [role="tablist"] {gap:.4rem;flex-wrap:wrap;border-bottom:0!important;margin:.8rem 0}
+div[data-testid="stTabs"] [data-testid="stTab"] {border:1px solid #cbdbe0;border-radius:10px;background:#fff;
   padding:.55rem .9rem;color:#244253;font-weight:600;box-shadow:0 2px 8px #1838490c}
-div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {border-color:#147d83;
+div[data-testid="stTabs"] [data-testid="stTab"][aria-selected="true"] {border-color:#147d83;
   background:#e8f5f3;color:#07585d;box-shadow:inset 0 0 0 1px #147d83}
-div[data-testid="stTabs"] [data-baseweb="tab-highlight"],
-div[data-testid="stTabs"] [data-baseweb="tab-border"] {display:none}
+div[data-testid="stTabs"] .react-aria-SelectionIndicator {display:none}
 div[data-testid="stMetric"] {border-radius:12px}
-@media(max-width:640px) {div[data-testid="stTabs"] button[role="tab"] {padding:.4rem .55rem;font-size:.88rem}}
+@media(max-width:640px) {div[data-testid="stTabs"] [data-testid="stTab"] {padding:.4rem .55rem;font-size:.88rem}}
 </style>''',unsafe_allow_html=True)
 train_component = st.components.v2.component("parametric_rails_train", html=TRAIN_HTML, css=TRAIN_CSS)
 render_header(train_component)
@@ -71,13 +70,13 @@ def budget_controls(key,freight=False):
     st.markdown('**O que incluir no orçamento**')
     st.caption('Marque um grupo para exibir suas opções. Desmarcar o grupo remove seu custo do total.')
     all_on,all_off,spacer=st.columns([1,1,5])
-    all_on.button('Selecionar todas',key=key+'_selecionar_todas',on_click=set_all_groups,args=(key,8 if freight else len(rules['groups']),True),type='tertiary')
-    all_off.button('Desmarcar todas',key=key+'_desmarcar_todas',on_click=set_all_groups,args=(key,8 if freight else len(rules['groups']),False),type='tertiary')
+    all_on.button('Selecionar todas',key=key+'_selecionar_todas',on_click=set_all_groups,args=(key,8 if freight else len(rules['groups'])+1,True),type='tertiary')
+    all_off.button('Desmarcar todas',key=key+'_desmarcar_todas',on_click=set_all_groups,args=(key,8 if freight else len(rules['groups'])+1,False),type='tertiary')
     chosen=[]
     enabled={}
     drainage=st.session_state.get(key+'_drainage','Reforçada')
     fence=st.session_state.get(key+'_fence','Cerca')
-    amvs=st.session_state.get(key+'_amvs',1)
+    amvs=st.session_state.get(key+'_amvs',0 if freight else 1)
     detection=st.session_state.get(key+'_detection','Circuito de via')
     trainsets=st.session_state.get(key+'_trainsets',1)
     stations={}
@@ -86,7 +85,7 @@ def budget_controls(key,freight=False):
         with group_columns[i%len(group_columns)]:
             with st.container(border=True):
                 label=('Banco de dutos' if configuration=='Superfície' else 'Canaletas e passa-fios') if i==5 else g.split(' ',1)[1]
-                enabled[i]=st.checkbox(label,value=(i not in (5,6,7) if freight else True),key=f'{key}_grupo_{i}',persist_state='session')
+                enabled[i]=st.checkbox(label,value=(i not in (4,5,6,7) if freight else True),key=f'{key}_grupo_{i}',persist_state='session')
                 if enabled[i]:
                     if i==0:st.caption('Via '+configuration.lower()+' • '+('simples' if lines==1 else 'dupla'))
                     elif i==1:st.caption('Levantamentos e acompanhamento topográfico.')
@@ -112,6 +111,7 @@ def budget_controls(key,freight=False):
     else:
         with st.container(border=True):
             st.markdown('**Estações de passageiros**')
+            include_station_group=st.checkbox('Incluir estações no orçamento',value=True,key=key+'_grupo_9')
             st.caption('Informe quantidade e preço unitário estimado por porte. Sem preço unitário não é possível incluir uma estação no orçamento.')
             station_cols=st.columns(3)
             for i,size in enumerate(STATION_SIZES):
@@ -156,7 +156,7 @@ def budget_controls(key,freight=False):
     stale=key+'_calculated_inputs' in st.session_state and st.session_state[key+'_calculated_inputs']!=current_inputs
     if stale and not subterraneo:
         st.info('Parâmetros alterados. Clique em Calcular orçamento para atualizar os valores.')
-    if not freight and STATION_GROUP in st.session_state.results.get(key,{}).get('groups',{}):chosen.append(STATION_GROUP)
+    if not freight and include_station_group and STATION_GROUP in st.session_state.results.get(key,{}).get('groups',{}):chosen.append(STATION_GROUP)
     return chosen,rate,subterraneo or missing_price or stale
 
 
