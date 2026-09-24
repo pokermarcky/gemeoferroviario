@@ -1,6 +1,6 @@
-# Gêmeo Ferroviário Paramétrico
+# Parametric Rails
 
-Aplicação Streamlit para orçamentos paramétricos ferroviários. O cálculo disponível usa a base **SIEC • lastro / AMV nº 14** para ferrovia de passageiros em superfície ou elevado, com EAP, BDI editável, custos por km e orçamento em Excel.
+Aplicação Streamlit para orçamentos paramétricos ferroviários. Passageiros usa a base **SIEC • lastro / AMV nº 14** em superfície ou elevado. Carga tem uma primeira estimativa de **infraestrutura em superfície**, a partir das composições identificadas na mesma base. Ambos apresentam EAP, BDI editável, custos por km e orçamento em Excel.
 
 ## Uso
 
@@ -12,9 +12,13 @@ Abra **ORÇAMENTOS → Ferrovia de passageiro**, informe a extensão, configura�
 
 **Banco de dutos** aparece entre os grupos de superfície e corresponde ao banco subterrâneo de seis dutos. Em elevado, o mesmo grupo passa a **Canaletas e passa-fios**, conforme as composições aplicáveis. O controle de prazo foi retirado do formulário; o cálculo conserva o prazo de referência interno do modelo para os quantitativos que dependem dele.
 
-A opção **Subterrâneo** está visível, mas não produz orçamento até serem cadastrados quantitativos e preços próprios de túneis e sistemas associados. As abas **Ferrovia de carga**, **VLT - Veículo leve sobre Trilho** e **Shortline** apresentam o escopo de dados necessário para construir seus modelos; não atribuem custos de passageiros a essas modalidades.
+A opção **Subterrâneo** está visível, mas não produz orçamento até serem cadastrados quantitativos e preços próprios de túneis e sistemas associados. Em passageiros, as estações pequenas, médias e grandes são lançadas por quantidade e **preço unitário informado pelo usuário**; não há composição pronta do edifício completo na base. É necessário recalcular após alterar essas premissas.
 
-O resultado indica o último cenário submetido. Alterações no formulário só entram no orçamento depois de clicar em **Calcular orçamento**; marcar e desmarcar grupos e alterar o BDI fazem um recorte financeiro imediato do resultado existente. Os resultados de sessão não persistem ao encerrar o servidor.
+Em **Ferrovia de carga**, informe extensão, vias e escopo de infraestrutura. O cenário inicial desativa banco de dutos, rede aérea, sinalização e material rodante. AMVs são opcionais. Locomotivas e vagões aparecem como quantidades de escopo, sem preço de aquisição: a SIEC contém custos horários de operação desses veículos, que não podem representar sua compra. O trilho, os dormentes, o lastro, a plataforma e os AMVs reutilizados da referência SIEC exigem verificação técnica para a carga por eixo, bitola, capacidade e geometria. A carga por eixo informada **não redimensiona** as quantidades nesta versão. Pátios, terminais, obras de arte, passagens em nível e frota ficam fora do total; não compare o valor por km de carga e passageiros como se os escopos fossem idênticos. VLT e Shortline permanecem em definição de escopo.
+
+Em **Tabelas de referência**, as abas Insumos e Serviços oferecem campos para SINAPI, SIURB e SICRO. Arquivos CSV/XLSX de até 20 MB recebem prévia das primeiras linhas e permanecem apenas na sessão atual. Eles **não alteram os preços** até serem mapeados e validados código, unidade, data-base e composição.
+
+Alterações nas premissas exigem clicar em **Calcular orçamento**; até lá, o total anterior fica oculto. Marcar e desmarcar grupos e alterar o BDI fazem um recorte financeiro imediato do resultado existente. Os resultados de sessão não persistem ao encerrar o servidor.
 
 ## Bases e premissas
 
@@ -24,6 +28,7 @@ O resultado indica o último cenário submetido. Alterações no formulário só
 - A seleção de grupos não redimensiona geometria, duração, plataforma ou envelopes de AMV. Quantidades e valores são estimativas paramétricas, sujeitas a projeto e validação dos preços.
 - As tabelas históricas do legado Parte 2 continuam no projeto para rastreabilidade e regressão interna, mas esse modelo não é oferecido na interface.
 - Não havia bases SINAPI/SICRO nas planilhas recebidas. A hierarquia de fontes está no motor, sem inventar preços ou equivalências.
+- O escopo preliminar de carga foi confrontado com as instruções [ISF-212 a ISF-218 do DNIT](https://www.gov.br/dnit/pt-br/ferrovias/instrucoes-e-procedimentos/instrucoes-de-servicos-ferroviarios), que separam lastro e sublastro, trilhos e dormentes, AMVs, pontes, sinalização e pátios para o projeto ferroviário.
 
 ## Estrutura
 
@@ -32,6 +37,7 @@ app.py                         interface Streamlit e navegação
 railbudget/engine.py           cenários, seleção, quantitativos e preços
 railbudget/exporters.py        planilha Excel e exportadores internos
 railbudget/localization.py     rótulos e memórias em português
+railbudget/stations.py         estações com quantidades e preços do usuário
 config/rules.json              composições e parâmetros
 config/coverage.json           cobertura da EAP de origem
 data/catalog.sqlite           catálogo de preços
@@ -42,6 +48,6 @@ tests/                         regressões de cálculo, interface e exportação
 
 ## Validação
 
-Execute `python -m pytest -q` com as dependências de `requirements-dev.txt`. As regressões mantêm a reprodução dos quatro totais históricos da Parte 2 para auditoria, além dos cenários SIEC e da geração de documentos. A interface publica somente o orçamento Excel do modelo SIEC para passageiros.
+Execute `python -m pytest -q` com as dependências de `requirements-dev.txt`. As regressões mantêm a reprodução dos quatro totais históricos da Parte 2 para auditoria, além dos cenários SIEC e da geração de documentos. A interface publica somente orçamentos Excel.
 
 A aplicação pode ser executada localmente ou no Streamlit Community Cloud. As fórmulas e referências do Excel são calculáveis e os identificadores internos do motor não são alterados pelos rótulos de apresentação.

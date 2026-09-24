@@ -82,7 +82,7 @@ def cache_formulas(data, caches):
 def make_excel(r,catalog):
     w=Workbook();summary=w.active;summary.title='Resumo';eap=w.create_sheet('EAP');prem=w.create_sheet('Premissas')
     caches={f'xl/worksheets/sheet{i}.xml':{} for i in (1,2,3)}
-    summary.append(['Gêmeo digital ferroviário | Orçamento']);summary.append([caption(r)])
+    summary.append(['Parametric Rails | Orçamento']);summary.append([caption(r)])
     summary.append(['Grupo','Custo direto (R$)'])
     for g,v in r['groups'].items():summary.append([g,f'=SUMIF(EAP!$B$5:$B${4+len(r["items"])},A{summary.max_row+1},EAP!$I$5:$I${4+len(r["items"])})']);caches['xl/worksheets/sheet1.xml'][f'B{summary.max_row}']=v
     first_group_row=4;last_group_row=3+len(r['groups']);direct_row=last_group_row+1;bdi_row=direct_row+1
