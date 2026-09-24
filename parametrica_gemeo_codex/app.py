@@ -5,33 +5,45 @@ import streamlit as st
 from railbudget.engine import Scenario, load_model, calculate, select_groups
 from railbudget.exporters import make_excel, currency, br, caption
 from railbudget.header import render_header
+from railbudget.freight import calculate_freight
 from railbudget.stations import include_stations, STATION_SIZES, STATION_GROUP
 
 ROOT=Path(__file__).resolve().parent
 
 st.set_page_config(page_title='railparametric | Parametric Rails',page_icon=':material/train:',layout='wide')
 st.markdown('''<style>
-div[data-testid="stAppViewContainer"] {background:#f5f8fa;color:#203747}
-.block-container {max-width:1320px;padding-top:2.25rem;padding-bottom:4rem}
-.st-key-hero {padding:1.2rem 1.7rem 1.35rem;border-radius:18px;background:linear-gradient(115deg,#102b3e,#1a4a59);
- border:1px solid #305668;box-shadow:0 16px 32px #102b3e18}
-.st-key-hero h1 {color:#fff;font-size:2.55rem;letter-spacing:-.035em;margin:.08rem 0}
-.st-key-hero [data-testid="stMarkdownContainer"] p {color:#d7e6e9;font-size:1rem}
-.st-key-hero .hero-eyebrow {color:#74d0c8;font-weight:700;font-size:.72rem;letter-spacing:.15em}
-.st-key-hero [data-testid="stImage"] img {width:100%;height:270px;object-fit:cover;
- object-position:center 52%;border-radius:12px;border:1px solid #547081}
-div[data-testid="stTabs"] [role="tablist"] {gap:.45rem;flex-wrap:wrap;border-bottom:0!important;margin:.7rem 0 1.1rem}
-div[data-testid="stTabs"] [data-testid="stTab"] {border:1px solid #c7d8df;border-radius:10px;background:#fff;
- padding:.52rem .9rem;color:#284458;font-weight:600;box-shadow:0 2px 8px #102b3e0b;transition:background .2s,border-color .2s}
-div[data-testid="stTabs"] [data-testid="stTab"]:hover {border-color:#17828a;background:#f0faf8}
-div[data-testid="stTabs"] [data-testid="stTab"][aria-selected="true"] {border-color:#147d83;
- background:#e4f5f2;color:#07585d;box-shadow:inset 0 0 0 1px #147d83}
+div[data-testid="stAppViewContainer"] {background:#f6f7f5;color:#243744}
+.block-container {max-width:1240px;padding-top:1.65rem;padding-bottom:4rem}
+.st-key-hero {padding:1.35rem 1.55rem 1.4rem;border-radius:20px;background:#fff;
+ border:1px solid #e1e6e3;box-shadow:0 14px 42px #1a344113}
+.st-key-hero h1 {color:#1c3541;font-size:2.65rem;letter-spacing:-.045em;line-height:1.15;margin:.06rem 0}
+.st-key-hero [data-testid="stMarkdownContainer"] p {color:#526775;font-size:1rem;margin-bottom:.65rem}
+.st-key-hero .hero-eyebrow {color:#a63631;font-weight:800;font-size:.69rem;letter-spacing:.16em}
+.st-key-hero [data-testid="stImage"] {margin-top:.35rem}
+.st-key-hero [data-testid="stImage"] img {width:100%;height:224px;object-fit:cover;
+ object-position:center 52%;border-radius:12px;border:1px solid #d9e1e1;filter:saturate(.82) brightness(1.06)}
+.st-key-workspace {margin-top:1rem}
+div[data-testid="stTabs"] [role="tablist"] {gap:.55rem;flex-wrap:wrap;border-bottom:1px solid #e1e6e3!important;
+ padding-bottom:.65rem;margin:.75rem 0 1.4rem}
+div[data-testid="stTabs"] [data-testid="stTab"] {border:1px solid #dde4e3;border-radius:10px;background:#fff;
+ padding:.52rem .85rem;color:#395360;font-weight:650;box-shadow:0 2px 7px #1a34410b;transition:background .2s,border-color .2s}
+div[data-testid="stTabs"] [data-testid="stTab"]:hover {border-color:#a63631;background:#fff9f7}
+div[data-testid="stTabs"] [data-testid="stTab"][aria-selected="true"] {border-color:#a63631;
+ background:#fcf0ed;color:#862923;box-shadow:inset 0 0 0 1px #a63631}
 div[data-testid="stTabs"] .react-aria-SelectionIndicator {display:none}
-div[data-testid="stMetric"] {border-radius:12px;background:#fff;border:1px solid #dce7eb}
-div[data-testid="stVerticalBlockBorderWrapper"] {border-radius:13px}
-@media(max-width:640px) {.st-key-hero {padding:1rem 1.25rem}.st-key-hero h1 {font-size:2rem}
- .st-key-hero [data-testid="stImage"] img {height:auto;aspect-ratio:3/1;object-fit:contain}
- div[data-testid="stTabs"] [data-testid="stTab"] {padding:.38rem .55rem;font-size:.87rem}}
+div[data-testid="stVerticalBlockBorderWrapper"]:has(> div[data-testid="stVerticalBlock"]),
+div[data-testid="stVerticalBlockBorderWrapper"] {border-radius:14px}
+div[data-testid="stMetric"] {border-radius:14px;background:#fff;border:1px solid #dce5e3;
+ box-shadow:0 4px 16px #1a34410d;padding:.35rem .6rem}
+div[data-testid="stMetricValue"] {color:#203d47;font-weight:750;letter-spacing:-.025em}
+div[data-testid="stButton"] button[kind="primary"] {background:#a63631;border-color:#a63631;border-radius:10px}
+div[data-testid="stButton"] button[kind="primary"]:hover {background:#872c29;border-color:#872c29}
+h3 {color:#203a47;letter-spacing:-.025em}
+div[data-testid="stExpander"] {border-radius:12px;background:#fff}
+@media(max-width:640px) {.block-container {padding:1rem .8rem 3rem}
+ .st-key-hero {padding:1rem}.st-key-hero h1 {font-size:2.05rem}
+ .st-key-hero [data-testid="stImage"] img {height:170px;object-fit:cover;object-position:50% 50%}
+ div[data-testid="stTabs"] [data-testid="stTab"] {padding:.42rem .62rem;font-size:.85rem}}
 </style>''',unsafe_allow_html=True)
 render_header(ROOT/'assets/hero-trens-vermelhos-v1.webp')
 
@@ -68,8 +80,8 @@ def budget_controls(key,freight=False):
             configuration='Superfície' if freight else st.selectbox('Configuração',['Superfície','Elevado','Subterrâneo'],key=key+'_configuration')
         if freight:
             lines=st.selectbox('Via',[1,2],format_func=lambda n:'Simples' if n==1 else 'Dupla',key=key+'_lines')
-            axle=st.number_input('Carga por eixo de projeto (t/eixo)',min_value=10.0,max_value=40.0,value=25.0,step=1.0,key=key+'_axle',help='Premissa para análise futura; não redimensiona os itens SIEC nesta versão.')
-            st.caption('Estimativa inicial da infraestrutura de superfície. O dimensionamento para a carga por eixo deve ser conferido em projeto.')
+            axle=st.selectbox('Alternativa de carga por eixo (t/eixo)',[20,25],index=1,key=key+'_axle',help='20 t: TR57; 25 t: UIC60. Alternativas de orçamento, sujeitas a projeto estrutural.')
+            st.caption('Via de superfície com trilhos e montagem específicos para a alternativa selecionada. Verifique a capacidade em projeto.')
         else:
             with general[3]:
                 lines=st.selectbox('Via',[1,2],format_func=lambda n:'Simples' if n==1 else 'Dupla',key=key+'_lines')
@@ -138,19 +150,17 @@ def budget_controls(key,freight=False):
         st.caption('O percentual é aplicado uma única vez ao total e aos subtotais selecionados.')
     missing_price=not freight and any(q and not price for q,price in stations.values())
     if missing_price:st.warning('Informe o preço unitário para cada porte de estação selecionado.')
-    calculate_now=st.button('Calcular orçamento',key=key+'_calculate',type='primary',icon=':material/calculate:',width='stretch',disabled=subterraneo or missing_price)
-    if calculate_now:
+    if freight:st.caption('O orçamento de carga é atualizado automaticamente ao alterar as premissas.')
+    else:calculate_now=st.button('Calcular orçamento',key=key+'_calculate',type='primary',icon=':material/calculate:',width='stretch',disabled=subterraneo or missing_price)
+    if freight or calculate_now:
         try:
             p=Scenario(km=km,configuration=configuration,lines=lines,drainage=drainage,
                 fence=fence if enabled[3] else 'Nenhuma',amvs=int(amvs) if enabled[4] else 0,
                 ducts=enabled[5],topography=enabled[1],overhead=enabled[6],signaling=enabled[7],
                 detection=detection,rolling_stock=False if freight else enabled[8],trainsets=0 if freight else int(trainsets) if enabled[8] else 0,
                 profile='siec',bdi=percentage/100)
-            result=calculate(p,rules,catalog)
+            result=calculate_freight(p,axle,rules,catalog) if freight else calculate(p,rules,catalog)
             if freight:
-                result['model_label']='SIEC • carga (infraestrutura preliminar)'
-                result['groups'].pop('9 Material rodante')
-                result['warnings'].append(f'Carga por eixo informada: {axle} t/eixo; não redimensiona a superestrutura de passageiros adotada como referência. Validar trilho, dormentes, lastro e plataforma em projeto.')
                 result['warnings'].append(f'Frota fora do total: {locomotives} locomotiva(s), {wagons} vagão(ões). Pátios, terminais, pontes e passagens em nível também não foram orçados.')
             else:result=include_stations(result,stations)
             st.session_state.results[key]=result
@@ -172,7 +182,7 @@ def budget_controls(key,freight=False):
 def render_result(r,key,modality='passageiro'):
     st.subheader('Resultado do orçamento')
     if modality=='carga':
-        st.warning('Estimativa preliminar da infraestrutura com itens SIEC. A carga por eixo ainda não redimensiona a via; frota, pátios, terminais e obras especiais estão fora deste total.')
+        st.info('Infraestrutura de carga com alternativa TR57 ou UIC60 da base SIEC. A verificação estrutural da via, frota, pátios, terminais e obras especiais requer orçamento de projeto.')
     st.caption('Cenário calculado: '+caption(r))
     with st.container(horizontal=True):
         st.metric('Total com BDI' if r['scenario']['bdi'] else 'Total sem BDI',currency(r['total']),border=True)
@@ -187,7 +197,7 @@ def render_result(r,key,modality='passageiro'):
         st.subheader('Participação por grupo')
         group_frame=pd.DataFrame([{'Grupo':g.split(' ',1)[1],'Custo direto (R$)':v} for g,v in r['groups'].items()])
         st.dataframe(group_frame,hide_index=True,column_config={'Custo direto (R$)':st.column_config.NumberColumn(format='%.2f')})
-        st.bar_chart(group_frame,x='Grupo',y='Custo direto (R$)',horizontal=True,color='#147D83')
+        st.bar_chart(group_frame,x='Grupo',y='Custo direto (R$)',horizontal=True,color='#a63631')
     with detail_tab:
         with st.expander('EAP completa · serviços e preços',expanded=False):
             st.dataframe(frame,hide_index=True,height=530,column_config={'Quantidade':st.column_config.NumberColumn(format='%.6f'),'Custo unitário (R$)':st.column_config.NumberColumn(format='%.2f'),'Custo total (R$)':st.column_config.NumberColumn(format='%.2f')})
