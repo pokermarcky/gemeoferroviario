@@ -23,10 +23,11 @@ def test_navegacao_e_controles_solicitados():
     app = AppTest.from_file(str(APP)).run(timeout=30)
     assert not app.exception
     assert [tab.label for tab in app.tabs] == [
+        'ORÇAMENTOS',
         'Ferrovia de passageiro', 'Resumo geral', 'Detalhamento por grupo',
         'Ferrovia de carga', 'VLT - Veículo leve sobre Trilho', 'Shortline',
-        'Insumos', 'Serviços']
-    assert any(h.value == 'ORÇAMENTOS' for h in app.header)
+        'BASES DE REFERÊNCIA', 'Insumos', 'Serviços']
+    assert any(h.value == 'Parametric Rails' for h in app.title)
     assert app.selectbox(key='main_profile').options == ['SIEC • lastro / AMV nº 14']
     assert app.selectbox(key='main_configuration').options == ['Superfície', 'Elevado', 'Subterrâneo']
     assert app.checkbox(key='main_grupo_5').label == 'Banco de dutos'
