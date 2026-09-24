@@ -11,15 +11,24 @@ ROOT=Path(__file__).resolve().parent
 
 st.set_page_config(page_title='railparametric | Parametric Rails',page_icon=':material/train:',layout='wide')
 st.markdown('''<style>
-div[data-testid="stAppViewContainer"] {background:linear-gradient(180deg,#f4f8fa 0,#ffffff 360px)}
-div[data-testid="stTabs"] [role="tablist"] {gap:.4rem;flex-wrap:wrap;border-bottom:0!important;margin:.8rem 0}
-div[data-testid="stTabs"] [data-testid="stTab"] {border:1px solid #cbdbe0;border-radius:10px;background:#fff;
-  padding:.55rem .9rem;color:#244253;font-weight:600;box-shadow:0 2px 8px #1838490c}
+div[data-testid="stAppViewContainer"] {background:#f5f8fa;color:#203747}
+.block-container {max-width:1320px;padding-top:2.25rem;padding-bottom:4rem}
+.st-key-hero {padding:1.45rem 2rem;border-radius:18px;background:linear-gradient(115deg,#102b3e,#1a4a59);
+ border:1px solid #305668;box-shadow:0 16px 32px #102b3e18}
+.st-key-hero h1 {color:#fff;font-size:2.55rem;letter-spacing:-.035em;margin:.12rem 0}
+.st-key-hero [data-testid="stMarkdownContainer"] p {color:#d7e6e9;font-size:1rem}
+.st-key-hero .hero-eyebrow {color:#74d0c8;font-weight:700;font-size:.72rem;letter-spacing:.15em}
+div[data-testid="stTabs"] [role="tablist"] {gap:.45rem;flex-wrap:wrap;border-bottom:0!important;margin:.7rem 0 1.1rem}
+div[data-testid="stTabs"] [data-testid="stTab"] {border:1px solid #c7d8df;border-radius:10px;background:#fff;
+ padding:.52rem .9rem;color:#284458;font-weight:600;box-shadow:0 2px 8px #102b3e0b;transition:background .2s,border-color .2s}
+div[data-testid="stTabs"] [data-testid="stTab"]:hover {border-color:#17828a;background:#f0faf8}
 div[data-testid="stTabs"] [data-testid="stTab"][aria-selected="true"] {border-color:#147d83;
-  background:#e8f5f3;color:#07585d;box-shadow:inset 0 0 0 1px #147d83}
+ background:#e4f5f2;color:#07585d;box-shadow:inset 0 0 0 1px #147d83}
 div[data-testid="stTabs"] .react-aria-SelectionIndicator {display:none}
-div[data-testid="stMetric"] {border-radius:12px}
-@media(max-width:640px) {div[data-testid="stTabs"] [data-testid="stTab"] {padding:.4rem .55rem;font-size:.88rem}}
+div[data-testid="stMetric"] {border-radius:12px;background:#fff;border:1px solid #dce7eb}
+div[data-testid="stVerticalBlockBorderWrapper"] {border-radius:13px}
+@media(max-width:640px) {.st-key-hero {padding:1rem 1.25rem}.st-key-hero h1 {font-size:2rem}
+ div[data-testid="stTabs"] [data-testid="stTab"] {padding:.38rem .55rem;font-size:.87rem}}
 </style>''',unsafe_allow_html=True)
 train_component = st.components.v2.component("parametric_rails_train", html=TRAIN_HTML, css=TRAIN_CSS)
 render_header(train_component)
@@ -43,10 +52,10 @@ def set_all_groups(key,count,selected):
 
 
 def budget_controls(key,freight=False):
-    st.subheader('Configure o cenário')
-    st.caption('Defina o corredor e selecione apenas os serviços que fazem parte do escopo.')
+    st.subheader('Defina o cenário')
+    st.caption('Escolha as premissas do corredor e os grupos que entram no orçamento.')
     with st.container(border=True):
-        st.markdown('**Características gerais**')
+        st.markdown('**01 · Características gerais**')
         general=st.columns(3 if freight else 4)
         with general[0]:
             if freight:st.caption('Base de referência: SIEC • via em lastro / AMV nº 14')
@@ -67,7 +76,7 @@ def budget_controls(key,freight=False):
     if subterraneo:
         st.warning('Subterrâneo selecionado. As quantidades e os preços de escavação, revestimento, ventilação, segurança e demais sistemas ainda precisam de uma base técnica própria. Este cenário não gera um total por enquanto.')
 
-    st.markdown('**O que incluir no orçamento**')
+    st.markdown('**02 · O que incluir no orçamento**')
     st.caption('Marque um grupo para exibir suas opções. Desmarcar o grupo remove seu custo do total.')
     all_on,all_off,spacer=st.columns([1,1,5])
     all_on.button('Selecionar todas',key=key+'_selecionar_todas',on_click=set_all_groups,args=(key,8 if freight else len(rules['groups'])+1,True),type='tertiary')
@@ -109,19 +118,17 @@ def budget_controls(key,freight=False):
             st.caption('A base SIEC contém custos horários de operação de locomotiva e vagões, mas não preços de aquisição. As quantidades acima ficam registradas como escopo pendente e não entram no total.')
             st.caption('Pátios, terminais, pontes, passagens em nível e interfaces de carga também exigem orçamento próprio.')
     else:
-        with st.container(border=True):
-            st.markdown('**Estações de passageiros**')
+        with st.expander('Estações de passageiros · quantidades e preços',expanded=False):
             include_station_group=st.checkbox('Incluir estações no orçamento',value=True,key=key+'_grupo_9')
             st.caption('Informe quantidade e preço unitário estimado por porte. Sem preço unitário não é possível incluir uma estação no orçamento.')
             station_cols=st.columns(3)
             for i,size in enumerate(STATION_SIZES):
                 with station_cols[i]:
                     st.markdown('**'+size+'**')
-                    qty=st.number_input('Quantidade de estações '+size.lower(),min_value=0,max_value=1000,value=0,step=1,key=key+'_station_'+str(i))
-                    price=st.number_input('Preço unitário (R$) • '+size.lower(),min_value=0.0,max_value=1e12,value=0.0,step=100000.0,format='%.2f',key=key+'_station_price_'+str(i),disabled=qty==0)
+                    qty=st.number_input('Quantidade · '+size.lower(),min_value=0,max_value=1000,value=0,step=1,key=key+'_station_'+str(i))
+                    price=st.number_input('Preço por estação (R$) · '+size.lower(),min_value=0.0,max_value=1e12,value=0.0,step=100000.0,format='%.2f',key=key+'_station_price_'+str(i),disabled=qty==0)
                     stations[size]=(int(qty),float(price))
-    with st.container(border=True):
-        st.subheader('BDI do orçamento')
+    with st.expander('03 · BDI do orçamento · ajustar',expanded=False):
         apply_bdi=st.checkbox('Aplicar BDI',value=True,key=key+'_aplicar_bdi',persist_state='session')
         percentage=st.number_input('BDI personalizado (%)',min_value=0.0,max_value=100.0,
             value=27.84182802164763,step=0.5,format='%.6f',
@@ -161,6 +168,7 @@ def budget_controls(key,freight=False):
 
 
 def render_result(r,key,modality='passageiro'):
+    st.subheader('Resultado do orçamento')
     if modality=='carga':
         st.warning('Estimativa preliminar da infraestrutura com itens SIEC. A carga por eixo ainda não redimensiona a via; frota, pátios, terminais e obras especiais estão fora deste total.')
     st.caption('Cenário calculado: '+caption(r))
@@ -178,10 +186,10 @@ def render_result(r,key,modality='passageiro'):
         group_frame=pd.DataFrame([{'Grupo':g.split(' ',1)[1],'Custo direto (R$)':v} for g,v in r['groups'].items()])
         st.dataframe(group_frame,hide_index=True,column_config={'Custo direto (R$)':st.column_config.NumberColumn(format='%.2f')})
         st.bar_chart(group_frame,x='Grupo',y='Custo direto (R$)',horizontal=True,color='#147D83')
-        st.subheader('EAP orçada')
-        st.dataframe(frame,hide_index=True,height=530,column_config={'Quantidade':st.column_config.NumberColumn(format='%.6f'),'Custo unitário (R$)':st.column_config.NumberColumn(format='%.2f'),'Custo total (R$)':st.column_config.NumberColumn(format='%.2f')})
     with detail_tab:
-        st.caption('Cada cartão mostra custo direto, valor com o BDI escolhido e participação no total. Abra a composição somente quando quiser conferir as linhas de preço.')
+        with st.expander('EAP completa · serviços e preços',expanded=False):
+            st.dataframe(frame,hide_index=True,height=530,column_config={'Quantidade':st.column_config.NumberColumn(format='%.6f'),'Custo unitário (R$)':st.column_config.NumberColumn(format='%.2f'),'Custo total (R$)':st.column_config.NumberColumn(format='%.2f')})
+        st.caption('Cada cartão mostra custo direto, valor com BDI e participação no total. Abra a composição para conferir os itens.')
         for group in r['scope_summary']:
             if modality=='carga' and group['group'].startswith('9 '):continue
             with st.container(border=True):
@@ -223,8 +231,8 @@ def modalidade_pendente(nome,escopo,dados):
 
 def preview_reference(upload):
     if not upload:return
-    if upload.size>20*1024*1024:
-        st.error('Arquivo acima de 20 MB. Divida a tabela antes de enviar.');return
+    if upload.size>200*1024*1024:
+        st.error('Arquivo acima de 200 MB. Divida a tabela antes de enviar.');return
     raw=upload.getvalue()
     try:
         if upload.name.lower().endswith('.csv'):
@@ -238,46 +246,48 @@ def preview_reference(upload):
         st.error('Não foi possível ler a tabela: '+str(exc))
 
 
-st.header('ORÇAMENTOS')
-st.caption('Selecione a modalidade. Os valores apresentados correspondem aos itens efetivamente incluídos no escopo.')
-passageiro,carga,vlt,shortline=st.tabs([
-    'Ferrovia de passageiro','Ferrovia de carga','VLT - Veículo leve sobre Trilho','Shortline'])
+budgets_tab,reference_tab=st.tabs(['ORÇAMENTOS','BASES DE REFERÊNCIA'],key='workspace')
+with budgets_tab:
+    st.caption('Escolha uma modalidade para configurar o corredor e revisar o orçamento.')
+    passageiro,carga,vlt,shortline=st.tabs([
+        'Ferrovia de passageiro','Ferrovia de carga','VLT - Veículo leve sobre Trilho','Shortline'])
 
-with passageiro:
-    chosen,rate,subterraneo=budget_controls('main')
-    if not subterraneo:
-        r=st.session_state.results.get('main')
-        if r:render_result(select_groups(r,chosen,bdi_rate=rate),'main')
-        else:st.info('Revise as opções acima e selecione Calcular orçamento.')
+    with passageiro:
+        chosen,rate,subterraneo=budget_controls('main')
+        if not subterraneo:
+            r=st.session_state.results.get('main')
+            if r:render_result(select_groups(r,chosen,bdi_rate=rate),'main')
+            else:st.info('Revise as opções acima e selecione Calcular orçamento.')
 
-with carga:
-    st.caption('Via em superfície • infraestrutura preliminar com referências SIEC. Frota, pátios e obras especiais dependem de orçamento específico.')
-    cargo_chosen,cargo_rate,cargo_blocked=budget_controls('cargo',freight=True)
-    if not cargo_blocked:
-        cargo_result=st.session_state.results.get('cargo')
-        if cargo_result:render_result(select_groups(cargo_result,cargo_chosen,bdi_rate=cargo_rate),'cargo',modality='carga')
-        else:st.info('Configure a ferrovia de carga e selecione Calcular orçamento.')
+    with carga:
+        st.caption('Infraestrutura de superfície com referências SIEC. Frota, pátios e obras especiais exigem orçamento específico.')
+        cargo_chosen,cargo_rate,cargo_blocked=budget_controls('cargo',freight=True)
+        if not cargo_blocked:
+            cargo_result=st.session_state.results.get('cargo')
+            if cargo_result:render_result(select_groups(cargo_result,cargo_chosen,bdi_rate=cargo_rate),'cargo',modality='carga')
+            else:st.info('Configure a ferrovia de carga e selecione Calcular orçamento.')
 
-with vlt:
-    modalidade_pendente('VLT - Veículo leve sobre Trilho',
-        'A via urbana, as paradas, a alimentação elétrica e a frota exigem quantitativos e referências próprios.',[
-        'Traçado, tipo de via implantada e interferências urbanas.',
-        'Paradas, energia, sinalização e acessibilidade com custos de referência.',
-        'Quantidade e especificação dos veículos leves sobre trilhos.'])
+    with vlt:
+        modalidade_pendente('VLT - Veículo leve sobre Trilho',
+            'A via urbana, as paradas, a alimentação elétrica e a frota exigem quantitativos e referências próprios.',[
+            'Traçado, tipo de via implantada e interferências urbanas.',
+            'Paradas, energia, sinalização e acessibilidade com custos de referência.',
+            'Quantidade e especificação dos veículos leves sobre trilhos.'])
 
-with shortline:
-    modalidade_pendente('Shortline',
-        'A estimativa depende de definir se a linha será implantada, reabilitada ou ampliada e qual tráfego atenderá.',[
-        'Inventário da via existente, carga por eixo e velocidade de projeto.',
-        'Extensão, dormentes, trilhos, lastro, AMVs e intervenções em pontes.',
-        'Pátios, sinalização e frota incluídos no escopo.'])
+    with shortline:
+        modalidade_pendente('Shortline',
+            'A estimativa depende de definir se a linha será implantada, reabilitada ou ampliada e qual tráfego atenderá.',[
+            'Inventário da via existente, carga por eixo e velocidade de projeto.',
+            'Extensão, dormentes, trilhos, lastro, AMVs e intervenções em pontes.',
+            'Pátios, sinalização e frota incluídos no escopo.'])
 
-st.divider()
-with st.expander('Tabelas de referência · SINAPI / SIURB / SICRO',expanded=False):
-    st.caption('Envie tabelas em CSV ou Excel para conferir sua estrutura. Os arquivos ficam nesta sessão; preços só serão usados nos orçamentos após mapeamento de códigos, unidades e data-base.')
+with reference_tab:
+    st.subheader('Tabelas de referência')
+    st.caption('Envie SINAPI, SIURB ou SICRO para conferir a estrutura. Os arquivos ficam nesta sessão; preços dependem de mapeamento de código, unidade e data-base.')
     for name,panel in zip(('Insumos','Serviços'),st.tabs(['Insumos','Serviços'])):
         with panel:
             for source,column in zip(('SINAPI','SIURB','SICRO'),st.columns(3)):
                 with column:
-                    upload=st.file_uploader(source+' • '+name,type=['csv','xlsx'],key='upload_'+source+'_'+name)
-                    preview_reference(upload)
+                    with st.container(border=True):
+                        upload=st.file_uploader(source+' • '+name,type=['csv','xlsx'],key='upload_'+source+'_'+name)
+                        preview_reference(upload)

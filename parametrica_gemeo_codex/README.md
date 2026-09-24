@@ -8,7 +8,7 @@ Aplicação Streamlit para orçamentos paramétricos ferroviários. Passageiros 
 streamlit run app.py
 ```
 
-Abra **ORÇAMENTOS → Ferrovia de passageiro**, informe a extensão, configuração e quantidade de vias, escolha os grupos de serviço e clique em **Calcular orçamento**. O botão **Baixar orçamento em Excel** entrega a planilha do cenário calculado e dos grupos atualmente selecionados. As abas **Resumo geral** e **Detalhamento por grupo** mostram o resultado na página.
+Abra **ORÇAMENTOS → Ferrovia de passageiro**, informe a extensão, configuração e quantidade de vias, escolha os grupos de serviço e clique em **Calcular orçamento**. O botão **Baixar orçamento em Excel** entrega a planilha do cenário calculado e dos grupos atualmente selecionados. As abas **Resumo geral** e **Detalhamento por grupo** mostram o resultado na página. Estações, BDI, EAP completa e composições detalhadas ficam em painéis recolhíveis para manter a tela principal enxuta.
 
 **Banco de dutos** aparece entre os grupos de superfície e corresponde ao banco subterrâneo de seis dutos. Em elevado, o mesmo grupo passa a **Canaletas e passa-fios**, conforme as composições aplicáveis. O controle de prazo foi retirado do formulário; o cálculo conserva o prazo de referência interno do modelo para os quantitativos que dependem dele.
 
@@ -16,7 +16,7 @@ A opção **Subterrâneo** está visível, mas não produz orçamento até serem
 
 Em **Ferrovia de carga**, informe extensão, vias e escopo de infraestrutura. O cenário inicial desativa banco de dutos, rede aérea, sinalização e material rodante. AMVs são opcionais. Locomotivas e vagões aparecem como quantidades de escopo, sem preço de aquisição: a SIEC contém custos horários de operação desses veículos, que não podem representar sua compra. O trilho, os dormentes, o lastro, a plataforma e os AMVs reutilizados da referência SIEC exigem verificação técnica para a carga por eixo, bitola, capacidade e geometria. A carga por eixo informada **não redimensiona** as quantidades nesta versão. Pátios, terminais, obras de arte, passagens em nível e frota ficam fora do total; não compare o valor por km de carga e passageiros como se os escopos fossem idênticos. VLT e Shortline permanecem em definição de escopo.
 
-Em **Tabelas de referência**, as abas Insumos e Serviços oferecem campos para SINAPI, SIURB e SICRO. Arquivos CSV/XLSX de até 20 MB recebem prévia das primeiras linhas e permanecem apenas na sessão atual. Eles **não alteram os preços** até serem mapeados e validados código, unidade, data-base e composição.
+Na aba **BASES DE REFERÊNCIA**, as abas Insumos e Serviços oferecem campos para SINAPI, SIURB e SICRO. Arquivos CSV/XLSX de até 200 MB recebem prévia das primeiras linhas e permanecem apenas na sessão atual. Eles **não alteram os preços** até serem mapeados e validados código, unidade, data-base e composição.
 
 Alterações nas premissas exigem clicar em **Calcular orçamento**; até lá, o total anterior fica oculto. Marcar e desmarcar grupos e alterar o BDI fazem um recorte financeiro imediato do resultado existente. Os resultados de sessão não persistem ao encerrar o servidor.
 
