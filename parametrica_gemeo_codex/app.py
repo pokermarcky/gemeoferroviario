@@ -4,7 +4,8 @@ import pandas as pd
 import streamlit as st
 from railbudget.engine import Scenario, load_model, calculate, select_groups
 from railbudget.exporters import make_excel, currency, br, caption
-from railbudget.interface import apply_theme, animated_header
+from railbudget.interface import apply_theme
+from railbudget.realistic_scene import realistic_header
 from railbudget.freight import calculate_freight
 from railbudget.stations import include_stations, STATION_SIZES, STATION_GROUP
 
@@ -12,7 +13,7 @@ ROOT=Path(__file__).resolve().parent
 
 st.set_page_config(page_title='railparametric | Parametric Rails',page_icon=':material/train:',layout='wide')
 apply_theme()
-animated_header()
+realistic_header()
 @st.cache_data(ttl=300,max_entries=2)
 def data(version):return load_model(ROOT)
 
