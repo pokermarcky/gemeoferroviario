@@ -4,49 +4,15 @@ import pandas as pd
 import streamlit as st
 from railbudget.engine import Scenario, load_model, calculate, select_groups
 from railbudget.exporters import make_excel, currency, br, caption
-from railbudget.header import render_header
+from railbudget.interface import apply_theme, animated_header
 from railbudget.freight import calculate_freight
 from railbudget.stations import include_stations, STATION_SIZES, STATION_GROUP
 
 ROOT=Path(__file__).resolve().parent
 
 st.set_page_config(page_title='railparametric | Parametric Rails',page_icon=':material/train:',layout='wide')
-st.markdown('''<style>
-div[data-testid="stAppViewContainer"] {background:#f6f7f5;color:#243744}
-.block-container {max-width:1240px;padding-top:1.65rem;padding-bottom:4rem}
-.st-key-hero {padding:1.35rem 1.55rem 1.4rem;border-radius:20px;background:#fff;
- border:1px solid #e1e6e3;box-shadow:0 14px 42px #1a344113}
-.st-key-hero h1 {color:#1c3541;font-size:2.65rem;letter-spacing:-.045em;line-height:1.15;margin:.06rem 0}
-.st-key-hero [data-testid="stMarkdownContainer"] p {color:#526775;font-size:1rem;margin-bottom:.65rem}
-.st-key-hero .hero-eyebrow {color:#a63631;font-weight:800;font-size:.69rem;letter-spacing:.16em}
-.st-key-hero [data-testid="stImage"] {margin-top:.35rem}
-.st-key-hero [data-testid="stImage"] img {width:100%;height:224px;object-fit:cover;
- object-position:center 52%;border-radius:12px;border:1px solid #d9e1e1;filter:saturate(.82) brightness(1.06)}
-.st-key-workspace {margin-top:1rem}
-div[data-testid="stTabs"] [role="tablist"] {gap:.55rem;flex-wrap:wrap;border-bottom:1px solid #e1e6e3!important;
- padding-bottom:.65rem;margin:.75rem 0 1.4rem}
-div[data-testid="stTabs"] [data-testid="stTab"] {border:1px solid #dde4e3;border-radius:10px;background:#fff;
- padding:.52rem .85rem;color:#395360;font-weight:650;box-shadow:0 2px 7px #1a34410b;transition:background .2s,border-color .2s}
-div[data-testid="stTabs"] [data-testid="stTab"]:hover {border-color:#a63631;background:#fff9f7}
-div[data-testid="stTabs"] [data-testid="stTab"][aria-selected="true"] {border-color:#a63631;
- background:#fcf0ed;color:#862923;box-shadow:inset 0 0 0 1px #a63631}
-div[data-testid="stTabs"] .react-aria-SelectionIndicator {display:none}
-div[data-testid="stVerticalBlockBorderWrapper"]:has(> div[data-testid="stVerticalBlock"]),
-div[data-testid="stVerticalBlockBorderWrapper"] {border-radius:14px}
-div[data-testid="stMetric"] {border-radius:14px;background:#fff;border:1px solid #dce5e3;
- box-shadow:0 4px 16px #1a34410d;padding:.35rem .6rem}
-div[data-testid="stMetricValue"] {color:#203d47;font-weight:750;letter-spacing:-.025em}
-div[data-testid="stButton"] button[kind="primary"] {background:#a63631;border-color:#a63631;border-radius:10px}
-div[data-testid="stButton"] button[kind="primary"]:hover {background:#872c29;border-color:#872c29}
-h3 {color:#203a47;letter-spacing:-.025em}
-div[data-testid="stExpander"] {border-radius:12px;background:#fff}
-@media(max-width:640px) {.block-container {padding:1rem .8rem 3rem}
- .st-key-hero {padding:1rem}.st-key-hero h1 {font-size:2.05rem}
- .st-key-hero [data-testid="stImage"] img {height:170px;object-fit:cover;object-position:50% 50%}
- div[data-testid="stTabs"] [data-testid="stTab"] {padding:.42rem .62rem;font-size:.85rem}}
-</style>''',unsafe_allow_html=True)
-render_header(ROOT/'assets/hero-trens-vermelhos-v1.webp')
-
+apply_theme()
+animated_header()
 @st.cache_data(ttl=300,max_entries=2)
 def data(version):return load_model(ROOT)
 
@@ -66,10 +32,10 @@ def set_all_groups(key,count,selected):
 
 
 def budget_controls(key,freight=False):
-    st.subheader('Defina o cenário')
-    st.caption('Escolha as premissas do corredor e os grupos que entram no orçamento.')
+    st.subheader('Configure sua ferrovia')
+    st.caption('Comece pelo traçado. Depois, escolha os serviços e confira o resultado abaixo.')
     with st.container(border=True):
-        st.markdown('**01 · Características gerais**')
+        st.markdown('**1. Traçado e características**')
         general=st.columns(3 if freight else 4)
         with general[0]:
             if freight:st.caption('Base de referência: SIEC • via em lastro / AMV nº 14')
@@ -77,6 +43,7 @@ def budget_controls(key,freight=False):
         with general[1]:
             km=st.number_input('Extensão do corredor (km)',min_value=0.01,max_value=10000.0,value=1.0,step=0.1,format='%.3f',key=key+'_km')
         with general[2]:
+            if freight:st.caption('Implantação: superfície · via em lastro')
             configuration='Superfície' if freight else st.selectbox('Configuração',['Superfície','Elevado','Subterrâneo'],key=key+'_configuration')
         if freight:
             lines=st.selectbox('Via',[1,2],format_func=lambda n:'Simples' if n==1 else 'Dupla',key=key+'_lines')
@@ -90,11 +57,11 @@ def budget_controls(key,freight=False):
     if subterraneo:
         st.warning('Subterrâneo selecionado. As quantidades e os preços de escavação, revestimento, ventilação, segurança e demais sistemas ainda precisam de uma base técnica própria. Este cenário não gera um total por enquanto.')
 
-    st.markdown('**02 · O que incluir no orçamento**')
-    st.caption('Marque um grupo para exibir suas opções. Desmarcar o grupo remove seu custo do total.')
-    all_on,all_off,spacer=st.columns([1,1,5])
-    all_on.button('Selecionar todas',key=key+'_selecionar_todas',on_click=set_all_groups,args=(key,8 if freight else len(rules['groups'])+1,True),type='tertiary')
-    all_off.button('Desmarcar todas',key=key+'_desmarcar_todas',on_click=set_all_groups,args=(key,8 if freight else len(rules['groups'])+1,False),type='tertiary')
+    st.markdown('**2. Serviços incluídos**')
+    st.caption('Ative somente o que faz parte do seu projeto. As opções aparecem em cada cartão.')
+    with st.container(horizontal=True, gap='small'):
+        st.button('Incluir todos',key=key+'_selecionar_todas',on_click=set_all_groups,args=(key,8 if freight else len(rules['groups'])+1,True),type='tertiary',icon=':material/done_all:')
+        st.button('Limpar seleção',key=key+'_desmarcar_todas',on_click=set_all_groups,args=(key,8 if freight else len(rules['groups'])+1,False),type='tertiary',icon=':material/remove_done:')
     chosen=[]
     enabled={}
     drainage=st.session_state.get(key+'_drainage','Reforçada')
@@ -103,8 +70,8 @@ def budget_controls(key,freight=False):
     detection=st.session_state.get(key+'_detection','Circuito de via')
     trainsets=st.session_state.get(key+'_trainsets',1)
     stations={}
-    group_columns=st.columns(3)
     for i,g in enumerate(rules['groups'][:8] if freight else rules['groups']):
+        if i%3==0:group_columns=st.columns(3)
         with group_columns[i%len(group_columns)]:
             with st.container(border=True):
                 label=('Banco de dutos' if configuration=='Superfície' else 'Canaletas e passa-fios') if i==5 else g.split(' ',1)[1]
@@ -142,7 +109,7 @@ def budget_controls(key,freight=False):
                     qty=st.number_input('Quantidade · '+size.lower(),min_value=0,max_value=1000,value=0,step=1,key=key+'_station_'+str(i))
                     price=st.number_input('Preço por estação (R$) · '+size.lower(),min_value=0.0,max_value=1e12,value=0.0,step=100000.0,format='%.2f',key=key+'_station_price_'+str(i),disabled=qty==0)
                     stations[size]=(int(qty),float(price))
-    with st.expander('03 · BDI do orçamento · ajustar',expanded=False):
+    with st.expander('3. BDI e condições do orçamento',expanded=False):
         apply_bdi=st.checkbox('Aplicar BDI',value=True,key=key+'_aplicar_bdi',persist_state='session')
         percentage=st.number_input('BDI personalizado (%)',min_value=0.0,max_value=100.0,
             value=27.84182802164763,step=0.5,format='%.6f',
@@ -151,7 +118,7 @@ def budget_controls(key,freight=False):
     missing_price=not freight and any(q and not price for q,price in stations.values())
     if missing_price:st.warning('Informe o preço unitário para cada porte de estação selecionado.')
     if freight:st.caption('O orçamento de carga é atualizado automaticamente ao alterar as premissas.')
-    else:calculate_now=st.button('Calcular orçamento',key=key+'_calculate',type='primary',icon=':material/calculate:',width='stretch',disabled=subterraneo or missing_price)
+    else:calculate_now=st.button('Atualizar orçamento',key=key+'_calculate',type='primary',icon=':material/calculate:',disabled=subterraneo or missing_price)
     if freight or calculate_now:
         try:
             p=Scenario(km=km,configuration=configuration,lines=lines,drainage=drainage,
@@ -174,7 +141,7 @@ def budget_controls(key,freight=False):
     if not freight:st.session_state.setdefault(key+'_calculated_inputs',current_inputs)
     stale=key+'_calculated_inputs' in st.session_state and st.session_state[key+'_calculated_inputs']!=current_inputs
     if stale and not subterraneo:
-        st.info('Parâmetros alterados. Clique em Calcular orçamento para atualizar os valores.')
+        st.info('Você alterou o cenário. Selecione Atualizar orçamento para conferir os novos valores.')
     if not freight and include_station_group and STATION_GROUP in st.session_state.results.get(key,{}).get('groups',{}):chosen.append(STATION_GROUP)
     return chosen,rate,subterraneo or missing_price or stale
 
@@ -196,8 +163,11 @@ def render_result(r,key,modality='passageiro'):
         st.caption('Visão consolidada do total selecionado. Consulte o detalhamento para conferir cada serviço, quantidade, código, fonte e preço.')
         st.subheader('Participação por grupo')
         group_frame=pd.DataFrame([{'Grupo':g.split(' ',1)[1],'Custo direto (R$)':v} for g,v in r['groups'].items()])
-        st.dataframe(group_frame,hide_index=True,column_config={'Custo direto (R$)':st.column_config.NumberColumn(format='%.2f')})
-        st.bar_chart(group_frame,x='Grupo',y='Custo direto (R$)',horizontal=True,color='#a63631')
+        summary_columns=st.columns([1,1.15],gap='large')
+        with summary_columns[0]:
+            st.dataframe(group_frame,hide_index=True,column_config={'Custo direto (R$)':st.column_config.NumberColumn(format='%.2f')})
+        with summary_columns[1]:
+            st.bar_chart(group_frame,x='Grupo',y='Custo direto (R$)',horizontal=True,color='#60998e',height=320)
     with detail_tab:
         with st.expander('EAP completa · serviços e preços',expanded=False):
             st.dataframe(frame,hide_index=True,height=530,column_config={'Quantidade':st.column_config.NumberColumn(format='%.6f'),'Custo unitário (R$)':st.column_config.NumberColumn(format='%.2f'),'Custo total (R$)':st.column_config.NumberColumn(format='%.2f')})
@@ -269,7 +239,7 @@ with budgets_tab:
         if not subterraneo:
             r=st.session_state.results.get('main')
             if r:render_result(select_groups(r,chosen,bdi_rate=rate),'main')
-            else:st.info('Revise as opções acima e selecione Calcular orçamento.')
+            else:st.info('Revise as opções acima e selecione Atualizar orçamento.')
 
     with carga:
         st.caption('Infraestrutura de superfície com referências SIEC. Frota, pátios e obras especiais exigem orçamento específico.')
@@ -277,7 +247,7 @@ with budgets_tab:
         if not cargo_blocked:
             cargo_result=st.session_state.results.get('cargo')
             if cargo_result:render_result(select_groups(cargo_result,cargo_chosen,bdi_rate=cargo_rate),'cargo',modality='carga')
-            else:st.info('Configure a ferrovia de carga e selecione Calcular orçamento.')
+            else:st.info('Confira as premissas da ferrovia de carga para gerar o orçamento.')
 
     with vlt:
         modalidade_pendente('VLT - Veículo leve sobre Trilho',
