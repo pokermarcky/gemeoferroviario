@@ -180,7 +180,8 @@ def render_result(r,key,modality='passageiro'):
         st.metric('Total com BDI' if r['scenario']['bdi'] else 'Total sem BDI',currency(r['total']),border=True)
         st.metric('Por km de corredor',currency(r['per_km']),border=True)
         st.metric('Por km de linha',currency(r['per_line_km']),border=True)
-    st.caption(f"Custo direto: {currency(r['direct'])} | BDI aplicado: {br(r['scenario']['bdi']*100,6)}% | Acréscimo de BDI: {currency(r['bdi_amount'])}")
+    financial_caption=f"Custo direto: {currency(r['direct'])} | BDI aplicado: {br(r['scenario']['bdi']*100,6)}% | Acréscimo de BDI: {currency(r['bdi_amount'])}"
+    st.caption(financial_caption.replace('$',r'\$'))
     columns={'eap':'EAP','group':'Grupo','code':'Código','source':'Fonte','label':'Aplicação','description':'Descrição','unit':'Unidade','quantity':'Quantidade','unit_cost':'Custo unitário (R$)','total':'Custo total (R$)','date':'Data-base'}
     frame=pd.DataFrame(r['items'])[list(columns)].rename(columns=columns) if r['items'] else pd.DataFrame(columns=columns.values())
     summary_tab,detail_tab=st.tabs(['Resumo geral','Detalhamento por grupo'])
