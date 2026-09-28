@@ -19,17 +19,17 @@ def realistic_header():
         st.caption('Engenharia de custos ferroviários, com clareza do primeiro parâmetro ao orçamento.')
         scene = '''<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><style>
         body{margin:0;background:#fff;font-family:system-ui,sans-serif}
-        .scene{position:relative;height:242px;overflow:hidden;border-radius:12px;background:linear-gradient(#e6eef0 0%,#f3f5ef 37%,#dde4da 38%,#e4e7df 100%)}
+        .scene{position:relative;height:226px;overflow:hidden;border-radius:14px;background:linear-gradient(#e7eff0 0%,#f4f6f1 37%,#dfe6dc 38%,#e8ebe3 100%)}
         .horizon{position:absolute;inset:35px 0 auto;height:52px;opacity:.22;background:linear-gradient(90deg,transparent 5%,#a7b6b4 5% 9%,transparent 9% 11%,#a7b6b4 11% 18%,transparent 18% 63%,#a7b6b4 63% 65%,transparent 65% 71%,#a7b6b4 71% 79%,transparent 79%);mask-image:linear-gradient(transparent,#000)}
         .rail{position:absolute;left:0;right:0;height:9px;border-top:2px solid #8d9996;border-bottom:1px solid #a6afaa;background:repeating-linear-gradient(90deg,#bec5ba 0 3px,#d9dcd2 3px 12px)}
-        .r1{top:111px;opacity:.65}.r2{top:169px;opacity:.8}.r3{top:225px}
-        .train{position:absolute;left:0;width:clamp(260px,46vw,510px);animation:travel 76s linear infinite;will-change:transform}
+        .r1{top:99px;opacity:.65}.r2{top:155px;opacity:.8}.r3{top:211px}
+        .train{position:absolute;left:0;width:clamp(260px,46vw,510px);animation:travel 34s linear infinite;will-change:transform;filter:drop-shadow(0 5px 5px #50645e28)}
         .train img{display:block;width:100%;height:auto;max-height:76px;object-fit:contain;object-position:bottom}
-        .passenger{bottom:128px;animation-duration:72s;animation-delay:-27s}
-        .cargo{bottom:70px;width:clamp(290px,50vw,550px);animation-duration:96s;animation-delay:-47s}
-        .vlt{bottom:14px;width:clamp(230px,38vw,420px);animation-duration:64s;animation-delay:-38s}
+        .passenger{bottom:124px;animation-duration:31s;animation-delay:-13s}
+        .cargo{bottom:68px;width:clamp(290px,50vw,550px);animation-duration:42s;animation-delay:-25s}
+        .vlt{bottom:12px;width:clamp(230px,38vw,420px);animation-duration:28s;animation-delay:-19s}
         @keyframes travel{from{transform:translateX(-110%)}to{transform:translateX(105vw)}}
-        .control{position:absolute;z-index:2;right:10px;top:9px;display:flex;align-items:center;gap:6px;padding:6px 9px;border-radius:8px;background:#ffffffed;color:#35534f;font-size:11px;cursor:pointer;border:1px solid #dce6e1}
+        .control{position:absolute;z-index:2;right:10px;top:9px;display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;background:#fffffff2;color:#35534f;font-size:11px;font-weight:650;cursor:pointer;border:1px solid #d7e3df;box-shadow:0 4px 12px #35534f14}
         #pause{accent-color:#28776f;margin:0}.scene:has(#pause:checked) .train{animation-play-state:paused}
         @media(prefers-reduced-motion:reduce){.train{animation:none;transform:translateX(8vw)}.cargo{transform:translateX(40vw)}.vlt{transform:translateX(24vw)}}
         </style></head><body><div class="scene">
@@ -41,4 +41,4 @@ def realistic_header():
         </div></body></html>'''
         for name, image in _sprites().items():
             scene = scene.replace('__' + name.upper() + '__', image)
-        html(scene, height=254, scrolling=False)
+        html(scene, height=238, scrolling=False)

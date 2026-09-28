@@ -36,7 +36,7 @@ def test_navegacao_e_controles_solicitados():
     assert [(x.key, x.proto.label) for x in app.get('download_button')] == [
         ('main_excel', 'Baixar orçamento em Excel'), ('cargo_excel', 'Baixar orçamento em Excel')]
     assert not any(x.key == 'main_prepare' for x in app.button)
-    assert len(app.get('file_uploader')) == 6
+    assert len(app.get('file_uploader')) == 8
     assert app.button(key='main_selecionar_todas').proto.type != 'primary'
 
 

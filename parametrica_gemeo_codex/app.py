@@ -1,5 +1,5 @@
 from pathlib import Path
-from io import BytesIO
+from hashlib import sha256
 import pandas as pd
 import streamlit as st
 from railbudget.engine import Scenario, load_model, calculate, select_groups
@@ -8,6 +8,8 @@ from railbudget.interface import apply_theme
 from railbudget.realistic_scene import realistic_header
 from railbudget.freight import calculate_freight
 from railbudget.stations import include_stations, STATION_SIZES, STATION_GROUP
+from railbudget.reference_data import (SOURCES, KINDS, parse_reference,
+    apply_reference_bases, embedded_inventory)
 
 ROOT=Path(__file__).resolve().parent
 
@@ -18,11 +20,21 @@ realistic_header()
 def data(version):return load_model(ROOT)
 
 @st.cache_data(ttl=900,max_entries=8,show_spinner=False)
-def excel_orcamento(result,version):return make_excel(result,{**data(version)[1],**result.get('custom_prices',{})})
+def excel_orcamento(result,price_catalog):return make_excel(result,{**price_catalog,**result.get('custom_prices',{})})
 
 version=(ROOT/'data/catalog.sqlite').stat().st_mtime_ns,(ROOT/'config/rules.json').stat().st_mtime_ns
-rules,catalog=data(version)
+rules,base_catalog=data(version)
 st.session_state.setdefault('results',{})
+st.session_state.setdefault('reference_bases',{})
+enabled_bases={slot:base for slot,base in st.session_state.reference_bases.items()
+    if st.session_state.get(f'ref_enabled_{slot[0]}_{slot[1]}',True)}
+reference_signature=tuple(sorted((source,kind,base.digest,base.period)
+    for (source,kind),base in enabled_bases.items()))
+if st.session_state.get('active_reference_signature') not in (None,reference_signature):
+    st.session_state.results={}
+    st.session_state.referencia_inicial_carregada=False
+st.session_state.active_reference_signature=reference_signature
+catalog,linked_uploads=apply_reference_bases(base_catalog,enabled_bases)
 if not st.session_state.get('referencia_inicial_carregada'):
     st.session_state.results.setdefault('main',calculate(Scenario(),rules,catalog))
     st.session_state.referencia_inicial_carregada=True
@@ -147,6 +159,18 @@ def budget_controls(key,freight=False):
     return chosen,rate,subterraneo or missing_price or stale
 
 
+def display_table(frame, monetary=(), height=None):
+    """Tabela de leitura com padrão monetário brasileiro e hierarquia visual consistente."""
+    shown=frame.copy()
+    for column in monetary:
+        if column in shown:
+            shown[column]=shown[column].map(lambda value: currency(value) if pd.notna(value) else '—')
+    options=dict(hide_index=True,width='stretch',row_height=38,
+        column_config={column:st.column_config.TextColumn(width='medium') for column in monetary})
+    if height is not None:options['height']=height
+    st.dataframe(shown,**options)
+
+
 def render_result(r,key,modality='passageiro'):
     st.subheader('Resultado do orçamento')
     if modality=='carga':
@@ -166,12 +190,13 @@ def render_result(r,key,modality='passageiro'):
         group_frame=pd.DataFrame([{'Grupo':g.split(' ',1)[1],'Custo direto (R$)':v} for g,v in r['groups'].items()])
         summary_columns=st.columns([1,1.15],gap='large')
         with summary_columns[0]:
-            st.dataframe(group_frame,hide_index=True,column_config={'Custo direto (R$)':st.column_config.NumberColumn(format='%.2f')})
+            display_table(group_frame,monetary=('Custo direto (R$)',),height=320)
         with summary_columns[1]:
             st.bar_chart(group_frame,x='Grupo',y='Custo direto (R$)',horizontal=True,color='#60998e',height=320)
     with detail_tab:
         with st.expander('EAP completa · serviços e preços',expanded=False):
-            st.dataframe(frame,hide_index=True,height=530,column_config={'Quantidade':st.column_config.NumberColumn(format='%.6f'),'Custo unitário (R$)':st.column_config.NumberColumn(format='%.2f'),'Custo total (R$)':st.column_config.NumberColumn(format='%.2f')})
+            frame['Quantidade']=frame['Quantidade'].map(lambda value:br(value,6))
+            display_table(frame,monetary=('Custo unitário (R$)','Custo total (R$)'),height=530)
         st.caption('Cada cartão mostra custo direto, valor com BDI e participação no total. Abra a composição para conferir os itens.')
         for group in r['scope_summary']:
             if modality=='carga' and group['group'].startswith('9 '):continue
@@ -192,13 +217,16 @@ def render_result(r,key,modality='passageiro'):
                 rows=[x for x in r['items'] if x['group']==group['group']]
                 if rows:
                     with st.expander('Ver composição e preços de '+group['group'].split(' ',1)[1],expanded=False):
-                        st.dataframe(pd.DataFrame(rows)[['code','source','label','unit','quantity','unit_cost','total']].rename(columns={
+                        detail=pd.DataFrame(rows)[['code','source','label','unit','quantity','unit_cost','total']].rename(columns={
                             'code':'Código','source':'Fonte','label':'Serviço','unit':'Unidade','quantity':'Quantidade',
-                            'unit_cost':'Custo unitário (R$)','total':'Custo total (R$)'}),hide_index=True)
+                            'unit_cost':'Custo unitário (R$)','total':'Custo total (R$)'})
+                        detail['Quantidade']=detail['Quantidade'].map(lambda value:br(value,6))
+                        display_table(detail,monetary=('Custo unitário (R$)','Custo total (R$)'))
     if not r['items']:
         st.info('Nenhum serviço incluído no total. Selecione ao menos um grupo com serviços para gerar o orçamento em Excel.')
         return
-    st.download_button('Baixar orçamento em Excel',excel_orcamento(r,version),
+    used_catalog={item['price_key']:catalog[item['price_key']] for item in r['items'] if item['price_key'] in catalog}
+    st.download_button('Baixar orçamento em Excel',excel_orcamento(r,used_catalog),
         file_name='orcamento_ferrovia_'+modality+'.xlsx',
         mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         key=key+'_excel',icon=':material/download:')
@@ -212,21 +240,54 @@ def modalidade_pendente(nome,escopo,dados):
         for item in dados:st.write('• '+item)
 
 
-def preview_reference(upload):
-    if not upload:return
-    if upload.size>200*1024*1024:
-        st.error('Arquivo acima de 200 MB. Divida a tabela antes de enviar.');return
-    raw=upload.getvalue()
-    try:
-        if upload.name.lower().endswith('.csv'):
-            try:frame=pd.read_csv(BytesIO(raw),sep=None,engine='python',nrows=25,dtype=str,encoding='utf-8-sig')
-            except UnicodeDecodeError:frame=pd.read_csv(BytesIO(raw),sep=None,engine='python',nrows=25,dtype=str,encoding='latin-1')
-        else:frame=pd.read_excel(BytesIO(raw),nrows=25,dtype=str,engine='openpyxl')
-        if frame.empty:st.warning('Nenhuma linha identificada neste arquivo.');return
-        st.success(f'{upload.name}: {len(frame.columns)} colunas identificadas.')
-        with st.expander('Prévia das primeiras linhas de '+upload.name):st.dataframe(frame.head(8),hide_index=True)
-    except (ValueError,KeyError,ImportError,UnicodeError,TypeError) as exc:
-        st.error('Não foi possível ler a tabela: '+str(exc))
+def reference_card(source,kind):
+    slot=(source,kind)
+    embedded=embedded_inventory(base_catalog).get(slot)
+    active=st.session_state.reference_bases.get(slot)
+    with st.container(border=True):
+        st.markdown(f'<span class="source-badge source-{source.lower()}">{source}</span> **{kind}**',unsafe_allow_html=True)
+        if active:
+            st.caption(f'Base ativa · {active.period or "data-base não informada"}')
+            enabled_key=f'ref_enabled_{source}_{kind}'
+            st.session_state.setdefault(enabled_key,True)
+            enabled=st.toggle('Usar esta tabela no orçamento',key=enabled_key)
+            linked=linked_uploads.get(slot,0) if enabled else 0
+            st.markdown(f'**{active.count:,} itens** · {linked:,} vinculados ao orçamento'.replace(',','.'))
+            st.caption(active.filename)
+            preview=pd.DataFrame(active.records[:6]).rename(columns={'code':'Código','description':'Descrição','unit':'Unidade','price':'Preço','date':'Data-base'})
+            with st.expander('Visualizar amostra',expanded=False):
+                display_table(preview,monetary=('Preço',))
+            if st.button('Restaurar base anterior',key=f'restore_{source}_{kind}',type='tertiary',icon=':material/restore:'):
+                del st.session_state.reference_bases[slot]
+                st.session_state.pop(f'ref_enabled_{source}_{kind}',None)
+                st.session_state.results={}
+                st.session_state.referencia_inicial_carregada=False
+                st.rerun()
+        elif embedded:
+            periods=' · '.join(sorted(embedded['periods']))
+            st.caption(f'Base embarcada · {periods}')
+            st.markdown(f'**{embedded["count"]:,} itens** disponíveis'.replace(',','.'))
+        else:
+            st.caption('Nenhuma tabela ativa')
+            st.markdown('**Aguardando uma base válida**')
+        period=st.text_input('Data-base da substituição',placeholder='MM/AAAA',key=f'period_{source}_{kind}')
+        upload=st.file_uploader('Substituir tabela atual',type=['csv','xlsx'],key=f'upload_{source}_{kind}',
+            help='O arquivo novo substitui a tabela anterior desta fonte e categoria. Colunas mínimas: Código, Descrição, Unidade e Preço.')
+        if upload and upload.size>200*1024*1024:
+            st.error('Arquivo acima de 200 MB. Divida a tabela antes de enviar.');return
+        if upload:
+            raw=upload.getvalue();digest=sha256(raw).hexdigest()
+            if not active or digest!=active.digest or period.strip()!=active.period:
+                try:
+                    parsed=parse_reference(raw,upload.name,source,kind,period)
+                    st.session_state.reference_bases[slot]=parsed
+                    st.session_state[f'ref_enabled_{source}_{kind}']=True
+                    st.session_state.results={}
+                    st.session_state.referencia_inicial_carregada=False
+                    st.success(f'{parsed.count:,} itens validados. A nova base já está ativa.'.replace(',','.'))
+                    st.rerun()
+                except (ValueError,KeyError,ImportError,UnicodeError,TypeError) as exc:
+                    st.error('Tabela não ativada: '+str(exc))
 
 
 budgets_tab,reference_tab=st.tabs(['ORÇAMENTOS','BASES DE REFERÊNCIA'],key='workspace')
@@ -265,12 +326,18 @@ with budgets_tab:
             'Pátios, sinalização e frota incluídos no escopo.'])
 
 with reference_tab:
-    st.subheader('Tabelas de referência')
-    st.caption('Envie SINAPI, SIURB ou SICRO para conferir a estrutura. Os arquivos ficam nesta sessão; preços dependem de mapeamento de código, unidade e data-base.')
-    for name,panel in zip(('Insumos','Serviços'),st.tabs(['Insumos','Serviços'])):
+    st.subheader('Gestão das bases de referência')
+    st.caption('Mantenha uma única versão ativa por fonte e categoria. Ao enviar uma tabela válida, ela substitui a versão anterior e os códigos já vinculados passam a usar os novos preços.')
+    active_count=len(st.session_state.reference_bases)
+    status=st.columns(3)
+    status[0].metric('Fontes disponíveis',len(SOURCES),border=True)
+    status[1].metric('Tabelas substituídas',active_count,border=True)
+    status[2].metric('Códigos atualizados',sum(linked_uploads.values()),border=True)
+    st.info('Os uploads ficam ativos nesta sessão do aplicativo. A base embarcada permanece como recuperação segura após reinicializações do Streamlit.')
+    for name,panel in zip(KINDS,st.tabs(list(KINDS))):
         with panel:
-            for source,column in zip(('SINAPI','SIURB','SICRO'),st.columns(3)):
-                with column:
-                    with st.container(border=True):
-                        upload=st.file_uploader(source+' • '+name,type=['csv','xlsx'],key='upload_'+source+'_'+name)
-                        preview_reference(upload)
+            st.caption('Envie CSV ou Excel com Código, Descrição, Unidade e Preço. A data-base pode estar no arquivo ou ser informada no cartão.')
+            for row_start in range(0,len(SOURCES),2):
+                columns=st.columns(2,gap='large')
+                for source,column in zip(SOURCES[row_start:row_start+2],columns):
+                    with column:reference_card(source,name)
