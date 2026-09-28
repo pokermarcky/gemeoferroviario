@@ -9,7 +9,7 @@ from railbudget.realistic_scene import realistic_header
 from railbudget.freight import calculate_freight
 from railbudget.stations import include_stations, STATION_SIZES, STATION_GROUP
 from railbudget.reference_data import (SOURCES, KINDS, parse_reference,
-    apply_reference_bases, embedded_inventory)
+    apply_reference_bases, embedded_inventory, normalized_excel)
 
 ROOT=Path(__file__).resolve().parent
 
@@ -232,15 +232,6 @@ def render_result(r,key,modality='passageiro'):
         mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         key=key+'_excel',icon=':material/download:')
 
-def modalidade_pendente(nome,escopo,dados):
-    st.subheader(nome)
-    st.write(escopo)
-    with st.container(border=True):
-        st.info('Orçamento paramétrico em preparação. Ainda não há quantitativos e preços calibrados para esta modalidade.')
-        st.markdown('**Bases necessárias para o cálculo**')
-        for item in dados:st.write('• '+item)
-
-
 def reference_card(source,kind):
     slot=(source,kind)
     embedded=embedded_inventory(base_catalog).get(slot)
@@ -258,6 +249,10 @@ def reference_card(source,kind):
             preview=pd.DataFrame(active.records[:6]).rename(columns={'code':'Código','description':'Descrição','unit':'Unidade','price':'Preço','date':'Data-base'})
             with st.expander('Visualizar amostra',expanded=False):
                 display_table(preview,monetary=('Preço',))
+            st.download_button('Baixar tabela convertida',normalized_excel(active),
+                file_name=f'{source.lower()}_{kind.lower()}_{active.period.replace("/","-") or "normalizada"}.xlsx',
+                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                key=f'normalized_{source}_{kind}',icon=':material/download:')
             if st.button('Restaurar base anterior',key=f'restore_{source}_{kind}',type='tertiary',icon=':material/restore:'):
                 del st.session_state.reference_bases[slot]
                 st.session_state.pop(f'ref_enabled_{source}_{kind}',None)
@@ -272,8 +267,8 @@ def reference_card(source,kind):
             st.caption('Nenhuma tabela ativa')
             st.markdown('**Aguardando uma base válida**')
         period=st.text_input('Data-base da substituição',placeholder='MM/AAAA',key=f'period_{source}_{kind}')
-        upload=st.file_uploader('Substituir tabela atual',type=['csv','xlsx'],key=f'upload_{source}_{kind}',
-            help='O arquivo novo substitui a tabela anterior desta fonte e categoria. Colunas mínimas: Código, Descrição, Unidade e Preço.')
+        upload=st.file_uploader('Substituir tabela atual',type=['csv','xls','xlsx','xlsm'],key=f'upload_{source}_{kind}',
+            help='Aceita CSV, XLS, XLSX e XLSM. O sistema procura automaticamente o cabeçalho em todas as abas e converte Código, Descrição, Unidade e Preço para o padrão interno.')
         if upload and upload.size>200*1024*1024:
             st.error('Arquivo acima de 200 MB. Divida a tabela antes de enviar.');return
         if upload:
@@ -313,18 +308,10 @@ with budgets_tab:
             else:st.info('Confira as premissas da ferrovia de carga para gerar o orçamento.')
 
     with vlt:
-        modalidade_pendente('VLT - Veículo leve sobre Trilho',
-            'A via urbana, as paradas, a alimentação elétrica e a frota exigem quantitativos e referências próprios.',[
-            'Traçado, tipo de via implantada e interferências urbanas.',
-            'Paradas, energia, sinalização e acessibilidade com custos de referência.',
-            'Quantidade e especificação dos veículos leves sobre trilhos.'])
+        pass
 
     with shortline:
-        modalidade_pendente('Shortline',
-            'A estimativa depende de definir se a linha será implantada, reabilitada ou ampliada e qual tráfego atenderá.',[
-            'Inventário da via existente, carga por eixo e velocidade de projeto.',
-            'Extensão, dormentes, trilhos, lastro, AMVs e intervenções em pontes.',
-            'Pátios, sinalização e frota incluídos no escopo.'])
+        pass
 
 with reference_tab:
     st.subheader('Gestão das bases de referência')
@@ -337,7 +324,7 @@ with reference_tab:
     st.info('Os uploads ficam ativos nesta sessão do aplicativo. A base embarcada permanece como recuperação segura após reinicializações do Streamlit.')
     for name,panel in zip(KINDS,st.tabs(list(KINDS))):
         with panel:
-            st.caption('Envie CSV ou Excel com Código, Descrição, Unidade e Preço. A data-base pode estar no arquivo ou ser informada no cartão.')
+            st.caption('Envie CSV, XLS, XLSX ou XLSM. O sistema identifica cabeçalhos deslocados, percorre as abas e converte Código, Descrição, Unidade e Preço para uma base padronizada.')
             for row_start in range(0,len(SOURCES),2):
                 columns=st.columns(2,gap='large')
                 for source,column in zip(SOURCES[row_start:row_start+2],columns):

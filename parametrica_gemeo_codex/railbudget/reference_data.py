@@ -1,17 +1,20 @@
-"""Leitura, validação e aplicação de bases de referência enviadas pelo usuário."""
+"""Leitura, normalização e aplicação de bases de referência enviadas pelo usuário."""
 from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
 from io import BytesIO
+from pathlib import Path
 import re
 import unicodedata
 
 import pandas as pd
+from openpyxl.styles import Alignment, Font, PatternFill
 
 
 SOURCES = ("SIEC", "SINAPI", "SIURB", "SICRO")
 KINDS = ("Insumos", "Serviços")
+REQUIRED_FIELDS = {"code", "description", "unit", "price"}
 
 
 def _plain(value: object) -> str:
@@ -20,16 +23,32 @@ def _plain(value: object) -> str:
 
 
 ALIASES = {
-    "code": ("codigo", "cod", "item", "codigo do item", "codigo composicao", "codigo insumo"),
-    "description": ("descricao", "descricao do item", "servico", "insumo", "denominacao"),
-    "unit": ("unidade", "unid", "und", "un"),
-    "price": ("preco", "preco unitario", "custo unitario", "valor unitario", "valor", "preco mediano"),
-    "date": ("data base", "data", "referencia", "competencia", "mes referencia"),
+    "code": (
+        "codigo", "cod", "item", "codigo item", "codigo do item", "codigo composicao",
+        "codigo da composicao", "codigo insumo", "codigo do insumo", "codigo servico",
+        "codigo do servico", "cod insumo", "cod servico", "cd insumo", "cd servico",
+        "referencia",
+    ),
+    "description": (
+        "descricao", "descricao item", "descricao do item", "descricao insumo",
+        "descricao do insumo", "descricao servico", "descricao do servico", "discriminacao",
+        "denominacao", "tx descricao", "servico", "insumo", "componente",
+    ),
+    "unit": ("unidade", "unid medida", "un medida", "sg unidade", "unid", "und", "un"),
+    "price": (
+        "preco unitario", "custo unitario de referencia", "custo unitario", "custo total",
+        "valor unitario", "preco mediano", "vl preco unitario", "vl custo unitario",
+        "preco", "custo", "valor",
+    ),
+    "date": (
+        "data base", "mes ano", "mes de referencia", "data", "referencia", "competencia",
+        "mes referencia",
+    ),
 }
 
 
-def _find_columns(frame: pd.DataFrame) -> dict[str, str]:
-    normalized = {_plain(column): str(column) for column in frame.columns}
+def _find_columns(frame: pd.DataFrame) -> dict[str, object]:
+    normalized = {_plain(column): column for column in frame.columns if _plain(column)}
     found = {}
     for field, aliases in ALIASES.items():
         for alias in aliases:
@@ -37,10 +56,14 @@ def _find_columns(frame: pd.DataFrame) -> dict[str, str]:
                 found[field] = normalized[alias]
                 break
         if field not in found:
-            for normalized_name, original in normalized.items():
-                if any(alias in normalized_name for alias in aliases if len(alias) > 3):
-                    found[field] = original
-                    break
+            matches = [
+                (len(alias), original)
+                for normalized_name, original in normalized.items()
+                for alias in aliases
+                if len(alias) > 3 and alias in normalized_name
+            ]
+            if matches:
+                found[field] = max(matches, key=lambda pair: pair[0])[1]
     return found
 
 
@@ -62,20 +85,81 @@ def _number(value: object) -> float | None:
         return None
 
 
-def _read(raw: bytes, filename: str) -> pd.DataFrame:
-    if filename.lower().endswith(".csv"):
+def _code(value: object) -> str:
+    if value is None or pd.isna(value):
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    text = str(value).strip()
+    return re.sub(r"\.0$", "", text) if re.fullmatch(r"\d+\.0", text) else text
+
+
+def _sheet_frames(raw: bytes, filename: str) -> list[tuple[str, pd.DataFrame]]:
+    suffix = Path(filename).suffix.lower()
+    if suffix == ".csv":
         for encoding in ("utf-8-sig", "latin-1"):
             try:
-                return pd.read_csv(BytesIO(raw), sep=None, engine="python", dtype=str, encoding=encoding)
+                frame = pd.read_csv(
+                    BytesIO(raw), sep=None, engine="python", header=None, dtype=object,
+                    encoding=encoding, on_bad_lines="skip",
+                )
+                return [("CSV", frame)]
             except UnicodeDecodeError:
                 continue
         raise ValueError("Codificação CSV não reconhecida.")
-    workbook = pd.ExcelFile(BytesIO(raw), engine="openpyxl")
-    frames = [pd.read_excel(workbook, sheet_name=name, dtype=str) for name in workbook.sheet_names]
-    frames = [frame for frame in frames if not frame.empty]
+    if suffix not in {".xlsx", ".xlsm", ".xls"}:
+        raise ValueError("Formato não aceito. Envie CSV, XLS, XLSX ou XLSM.")
+    engine = "xlrd" if suffix == ".xls" else "openpyxl"
+    try:
+        workbook = pd.ExcelFile(BytesIO(raw), engine=engine)
+    except ImportError as exc:
+        raise ValueError(f"Não foi possível abrir {suffix}: dependência de leitura indisponível.") from exc
+    frames = []
+    for name in workbook.sheet_names:
+        frame = pd.read_excel(workbook, sheet_name=name, header=None, dtype=object)
+        if not frame.dropna(how="all").empty:
+            frames.append((str(name), frame))
     if not frames:
         raise ValueError("A planilha não contém linhas de dados.")
-    return max(frames, key=lambda frame: len(frame.index))
+    return frames
+
+
+def _header_names(frame: pd.DataFrame, row: int, span: int) -> list[str]:
+    names = []
+    occurrences = {}
+    for column in frame.columns:
+        parts = []
+        for offset in range(span):
+            value = frame.iloc[row + offset, column]
+            if not pd.isna(value) and str(value).strip():
+                part = str(value).strip()
+                if part not in parts:
+                    parts.append(part)
+        name = " ".join(parts) or f"Coluna {column + 1}"
+        occurrences[name] = occurrences.get(name, 0) + 1
+        names.append(name if occurrences[name] == 1 else f"{name} {occurrences[name]}")
+    return names
+
+
+def _find_table(frame: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, object]] | None:
+    """Localiza cabeçalho de uma ou duas linhas no início de uma aba oficial."""
+    best = None
+    limit = min(len(frame.index), 80)
+    for row in range(limit):
+        for span in (1, 2):
+            if row + span >= len(frame.index):
+                continue
+            names = _header_names(frame, row, span)
+            columns = _find_columns(pd.DataFrame(columns=names))
+            score = len(REQUIRED_FIELDS.intersection(columns)) * 10 + int("date" in columns)
+            if best is None or score > best[0]:
+                best = (score, row, span, names, columns)
+    if best is None or not REQUIRED_FIELDS.issubset(best[4]):
+        return None
+    _, row, span, names, columns = best
+    table = frame.iloc[row + span:].copy()
+    table.columns = names
+    return table.dropna(how="all"), columns
 
 
 @dataclass
@@ -87,6 +171,7 @@ class ReferenceBase:
     digest: str
     records: list[dict]
     columns: list[str]
+    sheets: list[str]
 
     @property
     def count(self) -> int:
@@ -98,30 +183,68 @@ def parse_reference(raw: bytes, filename: str, source: str, kind: str, period: s
         raise ValueError("Fonte ou tipo de tabela inválido.")
     if not raw:
         raise ValueError("O arquivo está vazio.")
-    frame = _read(raw, filename)
-    columns = _find_columns(frame)
-    required = {"code", "description", "unit", "price"}
-    missing = required - set(columns)
-    if missing:
-        labels = {"code": "Código", "description": "Descrição", "unit": "Unidade", "price": "Preço"}
-        raise ValueError("Colunas obrigatórias não identificadas: " + ", ".join(labels[x] for x in sorted(missing)))
-    records = []
-    for _, row in frame.iterrows():
-        code = str(row[columns["code"]]).strip() if not pd.isna(row[columns["code"]]) else ""
-        unit = str(row[columns["unit"]]).strip() if not pd.isna(row[columns["unit"]]) else ""
-        price = _number(row[columns["price"]])
-        if not code or not unit or price is None:
+    sheet_frames = _sheet_frames(raw, filename)
+    parsed_sheets = []
+    all_columns = []
+    records_by_code = {}
+    for sheet_name, raw_frame in sheet_frames:
+        located = _find_table(raw_frame)
+        if not located:
             continue
-        description = str(row[columns["description"]]).strip() if not pd.isna(row[columns["description"]]) else ""
-        row_period = period
-        if "date" in columns and not pd.isna(row[columns["date"]]):
-            row_period = str(row[columns["date"]]).strip() or period
-        records.append({"code": code, "description": description, "unit": unit,
-                        "price": price, "date": row_period})
-    if not records:
+        frame, columns = located
+        parsed_sheets.append(sheet_name)
+        all_columns.extend(str(column) for column in frame.columns)
+        for _, row in frame.iterrows():
+            code = _code(row[columns["code"]])
+            unit = "" if pd.isna(row[columns["unit"]]) else str(row[columns["unit"]]).strip()
+            price = _number(row[columns["price"]])
+            if not code or not unit or price is None:
+                continue
+            description = "" if pd.isna(row[columns["description"]]) else str(row[columns["description"]]).strip()
+            row_period = period.strip()
+            if "date" in columns and not pd.isna(row[columns["date"]]):
+                row_period = str(row[columns["date"]]).strip() or row_period
+            records_by_code[code.strip().upper()] = {
+                "code": code, "description": description, "unit": unit,
+                "price": price, "date": row_period,
+            }
+    if not parsed_sheets:
+        checked = ", ".join(name for name, _ in sheet_frames)
+        raise ValueError(
+            "Colunas obrigatórias não identificadas. Não localizei um cabeçalho com Código, "
+            "Descrição, Unidade e Preço nas abas: " + checked + "."
+        )
+    if not records_by_code:
         raise ValueError("Nenhuma linha válida com código, unidade e preço foi encontrada.")
-    return ReferenceBase(source, kind, period.strip(), filename, sha256(raw).hexdigest(), records,
-                         [str(column) for column in frame.columns])
+    return ReferenceBase(
+        source, kind, period.strip(), filename, sha256(raw).hexdigest(),
+        list(records_by_code.values()), list(dict.fromkeys(all_columns)), parsed_sheets,
+    )
+
+
+def normalized_excel(base: ReferenceBase) -> bytes:
+    """Converte a base ativa em uma planilha simples, auditável e reutilizável."""
+    rows = [{
+        "Fonte": base.source, "Tipo": base.kind, "Código": record["code"],
+        "Descrição": record["description"], "Unidade": record["unit"],
+        "Preço": record["price"], "Data-base": record["date"] or base.period,
+    } for record in base.records]
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        pd.DataFrame(rows).to_excel(writer, sheet_name="Base normalizada", index=False)
+        sheet = writer.book["Base normalizada"]
+        sheet.freeze_panes = "A2"
+        sheet.auto_filter.ref = sheet.dimensions
+        for cell in sheet[1]:
+            cell.font = Font(color="FFFFFF", bold=True)
+            cell.fill = PatternFill("solid", fgColor="173D3A")
+            cell.alignment = Alignment(horizontal="center")
+        widths = {"A": 12, "B": 14, "C": 20, "D": 72, "E": 14, "F": 20, "G": 16}
+        for column, width in widths.items():
+            sheet.column_dimensions[column].width = width
+        for cell in sheet["F"][1:]:
+            cell.number_format = '[$R$-pt-BR] #,##0.00'
+    return output.getvalue()
 
 
 def apply_reference_bases(catalog: dict, bases: dict[tuple[str, str], ReferenceBase]):
