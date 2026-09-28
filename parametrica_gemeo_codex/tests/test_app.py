@@ -37,7 +37,9 @@ def test_navegacao_e_controles_solicitados():
         ('main_excel', 'Baixar orçamento em Excel'), ('cargo_excel', 'Baixar orçamento em Excel')]
     assert not any(x.key == 'main_prepare' for x in app.button)
     assert len(app.get('file_uploader')) == 8
+    assert all(set(u.proto.type) == {'.csv', '.xls', '.xlsx', '.xlsm'} for u in app.get('file_uploader'))
     assert app.button(key='main_selecionar_todas').proto.type != 'primary'
+    assert not any('Orçamento paramétrico em preparação' in x.value for x in app.info)
 
 
 def test_subterraneo_nao_reaproveita_preco_de_superficie():
