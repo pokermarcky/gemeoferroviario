@@ -26,8 +26,13 @@ version=(ROOT/'data/catalog.sqlite').stat().st_mtime_ns,(ROOT/'config/rules.json
 rules,base_catalog=data(version)
 st.session_state.setdefault('results',{})
 st.session_state.setdefault('reference_bases',{})
+
+def reference_enabled_key(slot,base):
+    """Isola o estado do toggle por versão da base para não colidir com o widget já renderizado."""
+    return f'ref_enabled_{slot[0]}_{slot[1]}_{base.digest[:12]}'
+
 enabled_bases={slot:base for slot,base in st.session_state.reference_bases.items()
-    if st.session_state.get(f'ref_enabled_{slot[0]}_{slot[1]}',True)}
+    if st.session_state.get(reference_enabled_key(slot,base),True)}
 reference_signature=tuple(sorted((source,kind,base.digest,base.period)
     for (source,kind),base in enabled_bases.items()))
 if st.session_state.get('active_reference_signature') not in (None,reference_signature):
@@ -240,7 +245,7 @@ def reference_card(source,kind):
         st.markdown(f'<span class="source-badge source-{source.lower()}">{source}</span> **{kind}**',unsafe_allow_html=True)
         if active:
             st.caption(f'Base ativa · {active.period or "data-base não informada"}')
-            enabled_key=f'ref_enabled_{source}_{kind}'
+            enabled_key=reference_enabled_key(slot,active)
             st.session_state.setdefault(enabled_key,True)
             enabled=st.toggle('Usar esta tabela no orçamento',key=enabled_key)
             linked=linked_uploads.get(slot,0) if enabled else 0
@@ -255,7 +260,6 @@ def reference_card(source,kind):
                 key=f'normalized_{source}_{kind}',icon=':material/download:')
             if st.button('Restaurar base anterior',key=f'restore_{source}_{kind}',type='tertiary',icon=':material/restore:'):
                 del st.session_state.reference_bases[slot]
-                st.session_state.pop(f'ref_enabled_{source}_{kind}',None)
                 st.session_state.results={}
                 st.session_state.referencia_inicial_carregada=False
                 st.rerun()
@@ -277,7 +281,6 @@ def reference_card(source,kind):
                 try:
                     parsed=parse_reference(raw,upload.name,source,kind,period)
                     st.session_state.reference_bases[slot]=parsed
-                    st.session_state[f'ref_enabled_{source}_{kind}']=True
                     st.session_state.results={}
                     st.session_state.referencia_inicial_carregada=False
                     st.success(f'{parsed.count:,} itens validados. A nova base já está ativa.'.replace(',','.'))
