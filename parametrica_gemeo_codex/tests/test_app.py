@@ -7,7 +7,7 @@ APP = Path(__file__).resolve().parents[1] / 'app.py'
 
 
 def test_capa_estatica_usa_trem_bidirecional_e_vias_distintas():
-    scene=(APP.parent/'railbudget'/'realistic_scene.py').read_text(encoding='utf-8')
+    scene=(APP.parent/'railbudget'/'static_scene_v2.py').read_text(encoding='utf-8')
     assert 'train-passenger-bidirectional-v2.webp' in scene
     assert '@keyframes' not in scene
     assert 'Pausar animação' not in scene
