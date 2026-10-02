@@ -21,6 +21,15 @@ h3 {font-size:1.25rem!important;letter-spacing:-.025em;color:var(--ink)}
 [data-testid="stExpander"] {border-radius:12px;background:#fff;border-color:var(--line)}
 [data-testid="stMetric"] {background:#fff;border:1px solid var(--line);border-radius:14px;padding:.65rem .9rem}
 [data-testid="stMetricValue"] {font-size:1.65rem!important;letter-spacing:-.025em;color:#244a4c}
+[class*="st-key-result_header_"] {margin-top:1.4rem;padding:.9rem 1.1rem .65rem;border-left:5px solid #28776f;border-radius:4px 14px 14px 4px;background:linear-gradient(90deg,#e5f1ed,#f7faf8)}
+[class*="st-key-result_header_"] h2 {margin:0;padding:0!important;font-size:1.7rem!important;letter-spacing:-.035em;color:#173f3d}
+[class*="st-key-result_header_"] [data-testid="stCaptionContainer"] {font-size:.92rem;color:#526f6b}
+[class*="st-key-result_kpis_"] [data-testid="stMetric"] {min-height:116px;padding:1rem 1.15rem;border:1px solid #a8c9c1!important;border-top:5px solid #28776f!important;background:linear-gradient(145deg,#fff,#edf6f2);box-shadow:0 8px 22px #1c514710}
+[class*="st-key-result_kpis_"] [data-testid="stMetricLabel"] {font-size:.78rem;font-weight:800;letter-spacing:.055em;text-transform:uppercase;color:#476b66}
+[class*="st-key-result_kpis_"] [data-testid="stMetricValue"] {font-size:1.82rem!important;font-weight:780;color:#153f3c}
+.st-key-reference_heading {margin:.7rem 0 1rem;padding:1rem 1.2rem;border:1px solid #6da399;border-left:6px solid #28776f;border-radius:14px;background:linear-gradient(115deg,#dceee9,#f7faf8);box-shadow:0 8px 22px #24463f12}
+.st-key-reference_heading h2 {margin:0;padding:0!important;color:#174b45;font-size:1.65rem!important}
+.st-key-main_bdi_panel,.st-key-cargo_bdi_panel {border-color:#b8d0ca!important;background:#f8fbfa!important}
 [data-testid="stDataFrame"] {border:1px solid #d7e4df;border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 6px 18px #294d450a}
 [data-testid="stDataFrame"] [role="columnheader"] {background:#244f50!important;color:#fff!important;font-weight:700!important}
 [data-testid="stDataFrame"] [role="gridcell"] {border-color:#e5ece9!important}
@@ -35,6 +44,7 @@ h3 {font-size:1.25rem!important;letter-spacing:-.025em;color:var(--ink)}
 [data-testid="stNumberInput"] input,[data-testid="stSelectbox"] {font-size:.93rem}
 button:focus-visible,[role="tab"]:focus-visible {outline:3px solid #76b4a6!important;outline-offset:3px}
 .st-key-workspace {margin-top:.6rem}
+.st-key-workspace > div:first-child [role="tablist"] {padding:.25rem;border:1px solid #c7dcd6;border-radius:14px;background:#eef5f2}
 @media(max-width:640px){.block-container{padding:1rem .75rem 3rem}.st-key-hero{padding:1rem 1rem .2rem}.st-key-hero h1{font-size:1.9rem}[data-testid="stTabs"] [data-testid="stTab"]{padding:.6rem .7rem;flex:1 1 auto}[data-testid="stMetricValue"]{font-size:1.35rem!important}}
 </style>'''
 

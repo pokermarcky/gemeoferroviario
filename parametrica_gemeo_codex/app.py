@@ -1,5 +1,6 @@
 from pathlib import Path
 from hashlib import sha256
+import re
 import pandas as pd
 import streamlit as st
 from railbudget.engine import Scenario, load_model, calculate, select_groups
@@ -7,9 +8,8 @@ from railbudget.exporters import make_excel, currency, br, caption
 from railbudget.interface import apply_theme
 from railbudget.realistic_scene import realistic_header
 from railbudget.freight import calculate_freight
-from railbudget.stations import include_stations, STATION_SIZES, STATION_GROUP
-from railbudget.reference_data import (SOURCES, KINDS, parse_reference,
-    apply_reference_bases, embedded_inventory, normalized_excel)
+from railbudget.reference_data import (parse_reference, apply_reference_bases,
+    embedded_inventory, normalized_excel)
 
 ROOT=Path(__file__).resolve().parent
 
@@ -26,13 +26,7 @@ version=(ROOT/'data/catalog.sqlite').stat().st_mtime_ns,(ROOT/'config/rules.json
 rules,base_catalog=data(version)
 st.session_state.setdefault('results',{})
 st.session_state.setdefault('reference_bases',{})
-
-def reference_enabled_key(slot,base):
-    """Isola o estado do toggle por versão da base para não colidir com o widget já renderizado."""
-    return f'ref_enabled_{slot[0]}_{slot[1]}_{base.digest[:12]}'
-
-enabled_bases={slot:base for slot,base in st.session_state.reference_bases.items()
-    if st.session_state.get(reference_enabled_key(slot,base),True)}
+enabled_bases=dict(st.session_state.reference_bases)
 reference_signature=tuple(sorted((source,kind,base.digest,base.period)
     for (source,kind),base in enabled_bases.items()))
 if st.session_state.get('active_reference_signature') not in (None,reference_signature):
@@ -43,11 +37,6 @@ catalog,linked_uploads=apply_reference_bases(base_catalog,enabled_bases)
 if not st.session_state.get('referencia_inicial_carregada'):
     st.session_state.results.setdefault('main',calculate(Scenario(),rules,catalog))
     st.session_state.referencia_inicial_carregada=True
-
-def set_all_groups(key,count,selected):
-    for i in range(count):
-        st.session_state[f'{key}_grupo_{i}']=selected
-
 
 def budget_controls(key,freight=False):
     st.subheader('Configure sua ferrovia')
@@ -76,10 +65,7 @@ def budget_controls(key,freight=False):
         st.warning('Subterrâneo selecionado. As quantidades e os preços de escavação, revestimento, ventilação, segurança e demais sistemas ainda precisam de uma base técnica própria. Este cenário não gera um total por enquanto.')
 
     st.markdown('**2. Serviços incluídos**')
-    st.caption('Ative somente o que faz parte do seu projeto. As opções aparecem em cada cartão.')
-    with st.container(horizontal=True, gap='small'):
-        st.button('Incluir todos',key=key+'_selecionar_todas',on_click=set_all_groups,args=(key,8 if freight else len(rules['groups'])+1,True),type='tertiary',icon=':material/done_all:')
-        st.button('Limpar seleção',key=key+'_desmarcar_todas',on_click=set_all_groups,args=(key,8 if freight else len(rules['groups'])+1,False),type='tertiary',icon=':material/remove_done:')
+    st.caption('Marque somente os grupos que fazem parte do escopo do projeto.')
     chosen=[]
     enabled={}
     drainage=st.session_state.get(key+'_drainage','Reforçada')
@@ -87,7 +73,6 @@ def budget_controls(key,freight=False):
     amvs=st.session_state.get(key+'_amvs',0 if freight else 1)
     detection=st.session_state.get(key+'_detection','Circuito de via')
     trainsets=st.session_state.get(key+'_trainsets',1)
-    stations={}
     for i,g in enumerate(rules['groups'][:8] if freight else rules['groups']):
         if i%3==0:group_columns=st.columns(3)
         with group_columns[i%len(group_columns)]:
@@ -116,27 +101,15 @@ def budget_controls(key,freight=False):
             with fleet[1]:wagons=st.number_input('Vagões de carga (un)',min_value=0,max_value=100000,value=0,step=1,key=key+'_wagons')
             st.caption('A base SIEC contém custos horários de operação de locomotiva e vagões, mas não preços de aquisição. As quantidades acima ficam registradas como escopo pendente e não entram no total.')
             st.caption('Pátios, terminais, pontes, passagens em nível e interfaces de carga também exigem orçamento próprio.')
-    else:
-        with st.expander('Estações de passageiros · quantidades e preços',expanded=False):
-            include_station_group=st.checkbox('Incluir estações no orçamento',value=True,key=key+'_grupo_9')
-            st.caption('Informe quantidade e preço unitário estimado por porte. Sem preço unitário não é possível incluir uma estação no orçamento.')
-            station_cols=st.columns(3)
-            for i,size in enumerate(STATION_SIZES):
-                with station_cols[i]:
-                    st.markdown('**'+size+'**')
-                    qty=st.number_input('Quantidade · '+size.lower(),min_value=0,max_value=1000,value=0,step=1,key=key+'_station_'+str(i))
-                    price=st.number_input('Preço por estação (R$) · '+size.lower(),min_value=0.0,max_value=1e12,value=0.0,step=100000.0,format='%.2f',key=key+'_station_price_'+str(i),disabled=qty==0)
-                    stations[size]=(int(qty),float(price))
-    with st.expander('3. BDI e condições do orçamento',expanded=False):
+    with st.container(border=True,key=key+'_bdi_panel'):
+        st.markdown('**3. BDI e condições do orçamento**')
         apply_bdi=st.checkbox('Aplicar BDI',value=True,key=key+'_aplicar_bdi',persist_state='session')
         percentage=st.number_input('BDI personalizado (%)',min_value=0.0,max_value=100.0,
             value=27.84182802164763,step=0.5,format='%.6f',
             key=key+'_bdi_personalizado',persist_state='session')
         st.caption('O percentual é aplicado uma única vez ao total e aos subtotais selecionados.')
-    missing_price=not freight and any(q and not price for q,price in stations.values())
-    if missing_price:st.warning('Informe o preço unitário para cada porte de estação selecionado.')
     if freight:st.caption('O orçamento de carga é atualizado automaticamente ao alterar as premissas.')
-    else:calculate_now=st.button('Atualizar orçamento',key=key+'_calculate',type='primary',icon=':material/calculate:',disabled=subterraneo or missing_price)
+    else:calculate_now=st.button('Atualizar orçamento',key=key+'_calculate',type='primary',icon=':material/calculate:',disabled=subterraneo)
     if freight or calculate_now:
         try:
             p=Scenario(km=km,configuration=configuration,lines=lines,drainage=drainage,
@@ -147,21 +120,19 @@ def budget_controls(key,freight=False):
             result=calculate_freight(p,axle,rules,catalog) if freight else calculate(p,rules,catalog)
             if freight:
                 result['warnings'].append(f'Frota fora do total: {locomotives} locomotiva(s), {wagons} vagão(ões). Pátios, terminais, pontes e passagens em nível também não foram orçados.')
-            else:result=include_stations(result,stations)
             st.session_state.results[key]=result
             st.session_state[key+'_calculated_inputs']=(km,configuration,lines,drainage,fence,amvs,detection,trainsets if not freight else 0,
-                tuple(stations.items()) if not freight else (axle,locomotives,wagons))
+                () if not freight else (axle,locomotives,wagons))
         except (ValueError,KeyError,ZeroDivisionError) as exc:
             st.session_state.results.pop(key,None);st.error(str(exc))
     rate=percentage/100 if apply_bdi else 0.0
     current_inputs=(km,configuration,lines,drainage,fence,amvs,detection,trainsets if not freight else 0,
-        tuple(stations.items()) if not freight else (axle,locomotives,wagons))
+        () if not freight else (axle,locomotives,wagons))
     if not freight:st.session_state.setdefault(key+'_calculated_inputs',current_inputs)
     stale=key+'_calculated_inputs' in st.session_state and st.session_state[key+'_calculated_inputs']!=current_inputs
     if stale and not subterraneo:
         st.info('Você alterou o cenário. Selecione Atualizar orçamento para conferir os novos valores.')
-    if not freight and include_station_group and STATION_GROUP in st.session_state.results.get(key,{}).get('groups',{}):chosen.append(STATION_GROUP)
-    return chosen,rate,subterraneo or missing_price or stale
+    return chosen,rate,subterraneo or stale
 
 
 def display_table(frame, monetary=(), height=None):
@@ -177,14 +148,17 @@ def display_table(frame, monetary=(), height=None):
 
 
 def render_result(r,key,modality='passageiro'):
-    st.subheader('Resultado do orçamento')
+    with st.container(key='result_header_'+key):
+        st.markdown('## Resultado do orçamento')
+        st.caption('Síntese financeira do cenário e do escopo selecionado.')
     if modality=='carga':
         st.info('Infraestrutura de carga com alternativa TR57 ou UIC60 da base SIEC. A verificação estrutural da via, frota, pátios, terminais e obras especiais requer orçamento de projeto.')
     st.caption('Cenário calculado: '+caption(r))
-    with st.container(horizontal=True):
-        st.metric('Total com BDI' if r['scenario']['bdi'] else 'Total sem BDI',currency(r['total']),border=True)
-        st.metric('Por km de corredor',currency(r['per_km']),border=True)
-        st.metric('Por km de linha',currency(r['per_line_km']),border=True)
+    with st.container(key='result_kpis_'+key):
+        result_columns=st.columns(3,gap='medium')
+        result_columns[0].metric('Total com BDI' if r['scenario']['bdi'] else 'Total sem BDI',currency(r['total']),border=True)
+        result_columns[1].metric('Por km de corredor',currency(r['per_km']),border=True)
+        result_columns[2].metric('Por km de linha',currency(r['per_line_km']),border=True)
     financial_caption=f"Custo direto: {currency(r['direct'])} | BDI aplicado: {br(r['scenario']['bdi']*100,6)}% | Acréscimo de BDI: {currency(r['bdi_amount'])}"
     st.caption(financial_caption.replace('$',r'\$'))
     columns={'eap':'EAP','group':'Grupo','code':'Código','source':'Fonte','label':'Aplicação','description':'Descrição','unit':'Unidade','quantity':'Quantidade','unit_cost':'Custo unitário (R$)','total':'Custo total (R$)','date':'Data-base'}
@@ -205,6 +179,7 @@ def render_result(r,key,modality='passageiro'):
             display_table(frame,monetary=('Custo unitário (R$)','Custo total (R$)'),height=530)
         st.caption('Cada cartão mostra custo direto, valor com BDI e participação no total. Abra a composição para conferir os itens.')
         for group in r['scope_summary']:
+            if not group['selected']:continue
             if modality=='carga' and group['group'].startswith('9 '):continue
             with st.container(border=True):
                 st.subheader(group['group'].split(' ',1)[1])
@@ -213,7 +188,6 @@ def render_result(r,key,modality='passageiro'):
                 if group['group'].startswith('6 '):st.caption('Banco subterrâneo de seis dutos' if r['scenario']['configuration']=='Superfície' else 'Canaletas e passa-fios embutidos no tabuleiro elevado')
                 if group['group'].startswith('8 '):st.caption('Detecção: '+r['scenario']['detection'].lower())
                 if group['group'].startswith('9 '):st.caption(f"Frota: {r['scenario']['trainsets']} composição(ões) de 8 carros; custo por composição e rateio por km atendido.")
-                if not group['selected']:st.caption('Fora do total selecionado. Valores abaixo são a referência deste grupo no cenário completo.')
                 if not group['direct']:st.info('Sem serviços neste cenário. Verifique os parâmetros do formulário para incluir este grupo.')
                 with st.container(horizontal=True):
                     st.metric('Subtotal direto',currency(group['direct']))
@@ -245,10 +219,7 @@ def reference_card(source,kind):
         st.markdown(f'<span class="source-badge source-{source.lower()}">{source}</span> **{kind}**',unsafe_allow_html=True)
         if active:
             st.caption(f'Base ativa · {active.period or "data-base não informada"}')
-            enabled_key=reference_enabled_key(slot,active)
-            st.session_state.setdefault(enabled_key,True)
-            enabled=st.toggle('Usar esta tabela no orçamento',key=enabled_key)
-            linked=linked_uploads.get(slot,0) if enabled else 0
+            linked=linked_uploads.get(slot,0)
             st.markdown(f'**{active.count:,} itens** · {linked:,} vinculados ao orçamento'.replace(',','.'))
             st.caption(active.filename)
             preview=pd.DataFrame(active.records[:6]).rename(columns={'code':'Código','description':'Descrição','unit':'Unidade','price':'Preço','date':'Data-base'})
@@ -258,11 +229,6 @@ def reference_card(source,kind):
                 file_name=f'{source.lower()}_{kind.lower()}_{active.period.replace("/","-") or "normalizada"}.xlsx',
                 mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 key=f'normalized_{source}_{kind}',icon=':material/download:')
-            if st.button('Restaurar base anterior',key=f'restore_{source}_{kind}',type='tertiary',icon=':material/restore:'):
-                del st.session_state.reference_bases[slot]
-                st.session_state.results={}
-                st.session_state.referencia_inicial_carregada=False
-                st.rerun()
         elif embedded:
             periods=' · '.join(sorted(embedded['periods']))
             st.caption(f'Base embarcada · {periods}')
@@ -270,12 +236,17 @@ def reference_card(source,kind):
         else:
             st.caption('Nenhuma tabela ativa')
             st.markdown('**Aguardando uma base válida**')
-        period=st.text_input('Data-base da substituição',placeholder='MM/AAAA',key=f'period_{source}_{kind}')
         upload=st.file_uploader('Substituir tabela atual',type=['csv','xls','xlsx','xlsm'],key=f'upload_{source}_{kind}',
             help='Aceita CSV, XLS, XLSX e XLSM. O sistema procura automaticamente o cabeçalho em todas as abas e converte Código, Descrição, Unidade e Preço para o padrão interno.')
         if upload and upload.size>200*1024*1024:
             st.error('Arquivo acima de 200 MB. Divida a tabela antes de enviar.');return
         if upload:
+            st.caption('O novo arquivo substituirá integralmente a versão ativa nesta sessão.')
+            period=st.text_input('Nova data-base',placeholder='MM/AAAA',key=f'period_{source}_{kind}',
+                help='Campo obrigatório. Exemplo: 08/2026.')
+            if not re.fullmatch(r'(0[1-9]|1[0-2])/\d{4}',period.strip()):
+                st.info('Digite a nova data-base no formato MM/AAAA para validar e ativar a tabela.')
+                return
             raw=upload.getvalue();digest=sha256(raw).hexdigest()
             if not active or digest!=active.digest or period.strip()!=active.period:
                 try:
@@ -317,18 +288,11 @@ with budgets_tab:
         pass
 
 with reference_tab:
-    st.subheader('Gestão das bases de referência')
-    st.caption('Mantenha uma única versão ativa por fonte e categoria. Ao enviar uma tabela válida, ela substitui a versão anterior e os códigos já vinculados passam a usar os novos preços.')
-    active_count=len(st.session_state.reference_bases)
-    status=st.columns(3)
-    status[0].metric('Fontes disponíveis',len(SOURCES),border=True)
-    status[1].metric('Tabelas substituídas',active_count,border=True)
-    status[2].metric('Códigos atualizados',sum(linked_uploads.values()),border=True)
-    st.info('Os uploads ficam ativos nesta sessão do aplicativo. A base embarcada permanece como recuperação segura após reinicializações do Streamlit.')
-    for name,panel in zip(KINDS,st.tabs(list(KINDS))):
-        with panel:
-            st.caption('Envie CSV, XLS, XLSX ou XLSM. O sistema identifica cabeçalhos deslocados, percorre as abas e converte Código, Descrição, Unidade e Preço para uma base padronizada.')
-            for row_start in range(0,len(SOURCES),2):
-                columns=st.columns(2,gap='large')
-                for source,column in zip(SOURCES[row_start:row_start+2],columns):
-                    with column:reference_card(source,name)
+    with st.container(key='reference_heading'):
+        st.markdown('## Base de referência')
+        st.caption('Substituição controlada da tabela de Serviços SIEC utilizada nos orçamentos.')
+    status=st.columns(2)
+    status[0].metric('Tabela vigente','Serviços SIEC',border=True)
+    status[1].metric('Códigos atualizados',linked_uploads.get(('SIEC','Serviços'),0),border=True)
+    st.info('Somente uma tabela de Serviços SIEC permanece ativa por vez. O envio de uma nova versão exige a data-base e substitui automaticamente a anterior nesta sessão.')
+    reference_card('SIEC','Serviços')
