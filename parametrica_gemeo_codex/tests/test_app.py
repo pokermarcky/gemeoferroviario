@@ -6,6 +6,14 @@ from streamlit.testing.v1 import AppTest
 APP = Path(__file__).resolve().parents[1] / 'app.py'
 
 
+def test_capa_estatica_usa_trem_bidirecional_e_vias_distintas():
+    scene=(APP.parent/'railbudget'/'realistic_scene.py').read_text(encoding='utf-8')
+    assert 'train-passenger-bidirectional-v2.webp' in scene
+    assert '@keyframes' not in scene
+    assert 'Pausar animação' not in scene
+    assert all(track in scene for track in ('track slab','track ballast','track urban'))
+
+
 def test_passageiro_calcula_siec_e_limpa_resultado_invalido():
     from railbudget.engine import Scenario, calculate, load_model
 
@@ -27,7 +35,7 @@ def test_navegacao_e_controles_solicitados():
         'Ferrovia de passageiro', 'Resumo geral', 'Detalhamento por grupo',
         'Ferrovia de carga', 'Resumo geral', 'Detalhamento por grupo',
         'VLT - Veículo leve sobre Trilho', 'Shortline',
-        'BASES DE REFERÊNCIA', 'Insumos', 'Serviços']
+        'BASES DE REFERÊNCIA']
     assert any(h.value == 'Parametric Rails' for h in app.title)
     assert app.selectbox(key='main_profile').options == ['SIEC • lastro / AMV nº 14']
     assert app.selectbox(key='main_configuration').options == ['Superfície', 'Elevado', 'Subterrâneo']
@@ -36,9 +44,12 @@ def test_navegacao_e_controles_solicitados():
     assert [(x.key, x.proto.label) for x in app.get('download_button')] == [
         ('main_excel', 'Baixar orçamento em Excel'), ('cargo_excel', 'Baixar orçamento em Excel')]
     assert not any(x.key == 'main_prepare' for x in app.button)
-    assert len(app.get('file_uploader')) == 8
+    assert len(app.get('file_uploader')) == 1
+    assert app.get('file_uploader')[0].key == 'upload_SIEC_Serviços'
     assert all(set(u.proto.type) == {'.csv', '.xls', '.xlsx', '.xlsm'} for u in app.get('file_uploader'))
-    assert app.button(key='main_selecionar_todas').proto.type != 'primary'
+    assert not any(x.key in {'main_selecionar_todas','main_desmarcar_todas'} for x in app.button)
+    assert not any('Estações de passageiros' in x.label for x in app.expander)
+    assert not any(x.key and x.key.startswith('main_station') for x in app.number_input)
     assert not any('Orçamento paramétrico em preparação' in x.value for x in app.info)
 
 
@@ -60,12 +71,8 @@ def test_selecao_de_grupos_e_bdi_no_resultado():
     assert app.metric[0].value == currency(money(direct + money(direct * .25)))
     app.checkbox(key='main_aplicar_bdi').uncheck().run(timeout=30)
     assert app.metric[0].value == currency(direct)
-    app.button(key='main_desmarcar_todas').click().run(timeout=30)
-    assert app.metric[0].value == 'R$ 0,00'
-    assert not any(x.key == 'main_excel' for x in app.get('download_button'))
-    app.button(key='main_selecionar_todas').click().run(timeout=30)
-    assert app.metric[0].value == currency(direct)
-    assert len(app.get('download_button')) == 2
+    app.checkbox(key='main_grupo_2').uncheck().run(timeout=30)
+    assert app.metric[0].value != currency(direct)
 
 
 def test_banco_de_dutos_e_opcoes_do_grupo():
@@ -82,26 +89,15 @@ def test_banco_de_dutos_e_opcoes_do_grupo():
     assert not any(x.key == 'main_fence' for x in app.selectbox)
 
 
-def test_estacoes_precisam_preco_e_entram_no_excel():
-    from io import BytesIO
-    from openpyxl import load_workbook
-    from railbudget.engine import select_groups
-    from railbudget.exporters import make_excel
-    from railbudget.engine import load_model
+def test_detalhamento_exibe_apenas_grupos_selecionados():
     app=AppTest.from_file(str(APP)).run(timeout=30)
-    app.number_input(key='main_station_0').set_value(2).run(timeout=30)
-    assert app.button(key='main_calculate').proto.disabled
-    assert not any(x.key == 'main_excel' for x in app.get('download_button'))
-    app.number_input(key='main_station_price_0').set_value(1200000.0).run(timeout=30)
-    assert not any(x.key == 'main_excel' for x in app.get('download_button'))  # orçamento antigo oculto até recalcular
-    app.button(key='main_calculate').click().run(timeout=30)
+    for index in range(1,9):
+        app.checkbox(key=f'main_grupo_{index}').uncheck()
+    app.run(timeout=30)
     assert not app.exception
-    result=app.session_state['results']['main']
-    assert result['groups']['10 Estações de passageiros']==2400000
-    chosen=list(result['groups'])
-    scoped=select_groups(result,chosen)
-    book=load_workbook(BytesIO(make_excel(scoped,{**load_model()[1],**result['custom_prices']})),data_only=True)
-    assert any(row[2]=='EST-01' and row[6]==2 and row[8]==2400000 for row in book['EAP'].iter_rows(min_row=5,values_only=True))
+    # A única ocorrência remanescente de Drenagem pertence ao orçamento de carga.
+    assert sum(x.value=='Drenagem' for x in app.subheader)==1
+    assert sum(x.value=='Via permanente' for x in app.subheader)==2
 
 
 def test_carga_orca_so_infraestrutura_com_siec():
