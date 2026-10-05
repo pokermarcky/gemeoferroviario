@@ -8,7 +8,7 @@ from datetime import datetime
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile, ZIP_DEFLATED
 from html import escape
-from railbudget.localization import nome_variavel, formula_legivel
+from railbudget.localization import formula_legivel, memoria_quantidade
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -48,7 +48,7 @@ def caption(r):
 def excel_expr(expr, refs):
     def convert(n):
         if isinstance(n,ast.Constant):return str(n.value)
-        if isinstance(n,ast.Name):return "'Premissas'!$B$"+str(refs[n.id])
+        if isinstance(n,ast.Name):return "'Premissas'!$C$"+str(refs[n.id])
         if isinstance(n,ast.BinOp):return '('+convert(n.left)+{ast.Add:'+',ast.Sub:'-',ast.Mult:'*',ast.Div:'/',ast.Pow:'^'}[type(n.op)]+convert(n.right)+')'
         if isinstance(n,ast.UnaryOp):return ('-' if isinstance(n.op,ast.USub) else '+')+convert(n.operand)
         if isinstance(n,ast.Call):
@@ -91,38 +91,71 @@ def make_excel(r,catalog):
     summary.append(['BDI',r['scenario']['bdi']]);summary[f'B{bdi_row}'].number_format='0.00%'
     for label,formula,val in [('Adicional BDI',f'=ROUND(B{direct_row}*B{bdi_row},2)',r['bdi_amount']),('Total',f'=B{direct_row}+B{bdi_amount_row}',r['total']),('R$/km corredor',f'=B{total_row}/{r["scenario"]["km"]}',r['per_km']),('R$/km linha',f'=B{total_row}/{r["scenario"]["km"]*r["scenario"]["lines"]}',r['per_line_km'])]:
         summary.append([label,formula]);caches['xl/worksheets/sheet1.xml'][f'B{summary.max_row}']=val
-    summary.append(['Prazo (meses)',r['duration']]);summary.append(['Drenagem',r['scenario']['drainage']]);summary.append(['Vedação',r['scenario']['fence']])
+    summary.append(['Drenagem',r['scenario']['drainage']]);summary.append(['Vedação',r['scenario']['fence']])
     for note in r['warnings']:summary.append([note])
     chart=BarChart();chart.title='Composição do custo direto';chart.add_data(Reference(summary,min_col=2,min_row=3,max_row=last_group_row),titles_from_data=True);chart.set_categories(Reference(summary,min_col=1,min_row=first_group_row,max_row=last_group_row))
     chart.height=11;chart.width=23;chart.legend=None;chart.title=None
     summary['D3']='Composição do custo direto (R$)'
     chart.x_axis.tickLblPos='nextTo';chart.y_axis.tickLblPos='nextTo';chart.x_axis.delete=False;chart.y_axis.delete=False
     summary.add_chart(chart,'D4')
-    prem.append(['Parâmetro / variável','Valor / fórmula']);refs={name:i+2 for i,name in enumerate(r['context'])}
-    derived=dict(r['derived'])
-    summary[f'B{bdi_row}']="='Premissas'!B"+str(refs['bdi']);caches['xl/worksheets/sheet1.xml'][f'B{bdi_row}']=r['scenario']['bdi']
-    summary[f'B{per_km_row}']=f"=B{total_row}/'Premissas'!B"+str(refs['km'])
-    summary[f'B{per_line_row}']=f"=B{total_row}/('Premissas'!B"+str(refs['km'])+"*'Premissas'!B"+str(refs['lines'])+")"
-    for name,val in r['context'].items():
-        prem.append([nome_variavel(name),excel_expr(derived[name],refs) if name in derived else val]);caches['xl/worksheets/sheet3.xml'][f'B{prem.max_row}']=int(val) if isinstance(val,bool) else val
+    prem.append(['Premissas do cenário']);prem.append([caption(r)])
+    prem.append(['']);prem.append(['Categoria','Premissa','Valor','Unidade','Como entra no orçamento'])
+    scenario=r['scenario']
+    premise_rows=[
+        ('Identificação','Modelo de referência',r['model_label'],'','Base técnica e configuração de preços.'),
+        ('Cenário','Configuração',scenario['configuration'],'','Define a solução de implantação.'),
+        ('Cenário','Extensão do corredor',scenario['km'],'km','Dimensiona os serviços proporcionais à extensão.'),
+        ('Cenário','Quantidade de vias',scenario['lines'],'via(s)','Define via simples ou dupla e os fatores correspondentes.'),
+        ('Cenário','Quantidade de AMVs',scenario['amvs'],'un','Define os serviços de AMV e o desconto de seus envelopes na via corrida.'),
+        ('Cenário','Drenagem',scenario['drainage'],'','Seleciona o nível de drenagem incluído.'),
+        ('Cenário','Vedação',scenario['fence'],'','Seleciona o tipo de vedação incluído.'),
+        ('Escopo','Banco de dutos','Sim' if scenario['ducts'] else 'Não','','Indica se a infraestrutura de cabos compõe o orçamento.'),
+        ('Escopo','Topografia','Sim' if scenario['topography'] else 'Não','','Indica se os serviços topográficos compõem o orçamento.'),
+        ('Escopo','Rede aérea','Sim' if scenario['overhead'] else 'Não','','Indica se a rede aérea compõe o orçamento.'),
+        ('Escopo','Sinalização','Sim' if scenario['signaling'] else 'Não','','Indica se a sinalização compõe o orçamento.'),
+        ('Escopo','Detecção de trens',scenario['detection'],'','Tecnologia adotada para os itens de sinalização.'),
+        ('Escopo','Material rodante','Sim' if scenario['rolling_stock'] else 'Não','','Indica se o material rodante compõe o orçamento.'),
+        ('Escopo','Composições',scenario['trainsets'],'un','Quantidade de composições incluídas, quando aplicável.'),
+        ('Cálculo','BDI',scenario['bdi'],'%','Aplicado uma única vez sobre o custo direto.'),
+        ('Cálculo','Prazo paramétrico de referência',r['duration'],'meses','Usado apenas nas quantidades dependentes de tempo; não representa cronograma executivo.'),
+    ]
+    if 'axle_load' in scenario:premise_rows.append(('Carga','Carga por eixo',scenario['axle_load'],'t/eixo','Seleciona a alternativa de trilho da ferrovia de carga.'))
+    if 'locomotives' in scenario:premise_rows.append(('Carga','Locomotivas equivalentes',scenario['locomotives'],'un/km','Escopo informativo; não compõe o total.'))
+    if 'wagons' in scenario:premise_rows.append(('Carga','Vagões equivalentes',scenario['wagons'],'un/km','Escopo informativo; não compõe o total.'))
+    refs={}
+    for category,label,value,unit,application in premise_rows:
+        prem.append([category,label,value,unit,application])
+        if label=='Extensão do corredor':refs['km']=prem.max_row
+        elif label=='Quantidade de vias':refs['lines']=prem.max_row
+        elif label=='BDI':refs['bdi']=prem.max_row
+    summary[f'B{bdi_row}']="='Premissas'!C"+str(refs['bdi']);caches['xl/worksheets/sheet1.xml'][f'B{bdi_row}']=r['scenario']['bdi']
+    summary[f'B{per_km_row}']=f"=B{total_row}/'Premissas'!C"+str(refs['km'])
+    summary[f'B{per_line_row}']=f"=B{total_row}/('Premissas'!C"+str(refs['km'])+"*'Premissas'!C"+str(refs['lines'])+")"
     sheets={};lookup={}
     used={x['price_key'] for x in r['items']}
     for k in sorted(used):
-        p=catalog[k];name=p['source']+('_INSUMOS' if p['kind']=='Insumos' else '_SERVICOS') if p['source']=='SIEC' else p['source']
+        p=catalog[k]
+        if p['source']=='SIEC' and p['kind']=='Insumos':lookup[k]=None;continue
+        name=p['source']+'_SERVICOS' if p['source']=='SIEC' else p['source']
         if name not in sheets:
             sheets[name]=w.create_sheet(name);sheets[name].append(['Chave exata','Código','Descrição','Unidade','Preço','Data-base','Proveniência'])
         sh=sheets[name];sh.append([k,p['code'],p['description'],p['unit'],p['price'],p['date'],p['provenance']]);lookup[k]=name
-    eap.append(['EAP orçada • '+caption(r)]);eap.append(['Quantidades vinculadas às premissas; preços por PROCV exato. Bases abaixo contêm referências usadas neste cenário.'])
-    eap.append(['']);eap.append(['EAP','Grupo','Código','Fonte','Descrição / aplicação','Unidade','Quantidade','Custo unitário','Custo total','Data-base','Chave do preço','Memória de quantidade','Origem / memória'])
+    eap.append(['EAP orçada • '+caption(r)]);eap.append(['Quantidades calculadas para o cenário; preços vinculados por PROCV exato às referências de serviços utilizadas.'])
+    eap.append(['']);eap.append(['EAP','Grupo','Código','Fonte','Serviço / descrição','Unidade','Quantidade','Custo unitário','Custo total','Data-base','Chave do preço','Cálculo da quantidade','Critério e referência'])
     for x in r['items']:
-        n=eap.max_row+1;name=lookup[x['price_key']];span=f"'{name}'!$A$2:$G${sheets[name].max_row}"
+        n=eap.max_row+1;name=lookup[x['price_key']]
+        span=f"'{name}'!$A$2:$G${sheets[name].max_row}" if name else None
+        unit=f'=VLOOKUP(K{n},{span},4,FALSE)' if name else x['unit']
+        unit_cost=f'=VLOOKUP(K{n},{span},5,FALSE)' if name else x['unit_cost']
+        origin={'vp':'Via permanente','p2':'Referência histórica','Ajuste 2':'Regra paramétrica complementar'}.get(x['origin'],x['origin'])
+        reference=f"Regra: {origin}. Referência: {x['sheet']}, item {x['row']}. Critério: {x['note'].rstrip('.')} .".replace(' .','.')
         eap.append([x['eap'],x['group'],x['code'],x['source'],x['label']+' — '+x['description'],
-                    f'=VLOOKUP(K{n},{span},4,FALSE)',excel_expr(x['quantity_formula'],refs),f'=VLOOKUP(K{n},{span},5,FALSE)',f'=ROUND(G{n}*H{n},2)',x['date'],x['price_key'],formula_legivel(x['quantity_formula']),f"{x['origin']} / {x['sheet']} / linha {x['row']}. {x['note']}"])
+                    unit,x['quantity'],unit_cost,f'=ROUND(G{n}*H{n},2)',x['date'],x['price_key'],memoria_quantidade(x['quantity_formula'],r['context'],x['quantity'],x['unit']),reference])
         for c,val in [('F',x['unit']),('G',x['quantity']),('H',x['unit_cost']),('I',x['total'])]:caches['xl/worksheets/sheet2.xml'][f'{c}{n}']=val
-    for src,color in PALETTE.items():eap.conditional_formatting.add(f'A5:M{eap.max_row}',FormulaRule(formula=[f'$D5="{src}"'],fill=PatternFill('solid',fgColor=color)))
+    for src,color in PALETTE.items():eap.conditional_formatting.add(f'D5:D{eap.max_row}',FormulaRule(formula=[f'$D5="{src}"'],fill=PatternFill('solid',fgColor=color)))
     for sh in w:
-        header=4 if sh==eap else (3 if sh==summary else 1)
-        sh.freeze_panes='A'+str(header+1);sh.auto_filter.ref=f'A{header}:{sh.cell(sh.max_row,sh.max_column).coordinate}'
+        header=4 if sh in (eap,prem) else (3 if sh==summary else 1)
+        sh.freeze_panes=None;sh.auto_filter.ref=f'A{header}:{sh.cell(sh.max_row,sh.max_column).coordinate}'
         for cell in sh[header]:cell.fill=PatternFill('solid',fgColor=NAVY);cell.font=Font(name='Arial',bold=True,color='FFFFFF')
         for row in sh.iter_rows(min_row=header+1):
             for c in row:
@@ -135,9 +168,21 @@ def make_excel(r,catalog):
     summary.column_dimensions['A'].width=68;summary.column_dimensions['B'].width=24;summary[f'B{bdi_row}'].number_format='0.00%'
     summary.print_area='A1:Q30';summary.page_setup.fitToHeight=1
     summary.merge_cells('D3:Q3')
-    eap.column_dimensions['E'].width=66;eap.column_dimensions['M'].width=78;eap.column_dimensions['K'].hidden=True;eap.column_dimensions['L'].width=45
-    for row in range(5,eap.max_row+1):eap.row_dimensions[row].height=75;eap[f'G{row}'].number_format='#,##0.000000'
-    prem.column_dimensions['A'].width=34;prem.column_dimensions['B'].width=30
+    eap['A1'].font=Font(name='Arial',size=15,bold=True,color=NAVY);eap['A2'].font=Font(name='Arial',size=10,italic=True,color='64748B')
+    eap.column_dimensions['E'].width=58;eap.column_dimensions['M'].width=62;eap.column_dimensions['K'].hidden=True;eap.column_dimensions['L'].width=58
+    for row in range(5,eap.max_row+1):
+        eap.row_dimensions[row].height=62;eap[f'G{row}'].number_format='#,##0.000000'
+        for col in ('H','I'):eap[f'{col}{row}'].number_format='"R$" #,##0.00'
+        if row%2==0:
+            for col in range(1,14):eap.cell(row,col).fill=PatternFill('solid',fgColor='F8FAFC')
+    prem['A1'].font=Font(name='Arial',size=15,bold=True,color=NAVY);prem['A2'].font=Font(name='Arial',size=10,italic=True,color='64748B')
+    for col,width in {'A':18,'B':38,'C':24,'D':14,'E':72}.items():prem.column_dimensions[col].width=width
+    prem[f'C{refs["bdi"]}'].number_format='0.00%'
+    for row in range(5,prem.max_row+1):
+        prem.row_dimensions[row].height=32
+        if row%2==0:
+            for col in range(1,6):prem.cell(row,col).fill=PatternFill('solid',fgColor='F8FAFC')
+        prem[f'C{row}'].font=Font(name='Arial',size=10,color='1D4ED8')
     for sh in sheets.values():sh.column_dimensions['C'].width=75;sh.column_dimensions['G'].width=100
     add_group_sheets(w,r,refs,caches,{'direct':direct_row,'bdi':bdi_row,'total':total_row})
     data=BytesIO();w.save(data)
@@ -160,7 +205,7 @@ def add_group_sheets(workbook,result,refs,caches,summary_rows):
         sheet['B5']='Valores vinculados à EAP consolidada. A seleção de escopo é feita na aplicação.'
         sheet.merge_cells('B5:J5')
         measures=[('Subtotal direto',f'=SUM(I13:I{12+len(rows)})' if rows else '=0',direct),
-            ('Direto por km de corredor',f"=C6/'Premissas'!B{refs['km']}",direct/result['scenario']['km']),
+            ('Direto por km de corredor',f"=C6/'Premissas'!C{refs['km']}",direct/result['scenario']['km']),
             ('Participação no total direto',f'=IF(Resumo!B{summary_rows["direct"]}=0,0,C6/Resumo!B{summary_rows["direct"]})',direct/result['direct'] if result['direct'] else 0),
             ('BDI',f'=Resumo!B{summary_rows["bdi"]}',result['scenario']['bdi'])]
         for n,(label,formula,value) in enumerate(measures,6):
@@ -188,7 +233,7 @@ def add_group_sheets(workbook,result,refs,caches,summary_rows):
             for col in ('H','I'):sheet[f'{col}{n}'].number_format=money_format
         for col,width in {'A':3,'B':30,'C':27,'D':14,'E':76,'F':14,'G':22,'H':24,'I':24,'J':18}.items():sheet.column_dimensions[col].width=width
         for n in range(2,13):sheet.row_dimensions[n].height=32 if n==12 else 28
-        sheet.freeze_panes='G13';sheet.sheet_view.showGridLines=False
+        sheet.freeze_panes=None;sheet.sheet_view.showGridLines=False
         sheet.auto_filter.ref=f'B12:J{max(12,12+len(rows))}'
         sheet.print_title_rows='2:12';sheet.print_area=f'B2:J{max(13,12+len(rows))}'
         sheet.sheet_properties.pageSetUpPr.fitToPage=True
