@@ -134,10 +134,10 @@ def budget_controls(key,freight=False):
             value=26.30,step=0.10,format='%.2f',
             key=key+'_bdi_personalizado',persist_state='session')
         st.caption('Sugestão inicial: 26,30%. O usuário pode ajustar o percentual; ele é aplicado uma única vez ao total e aos subtotais.')
-    if freight:st.caption('O orçamento de carga é atualizado automaticamente ao alterar as premissas.')
-    else:calculate_now=st.button('Atualizar orçamento',key=key+'_calculate',type='primary',icon=':material/calculate:',disabled=subterraneo)
+    calculate_now=st.button('Atualizar orçamento',key=key+'_calculate',type='primary',
+        icon=':material/calculate:',disabled=subterraneo)
     reference_refresh=st.session_state.get(key+'_reference_signature')!=reference_signature
-    if freight or calculate_now or reference_refresh:
+    if calculate_now or reference_refresh or key not in st.session_state.results:
         try:
             p=Scenario(km=km,configuration=configuration,lines=lines,drainage=drainage,
                 fence=fence if enabled[3] else 'Nenhuma',amvs=int(amvs) if enabled[4] else 0,
@@ -157,7 +157,7 @@ def budget_controls(key,freight=False):
     rate=percentage/100 if apply_bdi else 0.0
     current_inputs=(km,configuration,lines,drainage,fence,amvs,detection,trainsets if not freight else 0,
         () if not freight else (axle,locomotives,wagons))
-    if not freight:st.session_state.setdefault(key+'_calculated_inputs',current_inputs)
+    st.session_state.setdefault(key+'_calculated_inputs',current_inputs)
     stale=key+'_calculated_inputs' in st.session_state and st.session_state[key+'_calculated_inputs']!=current_inputs
     if stale and not subterraneo:
         st.info('Você alterou o cenário. Selecione Atualizar orçamento para conferir os novos valores.')
