@@ -2,25 +2,20 @@
 
 ## Perfis
 
-- **root**: o e-mail `pokermarcky90@gmail.com`, os e-mails de contingência e o acesso emergencial. Pode usar todas as funções.
-- **user**: qualquer conta autenticada pelo Google. Pode calcular, gerar Excel e salvar seus orçamentos, mas não pode substituir bases ou enviar planilhas.
+- **root**: os e-mails cadastrados em `root_emails`. Pode usar todas as funções.
+- **user**: somente contas Google presentes na allowlist de e-mails ou domínios. Pode calcular, gerar Excel e salvar seus orçamentos, mas não pode substituir bases ou enviar planilhas.
 - **test**: login local `teste`. Pode conhecer, calcular e salvar temporariamente, mas não pode alterar bases nem gerar Excel.
 
 As restrições são verificadas no código antes de criar uploads ou downloads. Não dependem apenas da aparência da tela.
 
 ## Plano B do administrador
 
-Há duas camadas independentes:
+O plano B fica fora da interface pública e possui duas camadas:
 
-1. `backup_root_emails`: permite cadastrar uma segunda conta Google como root.
-2. `emergency_password_hash`: habilita o usuário local `root` com uma chave de recuperação, mesmo sem acesso ao Google.
+1. cadastrar previamente uma segunda conta Google em `root_emails`;
+2. se ambas as contas forem perdidas, o proprietário altera `root_emails` diretamente nos Secrets do Streamlit Cloud usando o acesso de proprietário da implantação.
 
-Crie uma chave longa, exclusiva, guarde-a em um gerenciador de senhas e grave somente o SHA-256 nos Secrets:
-
-```python
-from hashlib import sha256
-print(sha256("SUA-CHAVE-FORTE".encode()).hexdigest())
-```
+Não existe formulário, rota ou senha de recuperação administrativa dentro do site público.
 
 Nunca publique `.streamlit/secrets.toml` no GitHub. Copie `secrets.example.toml` somente para a área **Secrets** do Streamlit Community Cloud e substitua os marcadores.
 
@@ -33,6 +28,8 @@ https://railparametric.streamlit.app/oauth2callback
 ```
 
 O código usa `st.login("google")`, `st.user` e `st.logout()`.
+
+Por padrão, `allow_all_google_users = false`. Novos usuários devem ser incluídos explicitamente em `allowed_emails` ou em um domínio confiável de `allowed_domains`.
 
 ## Base persistente de orçamentos
 
@@ -55,4 +52,3 @@ create index if not exists saved_budgets_owner_created
 ```
 
 Sem a seção `[storage]`, a aplicação usa armazenamento temporário por sessão e informa essa condição na barra lateral.
-
