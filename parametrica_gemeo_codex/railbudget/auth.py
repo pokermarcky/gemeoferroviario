@@ -1,7 +1,7 @@
-"""Autenticação e autorização do RailParametric.
+"""Autenticação local e autorização do RailParametric.
 
-O Google confirma a identidade. As permissões são sempre decididas pelo app.
-O perfil de demonstração é deliberadamente limitado e não possui privilégios.
+Credenciais privilegiadas existem somente nos Secrets da implantação. O perfil
+de demonstração é deliberadamente limitado e não possui privilégios.
 """
 from dataclasses import dataclass
 from hashlib import sha256
@@ -15,6 +15,9 @@ import streamlit as st
 DEMO_USER = "teste"
 DEMO_PASSWORD_HASH = sha256(b"teste12345").hexdigest()
 DEMO_SESSION_TTL_SECONDS = 60 * 60
+ADMIN_SESSION_TTL_SECONDS = 8 * 60 * 60
+MAX_ADMIN_ATTEMPTS = 5
+ADMIN_LOCK_SECONDS = 15 * 60
 
 
 @dataclass(frozen=True)
@@ -48,47 +51,18 @@ def _secrets_section(name):
         return {}
 
 
-def google_configured():
-    auth = _secrets_section("auth")
-    return bool(auth and ("google" in auth or all(key in auth for key in
-        ("client_id", "client_secret", "server_metadata_url"))))
+def _admin_accounts():
+    accounts=[]
+    for section_name in ("local_admin", "local_admin_backup"):
+        section=_secrets_section(section_name)
+        username=str(section.get("username", "")).strip().lower() if section else ""
+        password=str(section.get("password", "")) if section else ""
+        if username and password:accounts.append((username,password))
+    return accounts
 
 
-def _root_emails():
-    access = _secrets_section("access")
-    values = access.get("root_emails", []) if access else []
-    if isinstance(values, str):
-        values = [values]
-    return {str(email).strip().lower() for email in values if str(email).strip()}
-
-
-def _regular_access_allowed(email):
-    access = _secrets_section("access")
-    if not access:
-        return False
-    if bool(access.get("allow_all_google_users", False)):
-        return True
-    allowed = access.get("allowed_emails", [])
-    domains = access.get("allowed_domains", [])
-    if isinstance(allowed, str):allowed=[allowed]
-    if isinstance(domains, str):domains=[domains]
-    allowed = {str(value).strip().lower() for value in allowed}
-    domains = {str(value).strip().lower().lstrip("@") for value in domains}
-    return email in allowed or ("@" in email and email.rsplit("@", 1)[1] in domains)
-
-
-def _google_user():
-    try:
-        if not st.user.is_logged_in:
-            return None
-        email = str(getattr(st.user, "email", "")).strip().lower()
-        if not email:
-            return None
-        role = "root" if email in _root_emails() else "user" if _regular_access_allowed(email) else "unauthorized"
-        name = str(getattr(st.user, "name", "") or email.split("@", 1)[0])
-        return UserContext(_identity(email), email, name, role, "google")
-    except (AttributeError, KeyError, RuntimeError):
-        return None
+def admin_configured():
+    return bool(_admin_accounts())
 
 
 def _local_user():
@@ -100,6 +74,13 @@ def _local_user():
             st.session_state.pop("local_auth", None)
             return None
         return UserContext("demo-teste", "teste@railparametric.local", "Visitante de teste", "test", "local")
+    if payload.get("role") == "root":
+        if time.time() - float(payload.get("issued_at", 0)) > ADMIN_SESSION_TTL_SECONDS:
+            st.session_state.pop("local_auth", None)
+            return None
+        username=str(payload.get("username", "")).strip().lower()
+        if any(hmac.compare_digest(username, candidate) for candidate,_ in _admin_accounts()):
+            return UserContext(_identity(username),username,"Administrador", "root", "local")
     return None
 
 
@@ -123,34 +104,52 @@ def _demo_login():
         st.error("Login ou senha de teste inválidos.")
 
 
+def _admin_login():
+    locked_until=float(st.session_state.get("admin_locked_until", 0))
+    if locked_until > time.time():
+        remaining=(int(locked_until-time.time())//60)+1
+        st.error(f"Acesso temporariamente bloqueado após tentativas inválidas. Aguarde {remaining} minuto(s).")
+        return
+    if not admin_configured():
+        st.button("Entrar como administrador",icon=":material/admin_panel_settings:",
+            use_container_width=True,disabled=True)
+        st.info("A conta administrativa está aguardando a configuração privada nos Secrets.")
+        return
+    with st.form("admin_login_form",clear_on_submit=True):
+        username=st.text_input("E-mail administrativo",autocomplete="username")
+        password=st.text_input("Senha",type="password",autocomplete="current-password")
+        submitted=st.form_submit_button("Entrar como administrador",type="primary",use_container_width=True)
+    if not submitted:return
+    supplied_user=username.strip().lower()
+    authenticated=any(hmac.compare_digest(supplied_user,candidate) and hmac.compare_digest(password,secret)
+        for candidate,secret in _admin_accounts())
+    if authenticated:
+        st.session_state.pop("admin_attempts",None)
+        st.session_state.pop("admin_locked_until",None)
+        st.session_state.local_auth={"role":"root","username":supplied_user,"issued_at":time.time()}
+        st.rerun()
+    attempts=int(st.session_state.get("admin_attempts",0))+1
+    st.session_state.admin_attempts=attempts
+    if attempts >= MAX_ADMIN_ATTEMPTS:
+        st.session_state.admin_attempts=0
+        st.session_state.admin_locked_until=time.time()+ADMIN_LOCK_SECONDS
+    st.error("Credenciais inválidas.")
+
+
 def require_user():
     """Retorna o usuário autenticado ou encerra a execução na tela de acesso."""
-    user = _test_environment_user() or _local_user() or _google_user()
-    if user and user.role != "unauthorized":
-        return user
-    if user and user.role == "unauthorized":
-        with st.container(key="login_shell"):
-            st.markdown('<span class="login-eyebrow">ACESSO PROTEGIDO</span>',unsafe_allow_html=True)
-            st.title("Acesso ainda não autorizado")
-            st.caption("Sua identidade Google foi confirmada, mas este e-mail não consta na lista de usuários permitidos.")
-            if st.button("Sair e usar outra conta",icon=":material/logout:",type="primary",use_container_width=True):
-                st.logout()
-        st.stop()
+    user = _test_environment_user() or _local_user()
+    if user:return user
 
     with st.container(key="login_shell"):
         st.markdown('<span class="login-eyebrow">ACESSO SEGURO</span>', unsafe_allow_html=True)
         st.title("Parametric Rails")
         st.caption("Entre para criar, calcular e organizar seus orçamentos ferroviários.")
-        google_tab, demo_tab = st.tabs(["Entrar com Google", "Conhecer o sistema"])
-        with google_tab:
-            st.markdown("**Acesso de administradores e usuários**")
-            st.caption("Sua senha permanece no Google e não é armazenada pelo RailParametric.")
-            if google_configured():
-                st.button("Entrar com Google", icon=":material/login:", type="primary",
-                    use_container_width=True, on_click=st.login, args=("google",))
-            else:
-                st.button("Entrar com Google",icon=":material/login:",use_container_width=True,disabled=True)
-                st.info("Login Google temporariamente indisponível durante a configuração de segurança.")
+        admin_tab, demo_tab = st.tabs(["Administrador", "Conhecer o sistema"])
+        with admin_tab:
+            st.markdown("**Acesso administrativo**")
+            st.caption("Credenciais protegidas nos Secrets privados da implantação.")
+            _admin_login()
         with demo_tab:
             st.markdown("**Acesso temporário de demonstração**")
             st.caption("Permite conhecer e calcular. Não permite uploads, troca de bases ou geração de Excel.")
@@ -159,8 +158,6 @@ def require_user():
 
 
 def logout(user):
-    if user.provider == "google":
-        st.logout()
     st.session_state.pop("local_auth", None)
     st.session_state.pop("results", None)
     st.session_state.pop("display_results", None)
