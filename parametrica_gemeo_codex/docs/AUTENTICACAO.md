@@ -17,11 +17,11 @@ O plano B fica fora da interface pública e possui duas camadas:
 
 Não existe formulário, rota ou senha de recuperação administrativa dentro do site público.
 
-Nunca publique `.streamlit/secrets.toml` no GitHub. Copie `secrets.example.toml` somente para a área **Secrets** do Streamlit Community Cloud e substitua os marcadores.
+Nunca publique `.streamlit/secrets.toml` no GitHub. Copie `secrets.example.toml` somente para a área **Secrets** do Streamlit Community Cloud e substitua os marcadores. O campo `password_hash` recebe somente o hash PBKDF2-SHA256 com salt aleatório; a senha em texto puro não é armazenada nem no repositório nem nos Secrets.
 
 ## Autenticação local
 
-O site não utiliza Google Cloud. Usuário e senha privilegiados são lidos somente dos Secrets privados do Streamlit. Após cinco tentativas inválidas na mesma sessão, o acesso administrativo é bloqueado por quinze minutos. A sessão root expira após oito horas e a sessão de demonstração após uma hora.
+O site não utiliza Google Cloud. O usuário e o hash irreversível da senha privilegiada são lidos somente dos Secrets privados do Streamlit. Após cinco tentativas inválidas na mesma sessão, o acesso administrativo é bloqueado por quinze minutos. A sessão root expira após oito horas e a sessão de demonstração após uma hora.
 
 A interface não contém recuperação administrativa. A contingência é operacional, pelo segundo administrador e pelo painel privado da implantação.
 
