@@ -25,13 +25,20 @@ def test_export_values_formulas_and_documents():
     total_row=next(n for n in range(1,v['Resumo'].max_row+1) if v['Resumo'][f'A{n}'].value=='Total')
     assert v['Resumo'][f'B{total_row}'].value==result['total']
     assert len(f['Resumo']._charts)==1
-    assert f['EAP']['H5'].value.startswith('=VLOOKUP(')
+    assert f['EAP']['H5'].value==result['items'][0]['unit_cost']
     assert all(sheet.freeze_panes is None for sheet in f.worksheets)
     assert f['Premissas']['A1'].value=='Premissas do cenário'
     assert f['Premissas']['B8'].value=='Quantidade de vias'
+    assert not any('prazo' in str(cell.value).lower() for row in f['Premissas'].iter_rows() for cell in row if cell.value)
     assert 'fator de gestão (' in f['EAP']['L5'].value
     assert f['EAP']['M5'].value.startswith('Regra: Via permanente.')
     assert 'SIEC_INSUMOS' not in f.sheetnames
+    reference_sheet=f['SIEC_SERVICOS']
+    provenance=' '.join(str(cell.value or '') for cell in reference_sheet['G'][1:])
+    assert 'aba ' in provenance and 'linha ' in provenance
+    assert not any(term in provenance for term in ('"sheet"','"row"','"original_row"'))
+    assert not any(cell.data_type=='f' for sheet in f.worksheets for row in sheet.iter_rows() for cell in row)
+    assert not any('#REF!' in str(cell.value) for sheet in f.worksheets for row in sheet.iter_rows() for cell in row)
     for n,item in enumerate(result['items'],5):
         assert v['EAP'][f'I{n}'].value==item['total']
         assert v['EAP'][f'G{n}'].value==pytest.approx(item['quantity'])
