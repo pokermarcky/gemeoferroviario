@@ -14,7 +14,7 @@ def test_capa_estatica_usa_trem_bidirecional_e_vias_distintas():
     assert all(track in scene for track in ('track slab','track ballast','track urban'))
     assert '.passenger img{height:88px;object-position:left bottom}' in scene
     assert '.passenger{left:0;' in scene
-    assert '.cargo{left:50%;' in scene and 'transform:translateX(-50%)' in scene
+    assert '.cargo{left:53%;' in scene and 'transform:translateX(-50%)' in scene
     assert '.vlt{right:0;' in scene
     assert '.vlt img{object-position:right bottom}' in scene
     assert '_static_sprites_v3' in scene
