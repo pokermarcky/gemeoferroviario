@@ -1,5 +1,7 @@
 from io import BytesIO
 import pytest
+from xml.etree import ElementTree as ET
+from zipfile import ZipFile
 from openpyxl import load_workbook
 from docx import Document
 from pypdf import PdfReader
@@ -10,6 +12,14 @@ def test_export_values_formulas_and_documents():
     rules,catalog=load_model()
     result=calculate(Scenario(configuration='Elevado',lines=2,amvs=3,km=1.3,drainage='Complexa'),rules,catalog)
     files=export_all(result,catalog)
+    with ZipFile(BytesIO(files['orcamento.xlsx'])) as package:
+        assert package.testzip() is None
+        worksheet_names=[name for name in package.namelist() if name.startswith('xl/worksheets/sheet') and name.endswith('.xml')]
+        for name in worksheet_names:
+            raw=package.read(name)
+            ET.fromstring(raw)
+            assert b'<ns0:worksheet' not in raw
+        assert b'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"' in package.read('xl/worksheets/sheet2.xml')
     f=load_workbook(BytesIO(files['orcamento.xlsx']),data_only=False)
     v=load_workbook(BytesIO(files['orcamento.xlsx']),data_only=True)
     total_row=next(n for n in range(1,v['Resumo'].max_row+1) if v['Resumo'][f'A{n}'].value=='Total')
