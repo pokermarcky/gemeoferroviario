@@ -16,9 +16,12 @@ def test_export_values_formulas_and_documents():
     assert v['Resumo'][f'B{total_row}'].value==result['total']
     assert len(f['Resumo']._charts)==1
     assert f['EAP']['H5'].value.startswith('=VLOOKUP(')
-    assert f['EAP'].freeze_panes=='A5'
-    assert f['Premissas']['A2'].value=='Parâmetro V5'
-    assert 'fator de gestão' in f['EAP']['L5'].value
+    assert all(sheet.freeze_panes is None for sheet in f.worksheets)
+    assert f['Premissas']['A1'].value=='Premissas do cenário'
+    assert f['Premissas']['B8'].value=='Quantidade de vias'
+    assert 'fator de gestão (' in f['EAP']['L5'].value
+    assert f['EAP']['M5'].value.startswith('Regra: Via permanente.')
+    assert 'SIEC_INSUMOS' not in f.sheetnames
     for n,item in enumerate(result['items'],5):
         assert v['EAP'][f'I{n}'].value==item['total']
         assert v['EAP'][f'G{n}'].value==pytest.approx(item['quantity'])
