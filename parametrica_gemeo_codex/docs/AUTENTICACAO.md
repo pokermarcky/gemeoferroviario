@@ -2,8 +2,8 @@
 
 ## Perfis
 
-- **root**: os e-mails cadastrados em `root_emails`. Pode usar todas as funções.
-- **user**: somente contas Google presentes na allowlist de e-mails ou domínios. Pode calcular, gerar Excel e salvar seus orçamentos, mas não pode substituir bases ou enviar planilhas.
+- **root**: conta local cadastrada exclusivamente em `[local_admin]` nos Secrets. Pode usar todas as funções.
+- **root de contingência**: segunda conta independente em `[local_admin_backup]`.
 - **test**: login local `teste`. Pode conhecer, calcular e salvar temporariamente, mas não pode alterar bases nem gerar Excel.
 
 As restrições são verificadas no código antes de criar uploads ou downloads. Não dependem apenas da aparência da tela.
@@ -12,24 +12,18 @@ As restrições são verificadas no código antes de criar uploads ou downloads.
 
 O plano B fica fora da interface pública e possui duas camadas:
 
-1. cadastrar previamente uma segunda conta Google em `root_emails`;
-2. se ambas as contas forem perdidas, o proprietário altera `root_emails` diretamente nos Secrets do Streamlit Cloud usando o acesso de proprietário da implantação.
+1. cadastrar previamente uma segunda conta local em `[local_admin_backup]`, com e-mail e senha diferentes;
+2. se ambas as contas forem perdidas, o proprietário altera as credenciais diretamente nos Secrets do Streamlit Cloud usando o acesso de proprietário da implantação.
 
 Não existe formulário, rota ou senha de recuperação administrativa dentro do site público.
 
-Nunca publique `.streamlit/secrets.toml` no GitHub. Copie `secrets.example.toml` somente para a área **Secrets** do Streamlit Community Cloud e substitua os marcadores.
+Nunca publique `.streamlit/secrets.toml` no GitHub. Copie `secrets.example.toml` somente para a área **Secrets** do Streamlit Community Cloud e substitua os marcadores. O campo `password_hash` recebe somente o hash PBKDF2-SHA256 com salt aleatório; a senha em texto puro não é armazenada nem no repositório nem nos Secrets.
 
-## Google OIDC
+## Autenticação local
 
-No Google Cloud, crie um cliente OAuth do tipo aplicação Web e cadastre exatamente:
+O site não utiliza Google Cloud. O usuário e o hash irreversível da senha privilegiada são lidos somente dos Secrets privados do Streamlit. Após cinco tentativas inválidas na mesma sessão, o acesso administrativo é bloqueado por quinze minutos. A sessão root expira após oito horas e a sessão de demonstração após uma hora.
 
-```text
-https://railparametric.streamlit.app/oauth2callback
-```
-
-O código usa `st.login("google")`, `st.user` e `st.logout()`.
-
-Por padrão, `allow_all_google_users = false`. Novos usuários devem ser incluídos explicitamente em `allowed_emails` ou em um domínio confiável de `allowed_domains`.
+A interface não contém recuperação administrativa. A contingência é operacional, pelo segundo administrador e pelo painel privado da implantação.
 
 ## Base persistente de orçamentos
 
