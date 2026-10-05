@@ -14,7 +14,7 @@ def test_subterraneo_sem_base_nao_produz_orcamento(model):
     with pytest.raises(ValueError,match='orçamento subterrâneo'):
         calculate(Scenario(configuration='Subterrâneo'),*model)
 
-@pytest.mark.parametrize('cfg,lines,expected',[('Elevado',1,53552530.02),('Elevado',2,80467223.28),('Superfície',1,13321596.60),('Superfície',2,20597620.85)])
+@pytest.mark.parametrize('cfg,lines,expected',[('Elevado',1,52906663.23),('Elevado',2,79496753.58),('Superfície',1,13160932.35),('Superfície',2,20349204.59)])
 def test_four_manual_complete_budgets(model,cfg,lines,expected):
     r,c=model
     result=calculate(Scenario(profile='legacy',configuration=cfg,lines=lines,amvs=lines),r,c)

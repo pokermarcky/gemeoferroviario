@@ -8,7 +8,7 @@ from railbudget.exporters import make_excel, currency, br, caption
 from railbudget.interface import apply_theme
 from railbudget.static_scene_v2 import static_header_v2
 from railbudget.freight import calculate_freight
-from railbudget.reference_data import (parse_reference, apply_reference_bases,
+from railbudget.reference_data import (SOURCES, KINDS, parse_reference, apply_reference_bases,
     embedded_inventory, normalized_excel)
 
 ROOT=Path(__file__).resolve().parent
@@ -38,6 +38,19 @@ if not st.session_state.get('referencia_inicial_carregada'):
     st.session_state.results.setdefault('main',calculate(Scenario(),rules,catalog))
     st.session_state.referencia_inicial_carregada=True
 
+
+def set_service_selection(key,indices):
+    """Aplica uma seleção em lote antes de os checkboxes dos serviços serem criados."""
+    action=st.session_state.get(key+'_service_bulk')
+    if action not in ('Marcar todas','Desmarcar todas'):return
+    checked=action=='Marcar todas'
+    for index in indices:st.session_state[f'{key}_grupo_{index}']=checked
+
+
+def clear_service_selection(key):
+    """Volta a seleção rápida ao estado neutro após um ajuste manual."""
+    st.session_state[key+'_service_bulk']=None
+
 def budget_controls(key,freight=False):
     st.subheader('Configure sua ferrovia')
     st.caption('Comece pelo traçado. Depois, escolha os serviços e confira o resultado abaixo.')
@@ -66,6 +79,16 @@ def budget_controls(key,freight=False):
 
     st.markdown('**2. Serviços incluídos**')
     st.caption('Marque somente os grupos que fazem parte do escopo do projeto.')
+    service_indices=list(range(len(rules['groups'][:8] if freight else rules['groups'])))
+    with st.container(border=True,key=key+'_service_toolbar'):
+        toolbar=st.columns([1.15,2.35],vertical_alignment='center')
+        with toolbar[0]:
+            st.markdown('**Seleção rápida**')
+            st.caption('Aplique a todos e refine abaixo.')
+        with toolbar[1]:
+            st.segmented_control('Selecionar serviços',['Marcar todas','Desmarcar todas'],
+                default=None,key=key+'_service_bulk',label_visibility='collapsed',
+                on_change=set_service_selection,args=(key,service_indices))
     chosen=[]
     enabled={}
     drainage=st.session_state.get(key+'_drainage','Reforçada')
@@ -78,7 +101,10 @@ def budget_controls(key,freight=False):
         with group_columns[i%len(group_columns)]:
             with st.container(border=True):
                 label=('Banco de dutos' if configuration=='Superfície' else 'Canaletas e passa-fios') if i==5 else g.split(' ',1)[1]
-                enabled[i]=st.checkbox(label,value=(i not in (4,5,6,7) if freight else True),key=f'{key}_grupo_{i}',persist_state='session')
+                checkbox_key=f'{key}_grupo_{i}'
+                st.session_state.setdefault(checkbox_key,i not in (4,5,6,7) if freight else True)
+                enabled[i]=st.checkbox(label,key=checkbox_key,persist_state='session',
+                    on_change=clear_service_selection,args=(key,))
                 if enabled[i]:
                     if i==0:st.caption('Via '+configuration.lower()+' • '+('simples' if lines==1 else 'dupla'))
                     elif i==1:st.caption('Levantamentos e acompanhamento topográfico.')
@@ -97,20 +123,21 @@ def budget_controls(key,freight=False):
         with st.container(border=True):
             st.markdown('**Frota e instalações de carga**')
             fleet=st.columns(2)
-            with fleet[0]:locomotives=st.number_input('Locomotivas (un)',min_value=0,max_value=10000,value=0,step=1,key=key+'_locomotives')
-            with fleet[1]:wagons=st.number_input('Vagões de carga (un)',min_value=0,max_value=100000,value=0,step=1,key=key+'_wagons')
+            with fleet[0]:locomotives=st.number_input('Locomotivas equivalentes (un/km)',min_value=0.0,max_value=10000.0,value=0.0,step=0.01,format='%.2f',key=key+'_locomotives')
+            with fleet[1]:wagons=st.number_input('Vagões equivalentes (un/km)',min_value=0.0,max_value=100000.0,value=0.0,step=0.01,format='%.2f',key=key+'_wagons')
             st.caption('A base SIEC contém custos horários de operação de locomotiva e vagões, mas não preços de aquisição. As quantidades acima ficam registradas como escopo pendente e não entram no total.')
             st.caption('Pátios, terminais, pontes, passagens em nível e interfaces de carga também exigem orçamento próprio.')
     with st.container(border=True,key=key+'_bdi_panel'):
         st.markdown('**3. BDI e condições do orçamento**')
         apply_bdi=st.checkbox('Aplicar BDI',value=True,key=key+'_aplicar_bdi',persist_state='session')
         percentage=st.number_input('BDI personalizado (%)',min_value=0.0,max_value=100.0,
-            value=27.84182802164763,step=0.5,format='%.6f',
+            value=26.30,step=0.10,format='%.2f',
             key=key+'_bdi_personalizado',persist_state='session')
-        st.caption('O percentual é aplicado uma única vez ao total e aos subtotais selecionados.')
+        st.caption('Sugestão inicial: 26,30%. O usuário pode ajustar o percentual; ele é aplicado uma única vez ao total e aos subtotais.')
     if freight:st.caption('O orçamento de carga é atualizado automaticamente ao alterar as premissas.')
     else:calculate_now=st.button('Atualizar orçamento',key=key+'_calculate',type='primary',icon=':material/calculate:',disabled=subterraneo)
-    if freight or calculate_now:
+    reference_refresh=st.session_state.get(key+'_reference_signature')!=reference_signature
+    if freight or calculate_now or reference_refresh:
         try:
             p=Scenario(km=km,configuration=configuration,lines=lines,drainage=drainage,
                 fence=fence if enabled[3] else 'Nenhuma',amvs=int(amvs) if enabled[4] else 0,
@@ -119,8 +146,10 @@ def budget_controls(key,freight=False):
                 profile='siec',bdi=percentage/100)
             result=calculate_freight(p,axle,rules,catalog) if freight else calculate(p,rules,catalog)
             if freight:
-                result['warnings'].append(f'Frota fora do total: {locomotives} locomotiva(s), {wagons} vagão(ões). Pátios, terminais, pontes e passagens em nível também não foram orçados.')
+                result['scenario'].update(locomotives=float(locomotives),wagons=float(wagons))
+                result['warnings'].append('Frota fora do total: '+br(locomotives,2)+' locomotiva(s) equivalente(s)/km, '+br(wagons,2)+' vagão(ões) equivalente(s)/km. Pátios, terminais, pontes e passagens em nível também não foram orçados.')
             st.session_state.results[key]=result
+            st.session_state[key+'_reference_signature']=reference_signature
             st.session_state[key+'_calculated_inputs']=(km,configuration,lines,drainage,fence,amvs,detection,trainsets if not freight else 0,
                 () if not freight else (axle,locomotives,wagons))
         except (ValueError,KeyError,ZeroDivisionError) as exc:
@@ -222,6 +251,8 @@ def reference_card(source,kind):
             linked=linked_uploads.get(slot,0)
             st.markdown(f'**{active.count:,} itens** · {linked:,} vinculados ao orçamento'.replace(',','.'))
             st.caption(active.filename)
+            if not linked:
+                st.warning('A base está ativa para consulta, mas nenhum código com unidade compatível está vinculado ao orçamento atual.')
             preview=pd.DataFrame(active.records[:6]).rename(columns={'code':'Código','description':'Descrição','unit':'Unidade','price':'Preço','date':'Data-base'})
             with st.expander('Visualizar amostra',expanded=False):
                 display_table(preview,monetary=('Preço',))
@@ -251,13 +282,22 @@ def reference_card(source,kind):
             if not active or digest!=active.digest or period.strip()!=active.period:
                 try:
                     parsed=parse_reference(raw,upload.name,source,kind,period)
+                    _,prospective_links=apply_reference_bases(base_catalog,{slot:parsed})
+                    matched=prospective_links.get(slot,0)
                     st.session_state.reference_bases[slot]=parsed
                     st.session_state.results={}
                     st.session_state.referencia_inicial_carregada=False
-                    st.success(f'{parsed.count:,} itens validados. A nova base já está ativa.'.replace(',','.'))
+                    st.session_state[f'upload_notice_{source}_{kind}']=(parsed.count,matched)
                     st.rerun()
                 except (ValueError,KeyError,ImportError,UnicodeError,TypeError) as exc:
                     st.error('Tabela não ativada: '+str(exc))
+        notice=st.session_state.pop(f'upload_notice_{source}_{kind}',None)
+        if notice:
+            count,matched=notice
+            if matched:
+                st.success(f'{count:,} itens validados; {matched:,} preço(s) vinculado(s). Os orçamentos foram recalculados automaticamente.'.replace(',','.'))
+            else:
+                st.warning(f'{count:,} itens validados, mas nenhum código com unidade compatível corresponde aos itens usados no orçamento.'.replace(',','.'))
 
 
 budgets_tab,reference_tab=st.tabs(['ORÇAMENTOS','BASES DE REFERÊNCIA'],key='workspace')
@@ -289,10 +329,16 @@ with budgets_tab:
 
 with reference_tab:
     with st.container(key='reference_heading'):
-        st.markdown('## Base de referência')
-        st.caption('Substituição controlada da tabela de Serviços SIEC utilizada nos orçamentos.')
+        st.markdown('## Bases de referência')
+        st.caption('Carregue a versão mais recente de cada fonte e escolha se a tabela contém insumos ou serviços.')
     status=st.columns(2)
-    status[0].metric('Tabela vigente','Serviços SIEC',border=True)
-    status[1].metric('Códigos atualizados',linked_uploads.get(('SIEC','Serviços'),0),border=True)
-    st.info('Somente uma tabela de Serviços SIEC permanece ativa por vez. O envio de uma nova versão exige a data-base e substitui automaticamente a anterior nesta sessão.')
-    reference_card('SIEC','Serviços')
+    status[0].metric('Tabelas enviadas',len(enabled_bases),border=True)
+    status[1].metric('Códigos atualizados',sum(linked_uploads.values()),border=True)
+    st.info('Cada fonte e tipo mantém somente a versão mais recente nesta sessão. Uma nova tabela substitui a anterior e recalcula automaticamente os orçamentos quando houver códigos vinculados.')
+    source_tabs=st.tabs(list(SOURCES))
+    for source,source_tab in zip(SOURCES,source_tabs):
+        with source_tab:
+            default_kind='Serviços' if source=='SIEC' else 'Insumos'
+            kind=st.segmented_control('Conteúdo da tabela',list(KINDS),default=default_kind,
+                key=f'reference_kind_{source}')
+            reference_card(source,kind)

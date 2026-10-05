@@ -79,7 +79,7 @@ class Scenario:
     rolling_stock: bool=True
     trainsets: int=1
     profile: str='siec'
-    bdi: float=0.2784182802164763
+    bdi: float=0.263
     months: int=0
 
 def load_model(root=ROOT):

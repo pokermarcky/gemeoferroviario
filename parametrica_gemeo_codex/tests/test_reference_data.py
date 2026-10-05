@@ -10,13 +10,28 @@ def test_uploaded_base_replaces_linked_price_and_keeps_only_current_slot():
     _, catalog = load_model()
     target = next(item for item in catalog.values()
                   if item['source'] == 'SIEC' and item['kind'] == 'Serviços' and item['price'])
+    official_code=target['code'].removeprefix('SIEC-')
     csv = ('Código;Descrição;Unidade;Preço\n'
-           f'{target["code"]};Preço atualizado;{target["unit"]};4.079.193,32\n').encode()
+           f'{official_code};Preço atualizado;{target["unit"]};4.079.193,32\n').encode()
     base = parse_reference(csv, 'siec-08-2026.csv', 'SIEC', 'Serviços', '08/2026')
     updated, linked = apply_reference_bases(catalog, {('SIEC', 'Serviços'): base})
     assert linked[('SIEC', 'Serviços')] >= 1
     assert updated[target['key']]['price'] == 4079193.32
     assert updated[target['key']]['date'] == '08/2026'
+    assert updated[target['key']]['code']==official_code
+
+
+def test_uploaded_price_is_not_linked_when_unit_is_incompatible():
+    _,catalog=load_model()
+    target=next(item for item in catalog.values()
+        if item['source']=='SIEC' and item['kind']=='Serviços' and item['price'])
+    code=target['code'].removeprefix('SIEC-')
+    csv=('Código;Descrição;Unidade;Preço\n'
+         f'{code};Unidade incompatível;kg;123,45\n').encode()
+    base=parse_reference(csv,'siec.csv','SIEC','Serviços','07/2026')
+    updated,linked=apply_reference_bases(catalog,{('SIEC','Serviços'):base})
+    assert linked[('SIEC','Serviços')]==0
+    assert updated[target['key']]['price']==target['price']
 
 
 def test_reference_requires_pricing_columns():

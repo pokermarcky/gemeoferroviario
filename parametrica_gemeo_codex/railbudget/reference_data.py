@@ -94,6 +94,24 @@ def _code(value: object) -> str:
     return re.sub(r"\.0$", "", text) if re.fullmatch(r"\d+\.0", text) else text
 
 
+def _canonical_code(value: object, source: str) -> str:
+    """Compara códigos oficiais mesmo quando a planilha omite o prefixo da fonte."""
+    text=unicodedata.normalize("NFKD",str(value or "")).encode("ascii","ignore").decode().upper().strip()
+    text=re.sub(rf"^{re.escape(source.upper())}[\s:._/-]*","",text)
+    return re.sub(r"[^A-Z0-9]","",text)
+
+
+def _canonical_unit(value: object) -> str:
+    unit=_plain(value).replace(" ","")
+    aliases={
+        "unidade":"un","unidades":"un","und":"un","unid":"un","u":"un",
+        "metro":"m","metros":"m","m2":"m2","metroquadrado":"m2",
+        "m3":"m3","metrocubico":"m3","kg":"kg","quilo":"kg",
+        "h":"h","hora":"h","horas":"h","mes":"mes","meses":"mes",
+    }
+    return aliases.get(unit,unit)
+
+
 def _sheet_frames(raw: bytes, filename: str) -> list[tuple[str, pd.DataFrame]]:
     suffix = Path(filename).suffix.lower()
     if suffix == ".csv":
@@ -252,15 +270,16 @@ def apply_reference_bases(catalog: dict, bases: dict[tuple[str, str], ReferenceB
     updated = {key: dict(value) for key, value in catalog.items()}
     linked = {}
     for slot, base in bases.items():
-        index = {record["code"].strip().upper(): record for record in base.records}
+        index = {_canonical_code(record["code"],base.source): record for record in base.records}
         matches = 0
         for key, item in list(updated.items()):
             if item.get("source") != base.source or item.get("kind") != base.kind:
                 continue
-            record = index.get(str(item.get("code", "")).strip().upper())
-            if not record:
+            record = index.get(_canonical_code(item.get("code", ""),base.source))
+            if not record or _canonical_unit(record.get("unit"))!=_canonical_unit(item.get("unit")):
                 continue
-            updated[key] = {**item, **record, "date": base.period or record["date"],
+            updated[key] = {**item, **record, "unit":item["unit"],
+                            "date": base.period or record["date"],
                             "reference": base.filename,
                             "provenance": f"Upload ativo: {base.filename}"}
             matches += 1
