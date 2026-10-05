@@ -14,6 +14,7 @@ def test_export_values_formulas_and_documents():
     files=export_all(result,catalog)
     with ZipFile(BytesIO(files['orcamento.xlsx'])) as package:
         assert package.testzip() is None
+        assert package.read('[Content_Types].xml').startswith(b'<Types')
         worksheet_names=[name for name in package.namelist() if name.startswith('xl/worksheets/sheet') and name.endswith('.xml')]
         for name in worksheet_names:
             raw=package.read(name)
