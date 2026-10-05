@@ -6,6 +6,20 @@ STYLE = '''<style>
 :root {--ink:#243f48;--accent:#28776f;--line:#dde7e4}
 [data-testid="stAppViewContainer"] {background:linear-gradient(180deg,#f8faf9 0,#f1f5f3 48rem);color:var(--ink)}
 .block-container {max-width:1180px;padding:1.3rem 2rem 4rem}
+[data-testid="stSidebar"] {background:#f3f7f5;border-right:1px solid #cadad5}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] {padding:1rem .8rem 2rem}
+[data-testid="stSidebar"] .st-key-user_profile_card {padding:1rem;border:1px solid #ffffff24;border-radius:16px;background:linear-gradient(145deg,#173c3e,#285b57);color:#fff;box-shadow:0 10px 28px #0b252528}
+[data-testid="stSidebar"] .st-key-user_profile_card h3 {color:#fff!important;margin:.2rem 0 0;padding:0}
+[data-testid="stSidebar"] .st-key-user_profile_card [data-testid="stCaptionContainer"] {color:#cde0da}
+[data-testid="stSidebar"] h2 {margin-top:1.25rem;color:#173f3d;font-size:1.35rem!important}
+.sidebar-eyebrow,.login-eyebrow {font-size:.67rem;letter-spacing:.17em;font-weight:800;color:#79b9ad}
+.role-badge {display:inline-flex;padding:.24rem .58rem;border-radius:999px;font-size:.7rem;font-weight:800;letter-spacing:.04em;margin:.2rem 0 .65rem;background:#dceee9;color:#1f665c}
+.role-root{background:#f5d993;color:#72520b}.role-test{background:#dce6f6;color:#315b8b}
+[data-testid="stSidebar"] .st-key-new_budget_card {background:#fff!important;border:1px solid #ccddd8!important;box-shadow:0 8px 22px #173f3d12!important}
+[data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"] {background:#fff}
+.st-key-login_shell {max-width:720px;margin:8vh auto 0;padding:2rem 2.1rem 1.6rem;border:1px solid #c9ddd7;border-radius:22px;background:#fff;box-shadow:0 22px 55px #173f3d1c}
+.st-key-login_shell h1 {font-size:2.25rem;letter-spacing:-.045em;color:#173f3d;padding:.25rem 0}
+.st-key-login_shell [data-testid="stTabs"] [role="tablist"] {margin-top:1.2rem}
 .st-key-hero {background:#fff;border:1px solid var(--line);border-radius:20px;padding:1.4rem 1.6rem .45rem;box-shadow:0 12px 34px #24463f10}
 .st-key-hero h1 {font-size:2.2rem;letter-spacing:-.045em;line-height:1.15;color:var(--ink);padding:.15rem 0 .3rem}
 .st-key-hero p {color:#647a7f;font-size:.95rem}
@@ -50,7 +64,7 @@ h3 {font-size:1.25rem!important;letter-spacing:-.025em;color:var(--ink)}
 button:focus-visible,[role="tab"]:focus-visible {outline:3px solid #76b4a6!important;outline-offset:3px}
 .st-key-workspace {margin-top:.6rem}
 .st-key-workspace > div:first-child [role="tablist"] {padding:.25rem;border:1px solid #c7dcd6;border-radius:14px;background:#eef5f2}
-@media(max-width:640px){.block-container{padding:1rem .75rem 3rem}.st-key-hero{padding:1rem 1rem .2rem}.st-key-hero h1{font-size:1.9rem}[data-testid="stTabs"] [data-testid="stTab"]{padding:.6rem .7rem;flex:1 1 auto}[data-testid="stMetricValue"]{font-size:1.35rem!important}}
+@media(max-width:640px){.block-container{padding:1rem .75rem 3rem}.st-key-login_shell{margin:2vh auto 0;padding:1.2rem}.st-key-hero{padding:1rem 1rem .2rem}.st-key-hero h1{font-size:1.9rem}[data-testid="stTabs"] [data-testid="stTab"]{padding:.6rem .7rem;flex:1 1 auto}[data-testid="stMetricValue"]{font-size:1.35rem!important}}
 </style>'''
 
 SCENE = '''<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><style>

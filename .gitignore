@@ -1,0 +1,4 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+parametrica_gemeo_codex/.streamlit/secrets.toml

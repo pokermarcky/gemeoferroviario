@@ -10,11 +10,14 @@ from railbudget.static_scene_v2 import static_header_v2
 from railbudget.freight import calculate_freight
 from railbudget.reference_data import (SOURCES, KINDS, parse_reference, apply_reference_bases,
     embedded_inventory, normalized_excel)
+from railbudget.auth import require_user, can
+from railbudget.user_workspace import render_user_sidebar
 
 ROOT=Path(__file__).resolve().parent
 
 st.set_page_config(page_title='railparametric | Parametric Rails',page_icon=':material/train:',layout='wide')
 apply_theme()
+current_user=require_user()
 static_header_v2()
 @st.cache_data(ttl=300,max_entries=2)
 def data(version):return load_model(ROOT)
@@ -25,6 +28,7 @@ def excel_orcamento(result,price_catalog):return make_excel(result,{**price_cata
 version=(ROOT/'data/catalog.sqlite').stat().st_mtime_ns,(ROOT/'config/rules.json').stat().st_mtime_ns
 rules,base_catalog=data(version)
 st.session_state.setdefault('results',{})
+st.session_state.setdefault('display_results',{})
 st.session_state.setdefault('reference_bases',{})
 enabled_bases=dict(st.session_state.reference_bases)
 reference_signature=tuple(sorted((source,kind,base.digest,base.period)
@@ -177,6 +181,7 @@ def display_table(frame, monetary=(), height=None):
 
 
 def render_result(r,key,modality='passageiro'):
+    st.session_state.display_results[key]=r
     with st.container(key='result_header_'+key):
         st.markdown('## Resultado do orçamento')
         st.caption('Síntese financeira do cenário e do escopo selecionado.')
@@ -235,10 +240,13 @@ def render_result(r,key,modality='passageiro'):
         st.info('Nenhum serviço incluído no total. Selecione ao menos um grupo com serviços para gerar o orçamento em Excel.')
         return
     used_catalog={item['price_key']:catalog[item['price_key']] for item in r['items'] if item['price_key'] in catalog}
-    st.download_button('Baixar orçamento em Excel',excel_orcamento(r,used_catalog),
-        file_name='orcamento_ferrovia_'+modality+'.xlsx',
-        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        key=key+'_excel',icon=':material/download:')
+    if can(current_user,'download_excel'):
+        st.download_button('Baixar orçamento em Excel',excel_orcamento(r,used_catalog),
+            file_name='orcamento_ferrovia_'+modality+'.xlsx',
+            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            key=key+'_excel',icon=':material/download:')
+    else:
+        st.info('O perfil de demonstração permite conhecer e calcular, mas não gera a planilha Excel.')
 
 def reference_card(source,kind):
     slot=(source,kind)
@@ -256,10 +264,11 @@ def reference_card(source,kind):
             preview=pd.DataFrame(active.records[:6]).rename(columns={'code':'Código','description':'Descrição','unit':'Unidade','price':'Preço','date':'Data-base'})
             with st.expander('Visualizar amostra',expanded=False):
                 display_table(preview,monetary=('Preço',))
-            st.download_button('Baixar tabela convertida',normalized_excel(active),
-                file_name=f'{source.lower()}_{kind.lower()}_{active.period.replace("/","-") or "normalizada"}.xlsx',
-                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                key=f'normalized_{source}_{kind}',icon=':material/download:')
+            if can(current_user,'download_excel'):
+                st.download_button('Baixar tabela convertida',normalized_excel(active),
+                    file_name=f'{source.lower()}_{kind.lower()}_{active.period.replace("/","-") or "normalizada"}.xlsx',
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    key=f'normalized_{source}_{kind}',icon=':material/download:')
         elif embedded:
             periods=' · '.join(sorted(embedded['periods']))
             st.caption(f'Base embarcada · {periods}')
@@ -267,6 +276,9 @@ def reference_card(source,kind):
         else:
             st.caption('Nenhuma tabela ativa')
             st.markdown('**Aguardando uma base válida**')
+        if not can(current_user,'manage_bases'):
+            st.info('Consulta liberada. A substituição da data-base e o upload de planilhas são exclusivos do administrador root.')
+            return
         upload=st.file_uploader('Substituir tabela atual',type=['csv','xls','xlsx','xlsm'],key=f'upload_{source}_{kind}',
             help='Aceita CSV, XLS, XLSX e XLSM. O sistema procura automaticamente o cabeçalho em todas as abas e converte Código, Descrição, Unidade e Preço para o padrão interno.')
         if upload and upload.size>200*1024*1024:
@@ -342,3 +354,5 @@ with reference_tab:
             kind=st.segmented_control('Conteúdo da tabela',list(KINDS),default=default_kind,
                 key=f'reference_kind_{source}')
             reference_card(source,kind)
+
+render_user_sidebar(current_user)
