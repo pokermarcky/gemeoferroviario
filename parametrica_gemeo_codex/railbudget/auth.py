@@ -4,7 +4,8 @@ Credenciais privilegiadas existem somente nos Secrets da implantação. O perfil
 de demonstração é deliberadamente limitado e não possui privilégios.
 """
 from dataclasses import dataclass
-from hashlib import sha256
+import base64
+from hashlib import pbkdf2_hmac, sha256
 import hmac
 import os
 import time
@@ -18,6 +19,8 @@ DEMO_SESSION_TTL_SECONDS = 60 * 60
 ADMIN_SESSION_TTL_SECONDS = 8 * 60 * 60
 MAX_ADMIN_ATTEMPTS = 5
 ADMIN_LOCK_SECONDS = 15 * 60
+PASSWORD_HASH_ALGORITHM = "pbkdf2_sha256"
+PASSWORD_HASH_ITERATIONS = 600_000
 
 
 @dataclass(frozen=True)
@@ -56,9 +59,28 @@ def _admin_accounts():
     for section_name in ("local_admin", "local_admin_backup"):
         section=_secrets_section(section_name)
         username=str(section.get("username", "")).strip().lower() if section else ""
-        password=str(section.get("password", "")) if section else ""
-        if username and password:accounts.append((username,password))
+        password_hash=str(section.get("password_hash", "")) if section else ""
+        if username and password_hash:accounts.append((username,password_hash))
     return accounts
+
+
+def _verify_password(password, encoded_hash):
+    """Valida um hash PBKDF2 versionado sem guardar a senha reversível."""
+    try:
+        algorithm, iterations, salt_b64, digest_b64 = encoded_hash.split("$", 3)
+        if algorithm != PASSWORD_HASH_ALGORITHM:
+            return False
+        rounds = int(iterations)
+        if rounds < PASSWORD_HASH_ITERATIONS:
+            return False
+        salt = base64.b64decode(salt_b64, validate=True)
+        expected = base64.b64decode(digest_b64, validate=True)
+        if len(salt) < 16 or len(expected) != 32:
+            return False
+        supplied = pbkdf2_hmac("sha256", password.encode("utf-8"), salt, rounds, dklen=32)
+        return hmac.compare_digest(supplied, expected)
+    except (TypeError, ValueError):
+        return False
 
 
 def admin_configured():
@@ -121,8 +143,8 @@ def _admin_login():
         submitted=st.form_submit_button("Entrar como administrador",type="primary",use_container_width=True)
     if not submitted:return
     supplied_user=username.strip().lower()
-    authenticated=any(hmac.compare_digest(supplied_user,candidate) and hmac.compare_digest(password,secret)
-        for candidate,secret in _admin_accounts())
+    authenticated=any(hmac.compare_digest(supplied_user,candidate) and _verify_password(password,password_hash)
+        for candidate,password_hash in _admin_accounts())
     if authenticated:
         st.session_state.pop("admin_attempts",None)
         st.session_state.pop("admin_locked_until",None)
