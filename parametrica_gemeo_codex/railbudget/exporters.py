@@ -232,7 +232,7 @@ def make_excel(r,catalog):
     for sh in sheets.values():sh.column_dimensions['C'].width=75;sh.column_dimensions['G'].width=100
     add_group_sheets(w,r,refs,caches,{'direct':direct_row,'bdi':bdi_row,'total':total_row})
     data=BytesIO();w.save(data)
-    return cache_formulas(data.getvalue(),caches)
+    return data.getvalue()
 
 
 def add_group_sheets(workbook,result,refs,caches,summary_rows):
