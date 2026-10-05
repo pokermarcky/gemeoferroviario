@@ -12,9 +12,9 @@ import time
 import streamlit as st
 
 
-ROOT_EMAIL = "pokermarcky90@gmail.com"
 DEMO_USER = "teste"
 DEMO_PASSWORD_HASH = sha256(b"teste12345").hexdigest()
+DEMO_SESSION_TTL_SECONDS = 60 * 60
 
 
 @dataclass(frozen=True)
@@ -56,10 +56,25 @@ def google_configured():
 
 def _root_emails():
     access = _secrets_section("access")
-    backups = access.get("backup_root_emails", []) if access else []
-    if isinstance(backups, str):
-        backups = [backups]
-    return {ROOT_EMAIL, *(str(email).strip().lower() for email in backups)}
+    values = access.get("root_emails", []) if access else []
+    if isinstance(values, str):
+        values = [values]
+    return {str(email).strip().lower() for email in values if str(email).strip()}
+
+
+def _regular_access_allowed(email):
+    access = _secrets_section("access")
+    if not access:
+        return False
+    if bool(access.get("allow_all_google_users", False)):
+        return True
+    allowed = access.get("allowed_emails", [])
+    domains = access.get("allowed_domains", [])
+    if isinstance(allowed, str):allowed=[allowed]
+    if isinstance(domains, str):domains=[domains]
+    allowed = {str(value).strip().lower() for value in allowed}
+    domains = {str(value).strip().lower().lstrip("@") for value in domains}
+    return email in allowed or ("@" in email and email.rsplit("@", 1)[1] in domains)
 
 
 def _google_user():
@@ -69,7 +84,7 @@ def _google_user():
         email = str(getattr(st.user, "email", "")).strip().lower()
         if not email:
             return None
-        role = "root" if email in _root_emails() else "user"
+        role = "root" if email in _root_emails() else "user" if _regular_access_allowed(email) else "unauthorized"
         name = str(getattr(st.user, "name", "") or email.split("@", 1)[0])
         return UserContext(_identity(email), email, name, role, "google")
     except (AttributeError, KeyError, RuntimeError):
@@ -81,15 +96,16 @@ def _local_user():
     if not isinstance(payload, dict):
         return None
     if payload.get("role") == "test":
+        if time.time() - float(payload.get("issued_at", 0)) > DEMO_SESSION_TTL_SECONDS:
+            st.session_state.pop("local_auth", None)
+            return None
         return UserContext("demo-teste", "teste@railparametric.local", "Visitante de teste", "test", "local")
-    if payload.get("role") == "root" and payload.get("verified") is True:
-        return UserContext("root-emergencia", ROOT_EMAIL, "Administrador (recuperação)", "root", "recovery")
     return None
 
 
 def _test_environment_user():
     if os.environ.get("RAILPARAMETRIC_TEST_MODE") == "1":
-        return UserContext("test-suite-root", ROOT_EMAIL, "Testes automatizados", "root", "test-suite")
+        return UserContext("test-suite-root", "root@test.invalid", "Testes automatizados", "root", "test-suite")
     return None
 
 
@@ -102,46 +118,24 @@ def _demo_login():
         valid_user = hmac.compare_digest(username.strip().lower(), DEMO_USER)
         valid_password = hmac.compare_digest(sha256(password.encode("utf-8")).hexdigest(), DEMO_PASSWORD_HASH)
         if valid_user and valid_password:
-            st.session_state.local_auth = {"role": "test"}
+            st.session_state.local_auth = {"role": "test", "issued_at": time.time()}
             st.rerun()
         st.error("Login ou senha de teste inválidos.")
-
-
-def _recovery_login():
-    access = _secrets_section("access")
-    expected = str(access.get("emergency_password_hash", "")) if access else ""
-    if not expected:
-        st.caption("O acesso emergencial será habilitado após a chave de recuperação ser cadastrada nos Secrets.")
-        return
-    locked_until = float(st.session_state.get("recovery_locked_until", 0))
-    if locked_until > time.time():
-        remaining = int(locked_until - time.time()) + 1
-        st.error(f"Acesso emergencial temporariamente bloqueado. Tente novamente em {remaining} segundos.")
-        return
-    with st.form("recovery_login_form", clear_on_submit=True):
-        recovery_user = st.text_input("Usuário de recuperação")
-        recovery_password = st.text_input("Chave de recuperação", type="password")
-        submitted = st.form_submit_button("Acessar recuperação", use_container_width=True)
-    if submitted:
-        supplied = sha256(recovery_password.encode("utf-8")).hexdigest()
-        if hmac.compare_digest(recovery_user.strip().lower(), "root") and hmac.compare_digest(supplied, expected):
-            st.session_state.pop("recovery_attempts", None)
-            st.session_state.pop("recovery_locked_until", None)
-            st.session_state.local_auth = {"role": "root", "verified": True}
-            st.rerun()
-        attempts = int(st.session_state.get("recovery_attempts", 0)) + 1
-        st.session_state.recovery_attempts = attempts
-        if attempts >= 5:
-            st.session_state.recovery_attempts = 0
-            st.session_state.recovery_locked_until = time.time() + 300
-        st.error("Credenciais de recuperação inválidas.")
 
 
 def require_user():
     """Retorna o usuário autenticado ou encerra a execução na tela de acesso."""
     user = _test_environment_user() or _local_user() or _google_user()
-    if user:
+    if user and user.role != "unauthorized":
         return user
+    if user and user.role == "unauthorized":
+        with st.container(key="login_shell"):
+            st.markdown('<span class="login-eyebrow">ACESSO PROTEGIDO</span>',unsafe_allow_html=True)
+            st.title("Acesso ainda não autorizado")
+            st.caption("Sua identidade Google foi confirmada, mas este e-mail não consta na lista de usuários permitidos.")
+            if st.button("Sair e usar outra conta",icon=":material/logout:",type="primary",use_container_width=True):
+                st.logout()
+        st.stop()
 
     with st.container(key="login_shell"):
         st.markdown('<span class="login-eyebrow">ACESSO SEGURO</span>', unsafe_allow_html=True)
@@ -155,14 +149,12 @@ def require_user():
                 st.button("Entrar com Google", icon=":material/login:", type="primary",
                     use_container_width=True, on_click=st.login, args=("google",))
             else:
-                st.info("A conexão Google está aguardando a configuração segura das credenciais de implantação.")
+                st.button("Entrar com Google",icon=":material/login:",use_container_width=True,disabled=True)
+                st.info("Login Google temporariamente indisponível durante a configuração de segurança.")
         with demo_tab:
             st.markdown("**Acesso temporário de demonstração**")
             st.caption("Permite conhecer e calcular. Não permite uploads, troca de bases ou geração de Excel.")
             _demo_login()
-        with st.expander("Recuperação administrativa", expanded=False):
-            st.caption("Use somente se o acesso Google do administrador estiver indisponível.")
-            _recovery_login()
     st.stop()
 
 
