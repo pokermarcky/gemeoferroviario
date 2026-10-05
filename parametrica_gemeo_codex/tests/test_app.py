@@ -12,6 +12,8 @@ def test_capa_estatica_usa_trem_bidirecional_e_vias_distintas():
     assert '@keyframes' not in scene
     assert 'Pausar animação' not in scene
     assert all(track in scene for track in ('track slab','track ballast','track urban'))
+    assert '.passenger img{height:88px}' in scene
+    assert '_static_sprites_v3' in scene
 
 
 def test_passageiro_calcula_siec_e_limpa_resultado_invalido():
@@ -30,12 +32,10 @@ def test_passageiro_calcula_siec_e_limpa_resultado_invalido():
 def test_navegacao_e_controles_solicitados():
     app = AppTest.from_file(str(APP)).run(timeout=30)
     assert not app.exception
-    assert [tab.label for tab in app.tabs] == [
-        'ORÇAMENTOS',
-        'Ferrovia de passageiro', 'Resumo geral', 'Detalhamento por grupo',
-        'Ferrovia de carga', 'Resumo geral', 'Detalhamento por grupo',
-        'VLT - Veículo leve sobre Trilho', 'Shortline',
-        'BASES DE REFERÊNCIA']
+    labels=[tab.label for tab in app.tabs]
+    assert {'ORÇAMENTOS','Ferrovia de passageiro','Ferrovia de carga',
+        'VLT - Veículo leve sobre Trilho','Shortline','BASES DE REFERÊNCIA',
+        'SIEC','SINAPI','SIURB','SICRO'}.issubset(labels)
     assert any(h.value == 'Parametric Rails' for h in app.title)
     assert app.selectbox(key='main_profile').options == ['SIEC • lastro / AMV nº 14']
     assert app.selectbox(key='main_configuration').options == ['Superfície', 'Elevado', 'Subterrâneo']
@@ -44,10 +44,15 @@ def test_navegacao_e_controles_solicitados():
     assert [(x.key, x.proto.label) for x in app.get('download_button')] == [
         ('main_excel', 'Baixar orçamento em Excel'), ('cargo_excel', 'Baixar orçamento em Excel')]
     assert not any(x.key == 'main_prepare' for x in app.button)
-    assert len(app.get('file_uploader')) == 1
-    assert app.get('file_uploader')[0].key == 'upload_SIEC_Serviços'
+    assert {u.key for u in app.get('file_uploader')} == {
+        'upload_SIEC_Serviços','upload_SINAPI_Insumos',
+        'upload_SIURB_Insumos','upload_SICRO_Insumos'}
     assert all(set(u.proto.type) == {'.csv', '.xls', '.xlsx', '.xlsm'} for u in app.get('file_uploader'))
-    assert not any(x.key in {'main_selecionar_todas','main_desmarcar_todas'} for x in app.button)
+    source=APP.read_text(encoding='utf-8')
+    assert "key=key+'_service_bulk'" in source
+    assert "['Marcar todas','Desmarcar todas']" in source
+    assert app.number_input(key='main_bdi_personalizado').value == 26.30
+    assert app.number_input(key='cargo_bdi_personalizado').value == 26.30
     assert not any('Estações de passageiros' in x.label for x in app.expander)
     assert not any(x.key and x.key.startswith('main_station') for x in app.number_input)
     assert not any('Orçamento paramétrico em preparação' in x.value for x in app.info)
@@ -75,6 +80,16 @@ def test_selecao_de_grupos_e_bdi_no_resultado():
     assert app.metric[0].value != currency(direct)
 
 
+def test_selecao_rapida_marca_e_desmarca_servicos():
+    app=AppTest.from_file(str(APP)).run(timeout=30)
+    bulk=next(x for x in app.get('button_group') if x.key=='main_service_bulk')
+    bulk.set_value('Desmarcar todas').run(timeout=30)
+    assert not any(app.checkbox(key=f'main_grupo_{index}').value for index in range(9))
+    bulk=next(x for x in app.get('button_group') if x.key=='main_service_bulk')
+    bulk.set_value('Marcar todas').run(timeout=30)
+    assert all(app.checkbox(key=f'main_grupo_{index}').value for index in range(9))
+
+
 def test_banco_de_dutos_e_opcoes_do_grupo():
     app = AppTest.from_file(str(APP)).run(timeout=30)
     completo = app.metric[0].value
@@ -87,6 +102,25 @@ def test_banco_de_dutos_e_opcoes_do_grupo():
     assert app.checkbox(key='main_grupo_5').label == 'Canaletas e passa-fios'
     app.checkbox(key='main_grupo_3').uncheck().run(timeout=30)
     assert not any(x.key == 'main_fence' for x in app.selectbox)
+
+
+def test_upload_siec_recalcula_orcamento_com_codigo_sem_prefixo():
+    from railbudget.reference_data import parse_reference
+
+    app=AppTest.from_file(str(APP)).run(timeout=30)
+    original=app.session_state['results']['main']
+    item=next(row for row in original['items'] if row['source']=='SIEC')
+    new_price=item['unit_cost']*2
+    code=item['code'].removeprefix('SIEC-')
+    raw=(f'Código;Descrição;Unidade;Preço\n{code};Preço 07/26;{item["unit"]};{new_price}\n').encode()
+    base=parse_reference(raw,'SIEC_07_26.csv','SIEC','Serviços','07/2026')
+    app.session_state['reference_bases']={('SIEC','Serviços'):base}
+    app.run(timeout=30)
+    assert not app.exception
+    updated=app.session_state['results']['main']
+    updated_item=next(row for row in updated['items'] if row['id']==item['id'])
+    assert updated_item['unit_cost']==new_price
+    assert updated['total']!=original['total']
 
 
 def test_detalhamento_exibe_apenas_grupos_selecionados():
@@ -106,7 +140,8 @@ def test_carga_orca_so_infraestrutura_com_siec():
     assert app.checkbox(key='cargo_grupo_4').value is False
     assert app.checkbox(key='cargo_grupo_6').value is False
     assert app.checkbox(key='cargo_grupo_7').value is False
-    app.number_input(key='cargo_wagons').set_value(80).run(timeout=30)
+    app.number_input(key='cargo_locomotives').set_value(.34)
+    app.number_input(key='cargo_wagons').set_value(.34).run(timeout=30)
     assert not app.exception
     cargo=app.session_state['results']['cargo']
     passenger=app.session_state['results']['main']
@@ -114,5 +149,7 @@ def test_carga_orca_so_infraestrutura_com_siec():
     assert cargo['scenario']['rolling_stock'] is False
     assert '9 Material rodante' not in cargo['groups']
     assert all(x['source']=='SIEC' for x in cargo['items'])
-    assert any('80 vagão' in warning for warning in cargo['warnings'])
+    assert cargo['scenario']['locomotives']==.34
+    assert cargo['scenario']['wagons']==.34
+    assert any('0,34 vagão' in warning for warning in cargo['warnings'])
     assert {x.key for x in app.get('download_button')}=={'main_excel','cargo_excel'}
