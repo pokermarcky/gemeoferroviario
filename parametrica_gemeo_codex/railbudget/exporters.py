@@ -42,6 +42,25 @@ def br(v, digits=2):
 
 def currency(v):return 'R$ '+br(v)
 
+def provenance_pt(value):
+    """Converte a rastreabilidade técnica para texto legível em português."""
+    if not value:return 'Registro da base de referência vigente.'
+    try:
+        entries=json.loads(value) if isinstance(value,str) else value
+    except (TypeError,json.JSONDecodeError):
+        return str(value)
+    if isinstance(entries,dict):entries=[entries]
+    if not isinstance(entries,list):return str(value)
+    translated=[]
+    for entry in entries:
+        if not isinstance(entry,dict):continue
+        parts=[]
+        if entry.get('sheet') not in (None,''):parts.append(f"aba {entry['sheet']}")
+        if entry.get('row') not in (None,''):parts.append(f"linha {entry['row']}")
+        if entry.get('original_row') not in (None,''):parts.append(f"linha original {entry['original_row']}")
+        if parts:translated.append(', '.join(parts))
+    return '; '.join(dict.fromkeys(translated)) or 'Registro da base de referência vigente.'
+
 def caption(r):
     p=r['scenario']
     return f"{r['model_label']} | {p['configuration']} | {'dupla' if p['lines']==2 else 'simples'} | {br(p['km'],3)} km de corredor"
@@ -119,13 +138,13 @@ def make_excel(r,catalog):
     caches={f'xl/worksheets/sheet{i}.xml':{} for i in (1,2,3)}
     summary.append(['Parametric Rails | Orçamento']);summary.append([caption(r)])
     summary.append(['Grupo','Custo direto (R$)'])
-    for g,v in r['groups'].items():summary.append([g,f'=SUMIF(EAP!$B$5:$B${4+len(r["items"])},A{summary.max_row+1},EAP!$I$5:$I${4+len(r["items"])})']);caches['xl/worksheets/sheet1.xml'][f'B{summary.max_row}']=v
+    for g,v in r['groups'].items():summary.append([g,v])
     first_group_row=4;last_group_row=3+len(r['groups']);direct_row=last_group_row+1;bdi_row=direct_row+1
     bdi_amount_row=bdi_row+1;total_row=bdi_row+2;per_km_row=bdi_row+3;per_line_row=bdi_row+4
-    summary.append(['Direto',f'=SUM(B{first_group_row}:B{last_group_row})']);caches['xl/worksheets/sheet1.xml'][f'B{direct_row}']=r['direct']
+    summary.append(['Direto',r['direct']])
     summary.append(['BDI',r['scenario']['bdi']]);summary[f'B{bdi_row}'].number_format='0.00%'
-    for label,formula,val in [('Adicional BDI',f'=ROUND(B{direct_row}*B{bdi_row},2)',r['bdi_amount']),('Total',f'=B{direct_row}+B{bdi_amount_row}',r['total']),('R$/km corredor',f'=B{total_row}/{r["scenario"]["km"]}',r['per_km']),('R$/km linha',f'=B{total_row}/{r["scenario"]["km"]*r["scenario"]["lines"]}',r['per_line_km'])]:
-        summary.append([label,formula]);caches['xl/worksheets/sheet1.xml'][f'B{summary.max_row}']=val
+    for label,val in [('Adicional BDI',r['bdi_amount']),('Total',r['total']),('R$/km corredor',r['per_km']),('R$/km linha',r['per_line_km'])]:
+        summary.append([label,val])
     summary.append(['Drenagem',r['scenario']['drainage']]);summary.append(['Vedação',r['scenario']['fence']])
     for note in r['warnings']:summary.append([note])
     chart=BarChart();chart.title='Composição do custo direto';chart.add_data(Reference(summary,min_col=2,min_row=3,max_row=last_group_row),titles_from_data=True);chart.set_categories(Reference(summary,min_col=1,min_row=first_group_row,max_row=last_group_row))
@@ -152,7 +171,6 @@ def make_excel(r,catalog):
         ('Escopo','Material rodante','Sim' if scenario['rolling_stock'] else 'Não','','Indica se o material rodante compõe o orçamento.'),
         ('Escopo','Composições',scenario['trainsets'],'un','Quantidade de composições incluídas, quando aplicável.'),
         ('Cálculo','BDI',scenario['bdi'],'%','Aplicado uma única vez sobre o custo direto.'),
-        ('Cálculo','Prazo paramétrico de referência',r['duration'],'meses','Usado apenas nas quantidades dependentes de tempo; não representa cronograma executivo.'),
     ]
     if 'axle_load' in scenario:premise_rows.append(('Carga','Carga por eixo',scenario['axle_load'],'t/eixo','Seleciona a alternativa de trilho da ferrovia de carga.'))
     if 'locomotives' in scenario:premise_rows.append(('Carga','Locomotivas equivalentes',scenario['locomotives'],'un/km','Escopo informativo; não compõe o total.'))
@@ -163,9 +181,6 @@ def make_excel(r,catalog):
         if label=='Extensão do corredor':refs['km']=prem.max_row
         elif label=='Quantidade de vias':refs['lines']=prem.max_row
         elif label=='BDI':refs['bdi']=prem.max_row
-    summary[f'B{bdi_row}']="='Premissas'!C"+str(refs['bdi']);caches['xl/worksheets/sheet1.xml'][f'B{bdi_row}']=r['scenario']['bdi']
-    summary[f'B{per_km_row}']=f"=B{total_row}/'Premissas'!C"+str(refs['km'])
-    summary[f'B{per_line_row}']=f"=B{total_row}/('Premissas'!C"+str(refs['km'])+"*'Premissas'!C"+str(refs['lines'])+")"
     sheets={};lookup={}
     used={x['price_key'] for x in r['items']}
     for k in sorted(used):
@@ -174,19 +189,15 @@ def make_excel(r,catalog):
         name=p['source']+'_SERVICOS' if p['source']=='SIEC' else p['source']
         if name not in sheets:
             sheets[name]=w.create_sheet(name);sheets[name].append(['Chave exata','Código','Descrição','Unidade','Preço','Data-base','Proveniência'])
-        sh=sheets[name];sh.append([k,p['code'],p['description'],p['unit'],p['price'],p['date'],p['provenance']]);lookup[k]=name
+        sh=sheets[name];sh.append([k,p['code'],p['description'],p['unit'],p['price'],p['date'],provenance_pt(p['provenance'])]);lookup[k]=name
     eap.append(['EAP orçada • '+caption(r)]);eap.append(['Quantidades calculadas para o cenário; preços vinculados por PROCV exato às referências de serviços utilizadas.'])
     eap.append(['']);eap.append(['EAP','Grupo','Código','Fonte','Serviço / descrição','Unidade','Quantidade','Custo unitário','Custo total','Data-base','Chave do preço','Cálculo da quantidade','Critério e referência'])
     for x in r['items']:
         n=eap.max_row+1;name=lookup[x['price_key']]
-        span=f"'{name}'!$A$2:$G${sheets[name].max_row}" if name else None
-        unit=f'=VLOOKUP(K{n},{span},4,FALSE)' if name else x['unit']
-        unit_cost=f'=VLOOKUP(K{n},{span},5,FALSE)' if name else x['unit_cost']
         origin={'vp':'Via permanente','p2':'Referência histórica','Ajuste 2':'Regra paramétrica complementar'}.get(x['origin'],x['origin'])
         reference=f"Regra: {origin}. Referência: {x['sheet']}, item {x['row']}. Critério: {x['note'].rstrip('.')} .".replace(' .','.')
         eap.append([x['eap'],x['group'],x['code'],x['source'],x['label']+' — '+x['description'],
-                    unit,x['quantity'],unit_cost,f'=ROUND(G{n}*H{n},2)',x['date'],x['price_key'],memoria_quantidade(x['quantity_formula'],r['context'],x['quantity'],x['unit']),reference])
-        for c,val in [('F',x['unit']),('G',x['quantity']),('H',x['unit_cost']),('I',x['total'])]:caches['xl/worksheets/sheet2.xml'][f'{c}{n}']=val
+                    x['unit'],x['quantity'],x['unit_cost'],x['total'],x['date'],x['price_key'],memoria_quantidade(x['quantity_formula'],r['context'],x['quantity'],x['unit']),reference])
     for src,color in PALETTE.items():eap.conditional_formatting.add(f'D5:D{eap.max_row}',FormulaRule(formula=[f'$D5="{src}"'],fill=PatternFill('solid',fgColor=color)))
     for sh in w:
         header=4 if sh in (eap,prem) else (3 if sh==summary else 1)
@@ -239,19 +250,17 @@ def add_group_sheets(workbook,result,refs,caches,summary_rows):
         sheet.merge_cells('B4:J4')
         sheet['B5']='Valores vinculados à EAP consolidada. A seleção de escopo é feita na aplicação.'
         sheet.merge_cells('B5:J5')
-        measures=[('Subtotal direto',f'=SUM(I13:I{12+len(rows)})' if rows else '=0',direct),
-            ('Direto por km de corredor',f"=C6/'Premissas'!C{refs['km']}",direct/result['scenario']['km']),
-            ('Participação no total direto',f'=IF(Resumo!B{summary_rows["direct"]}=0,0,C6/Resumo!B{summary_rows["direct"]})',direct/result['direct'] if result['direct'] else 0),
-            ('BDI',f'=Resumo!B{summary_rows["bdi"]}',result['scenario']['bdi'])]
-        for n,(label,formula,value) in enumerate(measures,6):
-            sheet.cell(n,2,label);sheet.cell(n,3,formula);cache[f'C{n}']=value
+        measures=[('Subtotal direto',direct),
+            ('Direto por km de corredor',direct/result['scenario']['km']),
+            ('Participação no total direto',direct/result['direct'] if result['direct'] else 0),
+            ('BDI',result['scenario']['bdi'])]
+        for n,(label,value) in enumerate(measures,6):
+            sheet.cell(n,2,label);sheet.cell(n,3,value)
         headers=['EAP','Código','Fonte','Descrição do serviço','Unidade','Quantidade','Custo unitário','Custo total','Data-base']
         for col,label in enumerate(headers,2):sheet.cell(12,col,label)
-        source_cols=['A','C','D','E','F','G','H','I','J']
         for n,(source_row,item) in enumerate(rows,13):
             values=[item['eap'],item['code'],item['source'],item['label']+' — '+item['description'],item['unit'],item['quantity'],item['unit_cost'],item['total'],item['date']]
-            for col,source_col,value in zip(range(2,11),source_cols,values):
-                sheet.cell(n,col,f"='EAP'!{source_col}{source_row}");cache[f'{get_column_letter(col)}{n}']=value
+            for col,value in zip(range(2,11),values):sheet.cell(n,col,value)
             sheet.row_dimensions[n].height=100
         if not rows:sheet['B13']='Sem serviços incluídos neste grupo.';sheet.merge_cells('B13:J13')
         for row in sheet.iter_rows(min_row=2,min_col=2,max_row=max(13,12+len(rows)),max_col=10):
@@ -299,7 +308,7 @@ def make_word(r):
             for run in cell.paragraphs[0].runs:run.font.color.rgb=RGBColor(255,255,255);run.bold=True
         return t
     table(['Grupo','Direto'],[[g,currency(v)] for g,v in r['groups'].items()]+[['Total com BDI',currency(r['total'])],['R$/km corredor',currency(r['per_km'])],['R$/km linha',currency(r['per_line_km'])]],[10,7])
-    p=r['scenario'];d.add_paragraph(f"Drenagem {p['drainage']}; vedação {p['fence']}; {p['amvs']} AMV(s) no corredor; banco de dutos {'sim' if p['ducts'] else 'não'}; topografia {'sim' if p['topography'] else 'não'}; rede aérea {'sim' if p['overhead'] else 'não'}; sinalização {'sim' if p['signaling'] else 'não'} ({p['detection'].lower()}); material rodante {'sim' if p['rolling_stock'] else 'não'} ({p['trainsets']} composição(ões)); prazo {r['duration']} meses; BDI {br(p['bdi']*100,6)}%.")
+    p=r['scenario'];d.add_paragraph(f"Drenagem {p['drainage']}; vedação {p['fence']}; {p['amvs']} AMV(s) no corredor; banco de dutos {'sim' if p['ducts'] else 'não'}; topografia {'sim' if p['topography'] else 'não'}; rede aérea {'sim' if p['overhead'] else 'não'}; sinalização {'sim' if p['signaling'] else 'não'} ({p['detection'].lower()}); material rodante {'sim' if p['rolling_stock'] else 'não'} ({p['trainsets']} composição(ões)); BDI {br(p['bdi']*100,6)}%.")
     d.add_heading('Fontes e limites',1)
     d.add_paragraph('; '.join(f'{k}: {v} linhas' for k,v in r['counts'].items()))
     for note in r['warnings']:d.add_paragraph(note)
@@ -329,7 +338,7 @@ def make_pdf(r,detailed=False):
         obj.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#'+NAVY)),('ROWBACKGROUNDS',(0,1),(-1,-1),[colors.white,colors.HexColor('#F0F5F7')]),('VALIGN',(0,0),(-1,-1),'TOP'),('TOPPADDING',(0,0),(-1,-1),7),('BOTTOMPADDING',(0,0),(-1,-1),7)]));return obj
     flow=[p('EAP e orçamento' if detailed else 'Relatório técnico do orçamento','Title'),Spacer(1,10),p(caption(r)),Spacer(1,12)]
     flow.append(t(['Grupo','Custo direto'],[[g,currency(v)] for g,v in r['groups'].items()]+[['Total com BDI',currency(r['total'])],['R$/km corredor',currency(r['per_km'])],['R$/km linha',currency(r['per_line_km'])]],[340,180] if not detailed else [650,470]))
-    sc=r['scenario'];flow += [Spacer(1,14),p(f"Drenagem: {sc['drainage']} | Vedação: {sc['fence']} | AMVs: {sc['amvs']} | Dutos: {'sim' if sc['ducts'] else 'não'} | Topografia: {'sim' if sc['topography'] else 'não'} | Rede aérea: {'sim' if sc['overhead'] else 'não'} | Sinalização: {'sim' if sc['signaling'] else 'não'} ({sc['detection'].lower()}) | Material rodante: {sc['trainsets'] if sc['rolling_stock'] else 0} composição(ões) | Prazo: {r['duration']} meses | BDI: {br(sc['bdi']*100,6)}%"),Spacer(1,10)]
+    sc=r['scenario'];flow += [Spacer(1,14),p(f"Drenagem: {sc['drainage']} | Vedação: {sc['fence']} | AMVs: {sc['amvs']} | Dutos: {'sim' if sc['ducts'] else 'não'} | Topografia: {'sim' if sc['topography'] else 'não'} | Rede aérea: {'sim' if sc['overhead'] else 'não'} | Sinalização: {'sim' if sc['signaling'] else 'não'} ({sc['detection'].lower()}) | Material rodante: {sc['trainsets'] if sc['rolling_stock'] else 0} composição(ões) | BDI: {br(sc['bdi']*100,6)}%"),Spacer(1,10)]
     for note in r['warnings']:flow.extend([p(note),Spacer(1,7)])
     flow.append(p('Fontes por linha: '+'; '.join(f'{k}: {v}' for k,v in r['counts'].items())))
     flow.append(p('Origem: VPCODEX2026 + CODEX_PARAMETRICO_GERAL. SIEC junho/2026. Regra '+r['rule_version']))

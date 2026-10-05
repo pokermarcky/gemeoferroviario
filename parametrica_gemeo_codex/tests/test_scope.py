@@ -68,7 +68,7 @@ def test_segregated_excel_and_selected_documents(model):
         assert sh['C6'].font.name=='Aptos' and sh['C6'].font.sz==12
         rows=[(n,x) for n,x in enumerate(chosen['items'],5) if x['group']==g]
         for dest,(source,item) in enumerate(rows,13):
-            assert formulas[g][f'I{dest}'].value==f"='EAP'!I{source}"
+            assert formulas[g][f'I{dest}'].value==item['total']
             assert sh[f'I{dest}'].value==item['total']
         if not rows:assert sh['B4'].value=='Excluído do total selecionado'
     word=Document(BytesIO(files['relatorio.docx']))
