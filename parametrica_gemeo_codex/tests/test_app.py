@@ -44,6 +44,8 @@ def test_navegacao_e_controles_solicitados():
     assert [(x.key, x.proto.label) for x in app.get('download_button')] == [
         ('main_excel', 'Baixar orçamento em Excel'), ('cargo_excel', 'Baixar orçamento em Excel')]
     assert not any(x.key == 'main_prepare' for x in app.button)
+    assert {x.key for x in app.button if x.label=='Atualizar orçamento'}=={
+        'main_calculate','cargo_calculate'}
     assert {u.key for u in app.get('file_uploader')} == {
         'upload_SIEC_Serviços','upload_SINAPI_Insumos',
         'upload_SIURB_Insumos','upload_SICRO_Insumos'}
@@ -142,6 +144,7 @@ def test_carga_orca_so_infraestrutura_com_siec():
     assert app.checkbox(key='cargo_grupo_7').value is False
     app.number_input(key='cargo_locomotives').set_value(.34)
     app.number_input(key='cargo_wagons').set_value(.34).run(timeout=30)
+    app.button(key='cargo_calculate').click().run(timeout=30)
     assert not app.exception
     cargo=app.session_state['results']['cargo']
     passenger=app.session_state['results']['main']
