@@ -2,6 +2,7 @@
 from io import BytesIO
 import ast
 import json
+import re
 from pathlib import Path
 import reportlab
 from datetime import datetime
@@ -59,23 +60,57 @@ def excel_expr(expr, refs):
     return '='+convert(ast.parse(expr.replace('^','**'),mode='eval').body)
 
 def cache_formulas(data, caches):
-    """Escreve resultados já validados em <v>; Excel recalcula normalmente ao editar."""
-    out=BytesIO();ns={'s':'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+    """Inclui caches sem reserializar o XML produzido pelo openpyxl.
+
+    A reserialização completa via ElementTree trocava o namespace padrão por
+    prefixos ``ns0``. Embora XML válido, algumas versões do Excel reparavam a
+    aba EAP ao abrir o arquivo. Aqui somente o nó ``v`` da célula é alterado;
+    toda a estrutura OOXML original permanece byte a byte igual.
+    """
+    out=BytesIO()
+
+    def xml_value(value):
+        text=str(value)
+        text=re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F]', '', text)
+        return escape(text, quote=False)
+
+    def patch_cell(xml, address, value):
+        address_re=re.escape(address)
+        pattern=re.compile(
+            rf'(<c\b[^>]*\br="{address_re}"[^>]*>)(.*?</c>)',
+            flags=re.DOTALL,
+        )
+
+        def replace(match):
+            opening,body=match.groups()
+            if isinstance(value,str):
+                if re.search(r'\s+t="[^"]*"',opening):
+                    opening=re.sub(r'\s+t="[^"]*"',' t="str"',opening,count=1)
+                else:
+                    opening=opening[:-1]+' t="str">'
+            else:
+                opening=re.sub(r'\s+t="[^"]*"','',opening,count=1)
+            cached=f'<v>{xml_value(value)}</v>'
+            if re.search(r'<v(?:\s*/>|>.*?</v>)',body,flags=re.DOTALL):
+                body=re.sub(r'<v(?:\s*/>|>.*?</v>)',cached,body,count=1,flags=re.DOTALL)
+            else:
+                body=body[:-4]+cached+'</c>'
+            return opening+body
+
+        patched,count=pattern.subn(replace,xml,count=1)
+        if count != 1:
+            raise ValueError(f'Célula {address} não encontrada no XML do Excel.')
+        return patched
+
     with ZipFile(BytesIO(data)) as src,ZipFile(out,'w',ZIP_DEFLATED) as dest:
         for name in src.namelist():
             raw=src.read(name)
             if name in caches:
-                tree=ET.fromstring(raw)
-                for cell in tree.findall('.//s:c',ns):
-                    address=cell.attrib['r']
-                    if address not in caches[name]:continue
-                    v=cell.find('s:v',ns)
-                    if v is None:v=ET.SubElement(cell,'{'+ns['s']+'}v')
-                    value=caches[name][address]
-                    if isinstance(value,str):cell.set('t','str')
-                    else:cell.attrib.pop('t',None)
-                    v.text=str(value)
-                raw=ET.tostring(tree,encoding='utf-8',xml_declaration=True)
+                xml=raw.decode('utf-8')
+                for address,value in caches[name].items():
+                    xml=patch_cell(xml,address,value)
+                raw=xml.encode('utf-8')
+                ET.fromstring(raw)  # falha antes do download se o XML não for válido
             dest.writestr(name,raw)
     return out.getvalue()
 
