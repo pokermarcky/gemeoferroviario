@@ -8,6 +8,7 @@ from railbudget.exporters import make_excel, currency, br, caption
 from railbudget.interface import apply_theme
 from railbudget.static_scene_v2 import static_header_v2
 from railbudget.freight import calculate_freight
+from railbudget.underground import calculate_underground
 from railbudget.reference_data import (SOURCES, KINDS, parse_reference, apply_reference_bases,
     embedded_inventory, normalized_excel)
 from railbudget.auth import budget_download_limit, can, can_download_budget, require_user
@@ -79,7 +80,7 @@ def budget_controls(key,freight=False):
 
     subterraneo=configuration=='Subterrâneo'
     if subterraneo:
-        st.warning('Subterrâneo selecionado. As quantidades e os preços de escavação, revestimento, ventilação, segurança e demais sistemas ainda precisam de uma base técnica própria. Este cenário não gera um total por enquanto.')
+        st.warning('Estimativa subterrânea preliminar por equivalência SIEC. Premissa inicial: um tubo circular de 10,00 m por via. O resultado não substitui projeto geotécnico, estrutural, hidráulico, de ventilação ou de segurança.')
 
     st.markdown('**2. Serviços incluídos**')
     st.caption('Marque somente os grupos que fazem parte do escopo do projeto.')
@@ -104,7 +105,7 @@ def budget_controls(key,freight=False):
         if i%3==0:group_columns=st.columns(3)
         with group_columns[i%len(group_columns)]:
             with st.container(border=True):
-                label=('Banco de dutos' if configuration=='Superfície' else 'Canaletas e passa-fios') if i==5 else g.split(' ',1)[1]
+                label=('Banco de dutos' if configuration=='Superfície' else 'Canaletas e passa-fios') if i==5 else ('Túnel e via permanente' if subterraneo and i==0 else 'Segurança e ventilação' if subterraneo and i==3 else g.split(' ',1)[1])
                 checkbox_key=f'{key}_grupo_{i}'
                 st.session_state.setdefault(checkbox_key,i not in (4,5,6,7) if freight else True)
                 enabled[i]=st.checkbox(label,key=checkbox_key,persist_state='session',
@@ -113,9 +114,12 @@ def budget_controls(key,freight=False):
                     if i==0:st.caption('Via '+configuration.lower()+' • '+('simples' if lines==1 else 'dupla'))
                     elif i==1:st.caption('Levantamentos e acompanhamento topográfico.')
                     elif i==2:drainage=st.selectbox('Tipo de drenagem',['Normal','Reforçada','Complexa'],index=['Normal','Reforçada','Complexa'].index(drainage),key=key+'_drainage')
-                    elif i==3:fence=st.selectbox('Tipo de vedação',['Cerca','Muro'],index=['Cerca','Muro'].index(fence if fence in ('Cerca','Muro') else 'Cerca'),key=key+'_fence')
+                    elif i==3:
+                        if subterraneo:
+                            fence='Cerca';st.caption('Provisões iniciais de combate a incêndio, alarme, iluminação e ventilação.')
+                        else:fence=st.selectbox('Tipo de vedação',['Cerca','Muro'],index=['Cerca','Muro'].index(fence if fence in ('Cerca','Muro') else 'Cerca'),key=key+'_fence')
                     elif i==4:amvs=st.number_input('Quantidade total de AMVs',min_value=0,max_value=100000,value=int(amvs),step=1,key=key+'_amvs',help='Total no corredor, distribuído entre as linhas.')
-                    elif i==5:st.caption('Banco subterrâneo de seis dutos.' if configuration=='Superfície' else 'Canaletas e passa-fios embutidos no tabuleiro elevado.' if configuration=='Elevado' else 'Necessita projeto de instalações do túnel.')
+                    elif i==5:st.caption('Banco subterrâneo de seis dutos.' if configuration=='Superfície' else 'Canaletas e passa-fios embutidos no tabuleiro elevado.' if configuration=='Elevado' else 'Duas canaletas técnicas longitudinais por tubo.')
                     elif i==6:st.caption('Rede aérea de alimentação e seus suportes.')
                     elif i==7:detection=st.selectbox('Detecção de trens',['Circuito de via','Contador de eixos'],index=['Circuito de via','Contador de eixos'].index(detection),key=key+'_detection')
                     elif i==8:trainsets=st.number_input('Composições de 8 carros',min_value=0,max_value=10000,value=int(trainsets),step=1,key=key+'_trainsets',help='Custo por composição; o indicador por km é um rateio.')
@@ -139,7 +143,7 @@ def budget_controls(key,freight=False):
             key=key+'_bdi_personalizado',persist_state='session')
         st.caption('Sugestão inicial: 26,30%. O usuário pode ajustar o percentual; ele é aplicado uma única vez ao total e aos subtotais.')
     calculate_now=st.button('Atualizar orçamento',key=key+'_calculate',type='primary',
-        icon=':material/calculate:',disabled=subterraneo)
+        icon=':material/calculate:')
     reference_refresh=st.session_state.get(key+'_reference_signature')!=reference_signature
     if calculate_now or reference_refresh or key not in st.session_state.results:
         try:
@@ -148,7 +152,7 @@ def budget_controls(key,freight=False):
                 ducts=enabled[5],topography=enabled[1],overhead=enabled[6],signaling=enabled[7],
                 detection=detection,rolling_stock=False if freight else enabled[8],trainsets=0 if freight else int(trainsets) if enabled[8] else 0,
                 profile='siec',bdi=percentage/100)
-            result=calculate_freight(p,axle,rules,catalog) if freight else calculate(p,rules,catalog)
+            result=calculate_freight(p,axle,rules,catalog) if freight else calculate_underground(p,rules,catalog) if subterraneo else calculate(p,rules,catalog)
             if freight:
                 result['scenario'].update(locomotives=float(locomotives),wagons=float(wagons))
                 result['warnings'].append('Frota fora do total: '+br(locomotives,2)+' locomotiva(s) equivalente(s)/km, '+br(wagons,2)+' vagão(ões) equivalente(s)/km. Pátios, terminais, pontes e passagens em nível também não foram orçados.')
@@ -163,9 +167,9 @@ def budget_controls(key,freight=False):
         () if not freight else (axle,locomotives,wagons))
     st.session_state.setdefault(key+'_calculated_inputs',current_inputs)
     stale=key+'_calculated_inputs' in st.session_state and st.session_state[key+'_calculated_inputs']!=current_inputs
-    if stale and not subterraneo:
+    if stale:
         st.info('Você alterou o cenário. Selecione Atualizar orçamento para conferir os novos valores.')
-    return chosen,rate,subterraneo or stale
+    return chosen,rate,stale
 
 
 def display_table(frame, monetary=(), height=None):
@@ -178,6 +182,15 @@ def display_table(frame, monetary=(), height=None):
         column_config={column:st.column_config.TextColumn(width='medium') for column in monetary})
     if height is not None:options['height']=height
     st.dataframe(shown,**options)
+
+
+def result_group_label(group,result):
+    """Traduz o nome histórico do agrupamento para a solução exibida."""
+    label=group.split(' ',1)[1]
+    if result['scenario']['configuration']=='Subterrâneo':
+        return {'Via permanente':'Túnel e via permanente','Vedação':'Segurança e ventilação',
+                'Infraestrutura de cabos':'Canaletas e passa-fios'}.get(label,label)
+    return label
 
 
 def render_result(r,key,modality='passageiro'):
@@ -201,7 +214,7 @@ def render_result(r,key,modality='passageiro'):
     with summary_tab:
         st.caption('Visão consolidada do total selecionado. Consulte o detalhamento para conferir cada serviço, quantidade, código, fonte e preço.')
         st.subheader('Participação por grupo')
-        group_frame=pd.DataFrame([{'Grupo':g.split(' ',1)[1],'Custo direto (R$)':v} for g,v in r['groups'].items()])
+        group_frame=pd.DataFrame([{'Grupo':result_group_label(g,r),'Custo direto (R$)':v} for g,v in r['groups'].items()])
         summary_columns=st.columns([1,1.15],gap='large')
         with summary_columns[0]:
             display_table(group_frame,monetary=('Custo direto (R$)',),height=320)
@@ -216,10 +229,10 @@ def render_result(r,key,modality='passageiro'):
             if not group['selected']:continue
             if modality=='carga' and group['group'].startswith('9 '):continue
             with st.container(border=True):
-                st.subheader(group['group'].split(' ',1)[1])
+                st.subheader(result_group_label(group['group'],r))
                 if group['group'].startswith('3 '):st.caption('Drenagem '+r['scenario']['drainage'].lower())
-                if group['group'].startswith('4 '):st.caption('Vedação: '+r['scenario']['fence'].lower())
-                if group['group'].startswith('6 '):st.caption('Banco subterrâneo de seis dutos' if r['scenario']['configuration']=='Superfície' else 'Canaletas e passa-fios embutidos no tabuleiro elevado')
+                if group['group'].startswith('4 '):st.caption('Segurança e ventilação preliminares' if r['scenario']['configuration']=='Subterrâneo' else 'Vedação: '+r['scenario']['fence'].lower())
+                if group['group'].startswith('6 '):st.caption('Banco subterrâneo de seis dutos' if r['scenario']['configuration']=='Superfície' else 'Canaletas e passa-fios embutidos no tabuleiro elevado' if r['scenario']['configuration']=='Elevado' else 'Canaletas técnicas longitudinais do túnel')
                 if group['group'].startswith('8 '):st.caption('Detecção: '+r['scenario']['detection'].lower())
                 if group['group'].startswith('9 '):st.caption(f"Frota: {r['scenario']['trainsets']} composição(ões) de 8 carros; custo por composição e rateio por km atendido.")
                 if not group['direct']:st.info('Sem serviços neste cenário. Verifique os parâmetros do formulário para incluir este grupo.')
@@ -230,7 +243,7 @@ def render_result(r,key,modality='passageiro'):
                     st.metric('Participação no total selecionado',br(group['share'],2)+'%')
                 rows=[x for x in r['items'] if x['group']==group['group']]
                 if rows:
-                    with st.expander('Ver composição e preços de '+group['group'].split(' ',1)[1],expanded=False):
+                    with st.expander('Ver composição e preços de '+result_group_label(group['group'],r),expanded=False):
                         detail=pd.DataFrame(rows)[['code','source','label','unit','quantity','unit_cost','total']].rename(columns={
                             'code':'Código','source':'Fonte','label':'Serviço','unit':'Unidade','quantity':'Quantidade',
                             'unit_cost':'Custo unitário (R$)','total':'Custo total (R$)'})

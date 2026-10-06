@@ -6,13 +6,29 @@ import re
 import pytest
 from railbudget.engine import *
 from railbudget.expressions import evaluate, money
+from railbudget.underground import calculate_underground
 
 @pytest.fixture(scope='module')
 def model():return load_model()
 
-def test_subterraneo_sem_base_nao_produz_orcamento(model):
+def test_calculo_generico_nao_mascara_subterraneo_com_superficie(model):
     with pytest.raises(ValueError,match='orçamento subterrâneo'):
         calculate(Scenario(configuration='Subterrâneo'),*model)
+
+def test_subterraneo_tem_composicao_siec_propria_e_escala(model):
+    rules,catalog=model
+    one=calculate_underground(Scenario(configuration='Subterrâneo',rolling_stock=False),rules,catalog)
+    two=calculate_underground(Scenario(configuration='Subterrâneo',lines=2,amvs=0,rolling_stock=False),rules,catalog)
+    assert one['model_label']=='SIEC • subterrâneo preliminar'
+    assert one['groups']['1 Via permanente']>0
+    assert one['groups']['3 Drenagem']>0
+    assert one['total']>calculate(Scenario(configuration='Elevado',rolling_stock=False),rules,catalog)['total']
+    assert two['context']['tubes']==2
+    assert two['context']['excavation_volume']==pytest.approx(2*one['context']['excavation_volume'])
+    civil=[item for item in one['items'] if item['origin']=='subterraneo']
+    assert civil and all(item['source']=='SIEC' for item in civil)
+    assert not any(item['id'].startswith('vp:Superfície') for item in one['items'])
+    assert any('não constitui orçamento executivo' in warning.lower() for warning in one['warnings'])
 
 @pytest.mark.parametrize('cfg,lines,expected',[('Elevado',1,52906663.23),('Elevado',2,79496753.58),('Superfície',1,13160932.35),('Superfície',2,20349204.59)])
 def test_four_manual_complete_budgets(model,cfg,lines,expected):
