@@ -6,6 +6,7 @@ from openpyxl import load_workbook
 from docx import Document
 from pypdf import PdfReader
 from railbudget.engine import *
+from railbudget.freight import calculate_freight
 from railbudget.exporters import export_all
 
 def test_export_values_formulas_and_documents():
@@ -51,3 +52,18 @@ def test_export_values_formulas_and_documents():
         text=''.join(page.extract_text() for page in doc.pages)
         assert all(item['code'] in text for item in result['items'])
         if name=='relatorio.pdf':assert 'Memória de cálculo:' in text
+
+
+def test_excel_de_carga_explica_que_frota_nao_esta_precificada():
+    rules,catalog=load_model()
+    scenario=Scenario(rolling_stock=False,trainsets=0,overhead=False,signaling=False,amvs=0,ducts=False)
+    result=calculate_freight(scenario,25,rules,catalog)
+    result['scenario'].update(locomotives=.34,wagons=12.5)
+    workbook=load_workbook(BytesIO(export_all(result,catalog)['orcamento.xlsx']),data_only=True)
+    resumo={workbook['Resumo'][f'A{row}'].value:workbook['Resumo'][f'B{row}'].value
+        for row in range(1,workbook['Resumo'].max_row+1)}
+    assert resumo['Frota de carga']=='Não precificada no total'
+    assert resumo['Locomotivas informadas (un/km)']==.34
+    assert resumo['Vagões informados (un/km)']==12.5
+    assert 'aquisição' in resumo['Observação']
+    assert '9 Material rodante' not in workbook.sheetnames
