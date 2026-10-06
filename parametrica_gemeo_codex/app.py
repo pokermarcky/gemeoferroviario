@@ -10,7 +10,7 @@ from railbudget.static_scene_v2 import static_header_v2
 from railbudget.freight import calculate_freight
 from railbudget.reference_data import (SOURCES, KINDS, parse_reference, apply_reference_bases,
     embedded_inventory, normalized_excel)
-from railbudget.auth import require_user, can
+from railbudget.auth import budget_download_limit, can, can_download_budget, require_user
 from railbudget.user_workspace import render_user_sidebar
 
 ROOT=Path(__file__).resolve().parent
@@ -240,11 +240,19 @@ def render_result(r,key,modality='passageiro'):
         st.info('Nenhum serviço incluído no total. Selecione ao menos um grupo com serviços para gerar o orçamento em Excel.')
         return
     used_catalog={item['price_key']:catalog[item['price_key']] for item in r['items'] if item['price_key'] in catalog}
-    if can(current_user,'download_excel'):
+    downloads_used=int(st.session_state.get('trial_excel_downloads',0))
+    if can_download_budget(current_user,downloads_used):
+        def register_trial_download():
+            if budget_download_limit(current_user) is not None:
+                st.session_state.trial_excel_downloads=downloads_used+1
         st.download_button('Baixar orçamento em Excel',excel_orcamento(r,used_catalog),
             file_name='orcamento_ferrovia_'+modality+'.xlsx',
             mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            key=key+'_excel',icon=':material/download:')
+            key=key+'_excel',icon=':material/download:',on_click=register_trial_download)
+        if budget_download_limit(current_user) is not None:
+            st.caption('Demonstração: este é o único download de Excel disponível nesta sessão.')
+    elif budget_download_limit(current_user) is not None:
+        st.info('O download de demonstração já foi utilizado nesta sessão.')
     else:
         st.info('O perfil de demonstração permite conhecer e calcular, mas não gera a planilha Excel.')
 

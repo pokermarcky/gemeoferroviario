@@ -4,7 +4,7 @@ from datetime import datetime
 import streamlit as st
 
 from railbudget.auth import can, logout
-from railbudget.budget_store import list_budgets, persistent_storage_enabled, save_budget
+from railbudget.budget_store import list_budgets, save_budget, storage_mode
 from railbudget.exporters import currency
 
 
@@ -57,10 +57,13 @@ def render_user_sidebar(user):
             else:
                 st.info("Atualize um orçamento para poder adicioná-lo aqui.")
 
-        if not persistent_storage_enabled():
-            st.caption("Armazenamento temporário nesta implantação. A persistência permanente será ativada na conexão segura da base.")
+        mode=storage_mode(user)
+        if mode=="session":
+            st.caption("No acesso compartilhado de demonstração, os orçamentos ficam somente nesta sessão.")
+        elif mode=="sqlite":
+            st.caption("Orçamentos preservados entre logout e login neste servidor.")
         try:
-            saved = list_budgets(user.user_id)
+            saved = list_budgets(user.user_id,user)
         except RuntimeError as exc:
             st.error(str(exc))
             saved = []

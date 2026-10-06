@@ -35,12 +35,23 @@ class UserContext:
 PERMISSIONS = {
     "root": frozenset({"calculate", "download_excel", "manage_bases", "save_budgets"}),
     "user": frozenset({"calculate", "download_excel", "save_budgets"}),
-    "test": frozenset({"calculate", "save_budgets"}),
+    "test": frozenset({"calculate", "download_excel_trial", "save_budgets"}),
 }
 
 
 def can(user, permission):
     return permission in PERMISSIONS.get(user.role, frozenset())
+
+
+def budget_download_limit(user):
+    """Quantidade máxima por sessão; ``None`` representa acesso ilimitado."""
+    return 1 if can(user, "download_excel_trial") else None
+
+
+def can_download_budget(user, downloads_used=0):
+    return can(user, "download_excel") or (
+        can(user, "download_excel_trial") and downloads_used < budget_download_limit(user)
+    )
 
 
 def _identity(value):
@@ -174,7 +185,7 @@ def require_user():
             _admin_login()
         with demo_tab:
             st.markdown("**Acesso temporário de demonstração**")
-            st.caption("Permite conhecer e calcular. Não permite uploads, troca de bases ou geração de Excel.")
+            st.caption("Permite conhecer, calcular e baixar um orçamento em Excel por sessão. Não permite uploads nem troca de bases.")
             _demo_login()
     st.stop()
 

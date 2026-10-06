@@ -4,7 +4,7 @@
 
 - **root**: conta local cadastrada exclusivamente em `[local_admin]` nos Secrets. Pode usar todas as funções.
 - **root de contingência**: segunda conta independente em `[local_admin_backup]`.
-- **test**: login local `teste`. Pode conhecer, calcular e salvar temporariamente, mas não pode alterar bases nem gerar Excel.
+- **test**: login local `teste`. Pode conhecer, calcular, salvar temporariamente e baixar um único orçamento em Excel por sessão. Não pode alterar bases.
 
 As restrições são verificadas no código antes de criar uploads ou downloads. Não dependem apenas da aparência da tela.
 
@@ -45,4 +45,4 @@ create index if not exists saved_budgets_owner_created
   on public.saved_budgets (owner_id, created_at desc);
 ```
 
-Sem a seção `[storage]`, a aplicação usa armazenamento temporário por sessão e informa essa condição na barra lateral.
+Sem a seção `[storage]`, root e futuros usuários individuais usam uma base SQLite local protegida, suficiente para preservar os orçamentos entre logout e login no mesmo servidor. Como o Streamlit Community Cloud pode recriar o servidor em reinicializações ou novas implantações, a seção `[storage]` com Supabase continua sendo a opção recomendada para persistência definitiva. O login compartilhado de demonstração permanece isolado por sessão para não expor os orçamentos de um visitante a outro.
