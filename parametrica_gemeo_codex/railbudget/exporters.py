@@ -146,6 +146,11 @@ def make_excel(r,catalog):
     for label,val in [('Adicional BDI',r['bdi_amount']),('Total',r['total']),('R$/km corredor',r['per_km']),('R$/km linha',r['per_line_km'])]:
         summary.append([label,val])
     summary.append(['Drenagem',r['scenario']['drainage']]);summary.append(['Vedação',r['scenario']['fence']])
+    if 'locomotives' in r['scenario'] or 'wagons' in r['scenario']:
+        summary.append(['Frota de carga','Não precificada no total'])
+        summary.append(['Locomotivas informadas (un/km)',r['scenario'].get('locomotives',0)])
+        summary.append(['Vagões informados (un/km)',r['scenario'].get('wagons',0)])
+        summary.append(['Observação','A base atual não contém preços de aquisição de locomotivas e vagões.'])
     for note in r['warnings']:summary.append([note])
     chart=BarChart();chart.title='Composição do custo direto';chart.add_data(Reference(summary,min_col=2,min_row=3,max_row=last_group_row),titles_from_data=True);chart.set_categories(Reference(summary,min_col=1,min_row=first_group_row,max_row=last_group_row))
     chart.height=11;chart.width=23;chart.legend=None;chart.title=None
