@@ -64,12 +64,19 @@ def test_navegacao_e_controles_solicitados():
     assert not any('Orçamento paramétrico em preparação' in x.value for x in app.info)
 
 
-def test_subterraneo_nao_reaproveita_preco_de_superficie():
+def test_subterraneo_calcula_composicao_propria_e_libera_excel():
     app = AppTest.from_file(str(APP)).run(timeout=30)
     app.selectbox(key='main_configuration').set_value('Subterrâneo').run(timeout=30)
     assert not app.exception
-    assert app.button(key='main_calculate').proto.disabled
-    assert not any(x.key == 'main_excel' for x in app.get('download_button'))
+    assert not app.button(key='main_calculate').proto.disabled
+    assert app.checkbox(key='main_grupo_3').label == 'Segurança e ventilação'
+    assert not any(x.key=='main_fence' for x in app.selectbox)
+    app.button(key='main_calculate').click().run(timeout=30)
+    assert not app.exception
+    result=app.session_state['results']['main']
+    assert result['scenario']['configuration']=='Subterrâneo'
+    assert result['model_label']=='SIEC • subterrâneo preliminar'
+    assert any(x.key == 'main_excel' for x in app.get('download_button'))
 
 
 def test_selecao_de_grupos_e_bdi_no_resultado():
