@@ -3,6 +3,7 @@
 ## Perfis
 
 - **root**: conta local cadastrada exclusivamente em `[local_admin]` nos Secrets. Pode usar todas as funções.
+- **administrador secundário**: conta cadastrada em `[local_admin_secondary]`, com os mesmos poderes completos do root.
 - **root de contingência**: segunda conta independente em `[local_admin_backup]`.
 - **test**: login local `teste`. Pode conhecer, calcular, salvar temporariamente e baixar um único orçamento em Excel por sessão. Não pode alterar bases.
 
