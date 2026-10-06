@@ -67,7 +67,7 @@ def _secrets_section(name):
 
 def _admin_accounts():
     accounts=[]
-    for section_name in ("local_admin", "local_admin_backup"):
+    for section_name in ("local_admin", "local_admin_secondary", "local_admin_backup"):
         section=_secrets_section(section_name)
         username=str(section.get("username", "")).strip().lower() if section else ""
         password_hash=str(section.get("password_hash", "")) if section else ""
@@ -149,7 +149,7 @@ def _admin_login():
         st.info("A conta administrativa está aguardando a configuração privada nos Secrets.")
         return
     with st.form("admin_login_form",clear_on_submit=True):
-        username=st.text_input("E-mail administrativo",autocomplete="username")
+        username=st.text_input("Login administrativo",autocomplete="username")
         password=st.text_input("Senha",type="password",autocomplete="current-password")
         submitted=st.form_submit_button("Entrar como administrador",type="primary",use_container_width=True)
     if not submitted:return

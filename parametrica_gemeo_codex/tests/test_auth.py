@@ -1,7 +1,8 @@
 import base64
 from hashlib import pbkdf2_hmac
 
-from railbudget.auth import UserContext, _verify_password, budget_download_limit, can, can_download_budget
+from railbudget.auth import (UserContext, _admin_accounts, _verify_password,
+    budget_download_limit, can, can_download_budget)
 from pathlib import Path
 
 
@@ -42,3 +43,13 @@ def test_hash_administrativo_e_irreversivel_e_versionado():
     assert _verify_password("segredo-forte", encoded)
     assert not _verify_password("senha-incorreta", encoded)
     assert not _verify_password("segredo-forte", encoded.replace("600000", "1000", 1))
+
+
+def test_tres_contas_administrativas_sao_lidas_dos_secrets(monkeypatch):
+    sections={
+        "local_admin":{"username":"principal","password_hash":"h1"},
+        "local_admin_secondary":{"username":"admin","password_hash":"h2"},
+        "local_admin_backup":{"username":"contingencia","password_hash":"h3"},
+    }
+    monkeypatch.setattr("railbudget.auth._secrets_section",lambda name:sections.get(name,{}))
+    assert _admin_accounts()==[("principal","h1"),("admin","h2"),("contingencia","h3")]
