@@ -53,10 +53,11 @@ def test_navegacao_e_controles_solicitados():
     assert app.checkbox(key='main_grupo_5').label == 'Banco de dutos'
     assert not any(x.label == 'Prazo da obra (meses)' for x in app.number_input)
     assert [(x.key, x.proto.label) for x in app.get('download_button')] == [
-        ('main_excel', 'Baixar orçamento em Excel'), ('cargo_excel', 'Baixar orçamento em Excel')]
+        ('main_excel', 'Baixar orçamento em Excel'), ('cargo_excel', 'Baixar orçamento em Excel'),
+        ('vlt_excel','Baixar orçamento em Excel')]
     assert not any(x.key == 'main_prepare' for x in app.button)
     assert {x.key for x in app.button if x.label=='Atualizar orçamento'}=={
-        'main_calculate','cargo_calculate'}
+        'main_calculate','cargo_calculate','vlt_calculate'}
     assert {u.key for u in app.get('file_uploader')} == {
         'upload_SIEC_Serviços','upload_SINAPI_Insumos',
         'upload_SIURB_Insumos','upload_SICRO_Insumos'}
@@ -69,6 +70,9 @@ def test_navegacao_e_controles_solicitados():
     assert not any('Estações de passageiros' in x.label for x in app.expander)
     assert not any(x.key and x.key.startswith('main_station') for x in app.number_input)
     assert not any('Orçamento paramétrico em preparação' in x.value for x in app.info)
+    assert app.number_input(key='vlt_surface_km').value==.9
+    assert app.number_input(key='vlt_elevated_km').value==1.7
+    assert app.session_state['results']['vlt']['total']==191008605.92
 
 
 def test_subterraneo_calcula_composicao_propria_e_libera_excel():
@@ -173,4 +177,4 @@ def test_carga_orca_so_infraestrutura_com_siec():
     assert cargo['scenario']['locomotives']==.34
     assert cargo['scenario']['wagons']==.34
     assert any('0,34 vagão' in warning for warning in cargo['warnings'])
-    assert {x.key for x in app.get('download_button')}=={'main_excel','cargo_excel'}
+    assert {x.key for x in app.get('download_button')}=={'main_excel','cargo_excel','vlt_excel'}
