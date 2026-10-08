@@ -21,9 +21,9 @@ STYLE = '''<style>
 .st-key-login_shell h1 {font-size:2.25rem;letter-spacing:-.045em;color:#173f3d;padding:.25rem 0}
 .st-key-login_shell [data-testid="stTabs"] [role="tablist"] {margin-top:1.2rem}
 .st-key-hero {background:#fff;border:1px solid var(--line);border-radius:20px;padding:1.4rem 1.6rem .45rem;box-shadow:0 12px 34px #24463f10}
-.st-key-hero h1 {font-size:2.2rem;letter-spacing:-.045em;line-height:1.15;color:var(--ink);padding:.15rem 0 .3rem}
-.st-key-hero p {color:#647a7f;font-size:.95rem}
-.hero-eyebrow {font-size:.67rem;letter-spacing:.17em;font-weight:750;color:#428077}
+.st-key-hero h1 {margin-inline:auto;text-align:center;font-family:"Aptos Display","Segoe UI Variable Display","Segoe UI",Inter,system-ui,sans-serif;font-size:2.35rem;font-weight:720;letter-spacing:-.04em;line-height:1.08;color:var(--ink);padding:.2rem 0 .35rem}
+.st-key-hero p {color:#647a7f;font-size:.95rem;text-align:center}
+.hero-eyebrow {display:block;text-align:center;font-family:"Aptos","Segoe UI Variable Text","Segoe UI",Inter,system-ui,sans-serif;font-size:.67rem;letter-spacing:.17em;font-weight:750;color:#428077}
 h3 {font-size:1.25rem!important;letter-spacing:-.025em;color:var(--ink)}
 [data-testid="stCaptionContainer"] {color:#63777d}
 [data-testid="stTabs"] [role="tablist"] {gap:.5rem;border:0!important;margin:.6rem 0 1rem;flex-wrap:wrap;height:auto!important}
