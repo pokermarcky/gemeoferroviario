@@ -144,3 +144,12 @@ def save_budget(user, name, modality, result):
         ))
         connection.commit()
     return row
+
+
+def ensure_budget(user,name,modality,result):
+    """Cria um projeto inicial uma única vez para o root principal."""
+    if not is_primary_root(user):return None
+    normalized=name.strip().casefold()
+    existing=next((row for row in list_budgets(user.user_id,user)
+        if str(row.get("name","")).strip().casefold()==normalized),None)
+    return existing or save_budget(user,name,modality,result)

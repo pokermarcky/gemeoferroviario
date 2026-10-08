@@ -10,7 +10,8 @@ from railbudget.exporters import currency
 
 
 ROLE_LABELS = {"root": "Administrador root", "user": "Usuário", "test": "Demonstração"}
-MODALITY_LABELS = {"main": "Ferrovia de passageiro", "cargo": "Ferrovia de carga"}
+MODALITY_LABELS = {"main": "Ferrovia de passageiro", "cargo": "Ferrovia de carga",
+    "vlt": "VLT - Veículo leve sobre Trilho"}
 
 
 def _date_label(value):
@@ -84,6 +85,10 @@ def render_user_sidebar(user):
             with st.expander(row.get('name','Orçamento'),icon=":material/train:"):
                 st.caption(f"{row.get('modality','Modalidade')} · {_date_label(row.get('created_at'))}")
                 st.metric("Valor do projeto",currency(float(row.get("total",0))))
+                if isinstance(result,dict) and result.get("per_km") is not None:
+                    st.markdown(f"**Custo por km:** {currency(float(result['per_km']))}")
+                if isinstance(result,dict) and result.get("reference_period"):
+                    st.markdown(f"**Data-base:** {result['reference_period']}")
                 if scenario.get("km") is not None:
                     st.markdown(f"**Extensão:** {float(scenario['km']):,.3f} km".replace(",","X").replace(".",",").replace("X","."))
                 if scenario.get("configuration"):

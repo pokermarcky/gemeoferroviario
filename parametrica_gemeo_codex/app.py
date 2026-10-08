@@ -9,9 +9,11 @@ from railbudget.interface import apply_theme
 from railbudget.static_scene_v2 import static_header_v2
 from railbudget.freight import calculate_freight
 from railbudget.underground import calculate_underground
+from railbudget.vlt import calculate_vlt, make_vlt_excel
 from railbudget.reference_data import (SOURCES, KINDS, parse_reference, apply_reference_bases,
     embedded_inventory, normalized_excel)
-from railbudget.auth import budget_download_limit, can, can_download_budget, require_user
+from railbudget.auth import budget_download_limit, can, can_download_budget, is_primary_root, require_user
+from railbudget.budget_store import ensure_budget
 from railbudget.reference_store import load_reference_bases, save_reference_base
 from railbudget.user_workspace import render_user_sidebar
 
@@ -186,6 +188,69 @@ def display_table(frame, monetary=(), height=None):
     st.dataframe(shown,**options)
 
 
+def render_vlt_budget():
+    st.subheader('Configure seu VLT')
+    st.caption('Modelo inicial integralmente referenciado no orçamento do edital do Ramal VLT Aeroporto - Castelão.')
+    with st.container(border=True):
+        st.markdown('**Traçado híbrido em via dupla**')
+        columns=st.columns(2)
+        surface_km=columns[0].number_input('Trecho em superfície (km de corredor)',min_value=0.0,
+            max_value=1000.0,value=0.90,step=0.10,format='%.3f',key='vlt_surface_km')
+        elevated_km=columns[1].number_input('Trecho elevado (km de corredor)',min_value=0.0,
+            max_value=1000.0,value=1.70,step=0.10,format='%.3f',key='vlt_elevated_km')
+        st.caption('Referência do edital: 0,90 km em superfície + 1,70 km elevado = 2,60 km de corredor e 5,20 km de linha em via dupla.')
+        st.caption('Os valores já contêm os BDIs do edital: materiais 16,80%, serviços 24,23% e betuminosos 15,00%.')
+    update=st.button('Atualizar orçamento',key='vlt_calculate',type='primary',icon=':material/calculate:')
+    inputs=(float(surface_km),float(elevated_km))
+    if update or 'vlt' not in st.session_state.results:
+        try:
+            st.session_state.results['vlt']=calculate_vlt(*inputs)
+            st.session_state.vlt_calculated_inputs=inputs
+        except ValueError as exc:
+            st.session_state.results.pop('vlt',None);st.error(str(exc));return
+    stale=st.session_state.get('vlt_calculated_inputs')!=inputs
+    if stale:st.info('Você alterou o traçado. Selecione Atualizar orçamento para conferir os novos valores.')
+    result=st.session_state.results.get('vlt')
+    if not result:return
+    st.session_state.display_results['vlt']=result
+    if is_primary_root(current_user) and not st.session_state.get('vlt_seed_checked'):
+        try:
+            ensure_budget(current_user,'VLT Aeroporto - Castelão','VLT',calculate_vlt())
+            st.session_state.vlt_seed_checked=True
+        except (RuntimeError,PermissionError) as exc:
+            st.warning('O orçamento foi calculado, mas o projeto inicial não pôde ser salvo: '+str(exc))
+    with st.container(key='result_header_vlt'):
+        st.markdown('## Resultado do orçamento VLT')
+        st.caption('Orçamento-base do edital, data-base fevereiro/2025, parametrizado por tipo de implantação.')
+    with st.container(key='result_kpis_vlt'):
+        columns=st.columns(3,gap='medium')
+        columns[0].metric('Custo total',currency(result['total']),border=True)
+        columns[1].metric('Por km de corredor',currency(result['per_km']),border=True)
+        columns[2].metric('Por km de linha',currency(result['per_line_km']),border=True)
+    st.caption(f"Corredor: {br(result['scenario']['km'],3)} km · Via dupla: {br(result['scenario']['line_km'],3)} km de linha · Data-base: {result['reference_period']}")
+    summary=pd.DataFrame([{'Componente':name,'Valor (R$)':value}
+        for name,value in result['segments'].items()])
+    views=st.columns([1,1.1],gap='large')
+    with views[0]:
+        st.markdown('**Composição por implantação**')
+        display_table(summary,monetary=('Valor (R$)',),height=250)
+    with views[1]:
+        st.markdown('**Participação no cenário**')
+        st.bar_chart(summary,x='Componente',y='Valor (R$)',horizontal=True,color='#60998e',height=250)
+    with st.expander('Ver grupos do edital e critérios paramétricos',expanded=False):
+        detail=pd.DataFrame([{'EAP':item['eap'],'Grupo do edital':item['label'],
+            'Aplicação':item['basis'],'Custo-base (R$)':item['baseline_cost'],
+            'Fator':item['quantity'],'Custo no cenário (R$)':item['total']}
+            for item in result['items']])
+        display_table(detail,monetary=('Custo-base (R$)','Custo no cenário (R$)'),height=520)
+    for warning in result['warnings']:st.caption('• '+warning)
+    if can_download_budget(current_user,int(st.session_state.get('trial_excel_downloads',0))):
+        st.download_button('Baixar orçamento em Excel',make_vlt_excel(result),
+            file_name='orcamento_vlt_aeroporto_castelao.xlsx',
+            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            key='vlt_excel',icon=':material/download:')
+
+
 def result_group_label(group,result):
     """Traduz o nome histórico do agrupamento para a solução exibida."""
     label=group.split(' ',1)[1]
@@ -358,7 +423,7 @@ with budgets_tab:
             else:st.info('Confira as premissas da ferrovia de carga para gerar o orçamento.')
 
     with vlt:
-        pass
+        render_vlt_budget()
 
     with shortline:
         pass
