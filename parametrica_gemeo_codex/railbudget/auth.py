@@ -102,6 +102,14 @@ def is_primary_root(user):
     return bool(accounts) and hmac.compare_digest(user.email.strip().lower(),accounts[0][0])
 
 
+def primary_root_context():
+    """Cria o contexto interno da conta principal sem expor suas credenciais."""
+    accounts=_admin_accounts()
+    if not accounts:return None
+    username=accounts[0][0]
+    return UserContext(_identity(username),username,"Administrador","root","local")
+
+
 def _local_user():
     payload = st.session_state.get("local_auth")
     if not isinstance(payload, dict):

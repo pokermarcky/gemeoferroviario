@@ -2,6 +2,7 @@ import base64
 from hashlib import pbkdf2_hmac
 
 from railbudget.auth import (UserContext, _admin_accounts, _verify_password, is_primary_root,
+    primary_root_context,
     budget_download_limit, can, can_download_budget)
 from pathlib import Path
 
@@ -61,6 +62,14 @@ def test_somente_primeira_conta_e_root_principal(monkeypatch):
     secondary=UserContext("2","admin","Administrador","root","local")
     assert is_primary_root(primary)
     assert not is_primary_root(secondary)
+
+
+def test_contexto_interno_do_root_principal(monkeypatch):
+    monkeypatch.setattr("railbudget.auth._admin_accounts",lambda:[("principal@example.com","hash")])
+    root=primary_root_context()
+    assert root.email=="principal@example.com"
+    assert root.role=="root"
+    assert is_primary_root(root)
 
 
 def test_tela_de_login_e_unica_sem_abas_por_perfil():

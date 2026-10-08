@@ -12,7 +12,8 @@ from railbudget.underground import calculate_underground
 from railbudget.vlt import calculate_vlt, make_vlt_excel
 from railbudget.reference_data import (SOURCES, KINDS, parse_reference, apply_reference_bases,
     embedded_inventory, normalized_excel)
-from railbudget.auth import budget_download_limit, can, can_download_budget, is_primary_root, require_user
+from railbudget.auth import (budget_download_limit, can, can_download_budget, is_primary_root,
+    primary_root_context, require_user)
 from railbudget.budget_store import ensure_budget
 from railbudget.reference_store import load_reference_bases, save_reference_base
 from railbudget.user_workspace import render_user_sidebar
@@ -21,6 +22,10 @@ ROOT=Path(__file__).resolve().parent
 
 st.set_page_config(page_title='railparametric | Parametric Rails',page_icon=':material/train:',layout='wide')
 apply_theme()
+configured_root=primary_root_context()
+if configured_root:
+    try:ensure_budget(configured_root,'VLT Aeroporto - Castelão','VLT',calculate_vlt())
+    except RuntimeError:pass
 current_user=require_user()
 static_header_v2()
 @st.cache_data(ttl=300,max_entries=2)
