@@ -20,6 +20,13 @@ def test_capa_estatica_usa_trem_bidirecional_e_vias_distintas():
     assert '_static_sprites_v3' in scene
 
 
+def test_titulo_principal_centralizado_com_tipografia_moderna():
+    theme=(APP.parent/'railbudget'/'interface.py').read_text(encoding='utf-8')
+    assert '.st-key-hero h1' in theme
+    assert 'margin-inline:auto;text-align:center' in theme
+    assert '"Aptos Display","Segoe UI Variable Display","Segoe UI",Inter,system-ui,sans-serif' in theme
+
+
 def test_passageiro_calcula_siec_e_limpa_resultado_invalido():
     from railbudget.engine import Scenario, calculate, load_model
 
