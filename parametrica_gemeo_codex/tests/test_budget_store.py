@@ -1,5 +1,5 @@
 from railbudget.auth import UserContext
-from railbudget.budget_store import list_budgets, save_budget, storage_mode
+from railbudget.budget_store import ensure_budget, list_budgets, save_budget, storage_mode
 
 
 def test_sqlite_preserva_orcamento_por_usuario(monkeypatch,tmp_path):
@@ -30,3 +30,14 @@ def test_apenas_root_principal_pode_salvar_orcamento(monkeypatch,tmp_path):
         pass
     else:
         raise AssertionError("Orçamento de usuário não autorizado foi salvo")
+
+
+def test_projeto_inicial_e_criado_sem_duplicacao(monkeypatch,tmp_path):
+    monkeypatch.setenv("RAILPARAMETRIC_BUDGET_DB",str(tmp_path/"budgets.sqlite3"))
+    root=UserContext("root","root@example.com","Administrador","root","test-suite")
+    result={"total":191008605.92,"per_km":73464848.43}
+    ensure_budget(root,"VLT Aeroporto - Castelão","VLT",result)
+    ensure_budget(root,"VLT Aeroporto - Castelão","VLT",result)
+    saved=list_budgets(root.user_id,root)
+    assert len(saved)==1
+    assert saved[0]['modality']=='VLT'
