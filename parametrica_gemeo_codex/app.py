@@ -12,6 +12,7 @@ from railbudget.underground import calculate_underground
 from railbudget.reference_data import (SOURCES, KINDS, parse_reference, apply_reference_bases,
     embedded_inventory, normalized_excel)
 from railbudget.auth import budget_download_limit, can, can_download_budget, require_user
+from railbudget.reference_store import load_reference_bases, save_reference_base
 from railbudget.user_workspace import render_user_sidebar
 
 ROOT=Path(__file__).resolve().parent
@@ -30,7 +31,8 @@ version=(ROOT/'data/catalog.sqlite').stat().st_mtime_ns,(ROOT/'config/rules.json
 rules,base_catalog=data(version)
 st.session_state.setdefault('results',{})
 st.session_state.setdefault('display_results',{})
-st.session_state.setdefault('reference_bases',{})
+if 'reference_bases' not in st.session_state:
+    st.session_state.reference_bases=load_reference_bases()
 enabled_bases=dict(st.session_state.reference_bases)
 reference_signature=tuple(sorted((source,kind,base.digest,base.period)
     for (source,kind),base in enabled_bases.items()))
@@ -305,7 +307,7 @@ def reference_card(source,kind):
         if upload and upload.size>200*1024*1024:
             st.error('Arquivo acima de 200 MB. Divida a tabela antes de enviar.');return
         if upload:
-            st.caption('O novo arquivo substituirá integralmente a versão ativa nesta sessão.')
+            st.caption('O novo arquivo substituirá integralmente a versão ativa e permanecerá como a data-base atual.')
             period=st.text_input('Nova data-base',placeholder='MM/AAAA',key=f'period_{source}_{kind}',
                 help='Campo obrigatório. Exemplo: 08/2026.')
             if not re.fullmatch(r'(0[1-9]|1[0-2])/\d{4}',period.strip()):
@@ -317,6 +319,7 @@ def reference_card(source,kind):
                     parsed=parse_reference(raw,upload.name,source,kind,period)
                     _,prospective_links=apply_reference_bases(base_catalog,{slot:parsed})
                     matched=prospective_links.get(slot,0)
+                    save_reference_base(current_user,parsed)
                     st.session_state.reference_bases[slot]=parsed
                     st.session_state.results={}
                     st.session_state.referencia_inicial_carregada=False
@@ -367,7 +370,7 @@ with reference_tab:
     status=st.columns(2)
     status[0].metric('Tabelas enviadas',len(enabled_bases),border=True)
     status[1].metric('Códigos atualizados',sum(linked_uploads.values()),border=True)
-    st.info('Cada fonte e tipo mantém somente a versão mais recente nesta sessão. Uma nova tabela substitui a anterior e recalcula automaticamente os orçamentos quando houver códigos vinculados.')
+    st.info('Cada fonte e tipo mantém somente a versão mais recente. Uma nova tabela substitui a anterior, permanece ativa após novo acesso e recalcula automaticamente os orçamentos quando houver códigos vinculados.')
     source_tabs=st.tabs(list(SOURCES))
     for source,source_tab in zip(SOURCES,source_tabs):
         with source_tab:
