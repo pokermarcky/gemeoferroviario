@@ -1,9 +1,10 @@
 """Área lateral do usuário e coleção pessoal de orçamentos."""
 from datetime import datetime
+import json
 
 import streamlit as st
 
-from railbudget.auth import can, logout
+from railbudget.auth import can, is_primary_root, logout
 from railbudget.budget_store import list_budgets, save_budget, storage_mode
 from railbudget.exporters import currency
 
@@ -30,8 +31,11 @@ def render_user_sidebar(user):
             if st.button("Sair", icon=":material/logout:", key="logout", use_container_width=True):
                 logout(user)
 
+        if not is_primary_root(user):
+            return
+
         st.markdown("## Meus Orçamentos")
-        st.caption("Nomeie e guarde os cenários associados ao seu acesso.")
+        st.caption("Sua carteira pessoal de estudos ferroviários.")
         display_results = st.session_state.get("display_results", {})
         available = {key: MODALITY_LABELS[key] for key in MODALITY_LABELS if key in display_results}
         with st.container(border=True, key="new_budget_card"):
@@ -71,7 +75,20 @@ def render_user_sidebar(user):
         if not saved:
             st.caption("Nenhum orçamento adicionado ainda.")
         for row in saved[:20]:
-            with st.container(border=True):
-                st.markdown(f"**{row.get('name', 'Orçamento')}**")
-                st.caption(f"{row.get('modality', 'Modalidade')} · {_date_label(row.get('created_at'))}")
-                st.markdown(currency(float(row.get("total", 0))))
+            result=row.get("result_json",{})
+            if isinstance(result,str):
+                try:
+                    result=json.loads(result)
+                except (TypeError,ValueError):result={}
+            scenario=result.get("scenario",{}) if isinstance(result,dict) else {}
+            with st.expander(row.get('name','Orçamento'),icon=":material/train:"):
+                st.caption(f"{row.get('modality','Modalidade')} · {_date_label(row.get('created_at'))}")
+                st.metric("Valor do projeto",currency(float(row.get("total",0))))
+                if scenario.get("km") is not None:
+                    st.markdown(f"**Extensão:** {float(scenario['km']):,.3f} km".replace(",","X").replace(".",",").replace("X","."))
+                if scenario.get("configuration"):
+                    st.markdown(f"**Implantação:** {scenario['configuration']}")
+                if scenario.get("lines"):
+                    st.markdown(f"**Via:** {'Simples' if int(scenario['lines'])==1 else 'Dupla'}")
+                if scenario.get("bdi") is not None:
+                    st.markdown(f"**BDI:** {float(scenario['bdi'])*100:.2f}%".replace(".",","))
