@@ -17,6 +17,8 @@ from uuid import uuid4
 
 import streamlit as st
 
+from railbudget.auth import is_primary_root
+
 
 def _storage_config():
     try:
@@ -114,6 +116,8 @@ def list_budgets(user_id,user=None):
 
 
 def save_budget(user, name, modality, result):
+    if not is_primary_root(user):
+        raise PermissionError("Meus Orçamentos está disponível somente para o root principal.")
     row = {
         "id": str(uuid4()),
         "owner_id": user.user_id,

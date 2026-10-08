@@ -4,7 +4,7 @@ from railbudget.budget_store import list_budgets, save_budget, storage_mode
 
 def test_sqlite_preserva_orcamento_por_usuario(monkeypatch,tmp_path):
     monkeypatch.setenv("RAILPARAMETRIC_BUDGET_DB",str(tmp_path/"budgets.sqlite3"))
-    root=UserContext("root-1","root@example.com","Administrador","root","test")
+    root=UserContext("root-1","root@example.com","Administrador","root","test-suite")
     other=UserContext("user-2","user@example.com","Usuário","user","test")
     result={"total":1234.56,"scenario":{"km":1},"items":[]}
     save_budget(root,"Linha teste","Ferrovia de passageiro",result)
@@ -19,3 +19,14 @@ def test_sqlite_preserva_orcamento_por_usuario(monkeypatch,tmp_path):
 def test_acesso_compartilhado_permanece_isolado_na_sessao():
     demo=UserContext("demo-teste","teste@railparametric.local","Visitante","test","local")
     assert storage_mode(demo)=="session"
+
+
+def test_apenas_root_principal_pode_salvar_orcamento(monkeypatch,tmp_path):
+    monkeypatch.setenv("RAILPARAMETRIC_BUDGET_DB",str(tmp_path/"budgets.sqlite3"))
+    demo=UserContext("demo-teste","teste@railparametric.local","Visitante","test","local")
+    try:
+        save_budget(demo,"Não autorizado","Ferrovia de passageiro",{"total":1})
+    except PermissionError:
+        pass
+    else:
+        raise AssertionError("Orçamento de usuário não autorizado foi salvo")

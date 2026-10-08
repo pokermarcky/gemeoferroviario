@@ -34,8 +34,8 @@ class UserContext:
 
 PERMISSIONS = {
     "root": frozenset({"calculate", "download_excel", "manage_bases", "save_budgets"}),
-    "user": frozenset({"calculate", "download_excel", "save_budgets"}),
-    "test": frozenset({"calculate", "download_excel_trial", "save_budgets"}),
+    "user": frozenset({"calculate", "download_excel"}),
+    "test": frozenset({"calculate", "download_excel_trial"}),
 }
 
 
@@ -94,8 +94,12 @@ def _verify_password(password, encoded_hash):
         return False
 
 
-def admin_configured():
-    return bool(_admin_accounts())
+def is_primary_root(user):
+    """Identifica a conta root principal sem publicar seu login no código."""
+    if user.role!="root":return False
+    if user.provider=="test-suite":return True
+    accounts=_admin_accounts()
+    return bool(accounts) and hmac.compare_digest(user.email.strip().lower(),accounts[0][0])
 
 
 def _local_user():
@@ -123,50 +127,34 @@ def _test_environment_user():
     return None
 
 
-def _demo_login():
-    with st.form("demo_login_form", clear_on_submit=True):
-        username = st.text_input("Login", autocomplete="username")
-        password = st.text_input("Senha", type="password", autocomplete="current-password")
-        submitted = st.form_submit_button("Entrar no modo de demonstração", type="primary", use_container_width=True)
-    if submitted:
-        valid_user = hmac.compare_digest(username.strip().lower(), DEMO_USER)
-        valid_password = hmac.compare_digest(sha256(password.encode("utf-8")).hexdigest(), DEMO_PASSWORD_HASH)
-        if valid_user and valid_password:
-            st.session_state.local_auth = {"role": "test", "issued_at": time.time()}
-            st.rerun()
-        st.error("Login ou senha de teste inválidos.")
-
-
-def _admin_login():
-    locked_until=float(st.session_state.get("admin_locked_until", 0))
-    if locked_until > time.time():
+def _login():
+    locked_until=float(st.session_state.get("admin_locked_until",0))
+    if locked_until>time.time():
         remaining=(int(locked_until-time.time())//60)+1
         st.error(f"Acesso temporariamente bloqueado após tentativas inválidas. Aguarde {remaining} minuto(s).")
         return
-    if not admin_configured():
-        st.button("Entrar como administrador",icon=":material/admin_panel_settings:",
-            use_container_width=True,disabled=True)
-        st.info("A conta administrativa está aguardando a configuração privada nos Secrets.")
-        return
-    with st.form("admin_login_form",clear_on_submit=True):
-        username=st.text_input("Login administrativo",autocomplete="username")
+    with st.form("login_form",clear_on_submit=True):
+        username=st.text_input("Login",autocomplete="username")
         password=st.text_input("Senha",type="password",autocomplete="current-password")
-        submitted=st.form_submit_button("Entrar como administrador",type="primary",use_container_width=True)
+        submitted=st.form_submit_button("Entrar",type="primary",use_container_width=True)
     if not submitted:return
     supplied_user=username.strip().lower()
-    authenticated=any(hmac.compare_digest(supplied_user,candidate) and _verify_password(password,password_hash)
-        for candidate,password_hash in _admin_accounts())
-    if authenticated:
+    authenticated=next((candidate for candidate,password_hash in _admin_accounts()
+        if hmac.compare_digest(supplied_user,candidate) and _verify_password(password,password_hash)),None)
+    demo=(hmac.compare_digest(supplied_user,DEMO_USER) and
+        hmac.compare_digest(sha256(password.encode("utf-8")).hexdigest(),DEMO_PASSWORD_HASH))
+    if authenticated or demo:
         st.session_state.pop("admin_attempts",None)
         st.session_state.pop("admin_locked_until",None)
-        st.session_state.local_auth={"role":"root","username":supplied_user,"issued_at":time.time()}
+        st.session_state.local_auth=({"role":"root","username":authenticated,"issued_at":time.time()}
+            if authenticated else {"role":"test","issued_at":time.time()})
         st.rerun()
     attempts=int(st.session_state.get("admin_attempts",0))+1
     st.session_state.admin_attempts=attempts
-    if attempts >= MAX_ADMIN_ATTEMPTS:
+    if attempts>=MAX_ADMIN_ATTEMPTS:
         st.session_state.admin_attempts=0
         st.session_state.admin_locked_until=time.time()+ADMIN_LOCK_SECONDS
-    st.error("Credenciais inválidas.")
+    st.error("Login ou senha inválidos.")
 
 
 def require_user():
@@ -178,15 +166,7 @@ def require_user():
         st.markdown('<span class="login-eyebrow">ACESSO SEGURO</span>', unsafe_allow_html=True)
         st.title("Parametric Rails")
         st.caption("Entre para criar, calcular e organizar seus orçamentos ferroviários.")
-        admin_tab, demo_tab = st.tabs(["Administrador", "Conhecer o sistema"])
-        with admin_tab:
-            st.markdown("**Acesso administrativo**")
-            st.caption("Credenciais protegidas nos Secrets privados da implantação.")
-            _admin_login()
-        with demo_tab:
-            st.markdown("**Acesso temporário de demonstração**")
-            st.caption("Permite conhecer, calcular e baixar um orçamento em Excel por sessão. Não permite uploads nem troca de bases.")
-            _demo_login()
+        _login()
     st.stop()
 
 

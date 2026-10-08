@@ -1,7 +1,7 @@
 import base64
 from hashlib import pbkdf2_hmac
 
-from railbudget.auth import (UserContext, _admin_accounts, _verify_password,
+from railbudget.auth import (UserContext, _admin_accounts, _verify_password, is_primary_root,
     budget_download_limit, can, can_download_budget)
 from pathlib import Path
 
@@ -16,7 +16,7 @@ def test_permissoes_por_perfil():
     demo = user("test")
     assert can(root, "manage_bases") and can(root, "download_excel")
     assert can(regular, "download_excel") and not can(regular, "manage_bases")
-    assert can(demo, "calculate") and can(demo, "save_budgets")
+    assert can(demo, "calculate") and not can(demo, "save_budgets")
     assert not can(demo, "download_excel") and can(demo,"download_excel_trial")
     assert can_download_budget(demo,0) and not can_download_budget(demo,1)
     assert budget_download_limit(demo)==1 and budget_download_limit(root) is None
@@ -53,3 +53,18 @@ def test_tres_contas_administrativas_sao_lidas_dos_secrets(monkeypatch):
     }
     monkeypatch.setattr("railbudget.auth._secrets_section",lambda name:sections.get(name,{}))
     assert _admin_accounts()==[("principal","h1"),("admin","h2"),("contingencia","h3")]
+
+
+def test_somente_primeira_conta_e_root_principal(monkeypatch):
+    monkeypatch.setattr("railbudget.auth._admin_accounts",lambda:[("principal@example.com","h1"),("admin","h2")])
+    primary=UserContext("1","principal@example.com","Administrador","root","local")
+    secondary=UserContext("2","admin","Administrador","root","local")
+    assert is_primary_root(primary)
+    assert not is_primary_root(secondary)
+
+
+def test_tela_de_login_e_unica_sem_abas_por_perfil():
+    source=(Path(__file__).resolve().parents[1]/"railbudget"/"auth.py").read_text(encoding="utf-8")
+    assert 'with st.form("login_form"' in source
+    assert 'st.tabs(["Administrador", "Conhecer o sistema"])' not in source
+    assert 'form_submit_button("Entrar"' in source

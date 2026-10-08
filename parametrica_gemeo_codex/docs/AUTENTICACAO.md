@@ -22,7 +22,7 @@ Nunca publique `.streamlit/secrets.toml` no GitHub. Copie `secrets.example.toml`
 
 ## Autenticação local
 
-O site não utiliza Google Cloud. O usuário e o hash irreversível da senha privilegiada são lidos somente dos Secrets privados do Streamlit. Após cinco tentativas inválidas na mesma sessão, o acesso administrativo é bloqueado por quinze minutos. A sessão root expira após oito horas e a sessão de demonstração após uma hora.
+O site não utiliza Google Cloud. Há um único formulário de login e senha; o perfil e as permissões são identificados somente depois da autenticação. O usuário e o hash irreversível da senha privilegiada são lidos somente dos Secrets privados do Streamlit. Após cinco tentativas inválidas na mesma sessão, o acesso é bloqueado por quinze minutos. A sessão root expira após oito horas e a sessão de demonstração após uma hora.
 
 A interface não contém recuperação administrativa. A contingência é operacional, pelo segundo administrador e pelo painel privado da implantação.
 
@@ -46,4 +46,10 @@ create index if not exists saved_budgets_owner_created
   on public.saved_budgets (owner_id, created_at desc);
 ```
 
-Sem a seção `[storage]`, root e futuros usuários individuais usam uma base SQLite local protegida, suficiente para preservar os orçamentos entre logout e login no mesmo servidor. Como o Streamlit Community Cloud pode recriar o servidor em reinicializações ou novas implantações, a seção `[storage]` com Supabase continua sendo a opção recomendada para persistência definitiva. O login compartilhado de demonstração permanece isolado por sessão para não expor os orçamentos de um visitante a outro.
+Por enquanto, a área lateral **Meus Orçamentos** é exibida somente para a primeira conta de `[local_admin]`, que representa o root principal. Cada projeto é associado ao identificador derivado desse login e pode ser aberto em um cartão expansível.
+
+Sem a seção `[storage]`, o root usa uma base SQLite local protegida, suficiente para preservar os orçamentos entre logout e login no mesmo servidor. Como o Streamlit Community Cloud pode recriar o servidor em reinicializações ou novas implantações, a seção `[storage]` com Supabase continua sendo a opção recomendada para persistência definitiva. O login compartilhado de demonstração não exibe a coleção pessoal do root.
+
+## Persistência das bases de referência
+
+Somente um perfil com a permissão `manage_bases` pode substituir uma tabela. A versão validada é gravada em SQLite por combinação de fonte e tipo, substituindo integralmente a anterior. Em uma nova sessão, o aplicativo carrega automaticamente essas versões antes de calcular os orçamentos.
