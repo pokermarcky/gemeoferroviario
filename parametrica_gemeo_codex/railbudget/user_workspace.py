@@ -47,6 +47,15 @@ def _close_budget_actions(budget_id):
     st.session_state.pop(f"delete_budget_{budget_id}", None)
 
 
+def _modality_visual(modality):
+    label = str(modality).casefold()
+    if "vlt" in label:
+        return "VLT", "project-vlt"
+    if "carga" in label:
+        return "CG", "project-cargo"
+    return "PS", "project-passenger"
+
+
 def render_user_sidebar(user):
     with st.sidebar:
         with st.container(key="user_profile_card"):
@@ -61,19 +70,33 @@ def render_user_sidebar(user):
             return
 
         with st.container(key="budget_collection_heading"):
-            st.markdown('<span class="sidebar-eyebrow">PORTFÓLIO</span>', unsafe_allow_html=True)
-            st.markdown("## Meus Orçamentos")
-            st.caption("Seus estudos ferroviários, organizados em um só lugar.")
+            st.markdown('<span class="sidebar-eyebrow">ÁREA DE PROJETOS</span>', unsafe_allow_html=True)
+            st.markdown("## Carteira de Projetos")
+            st.caption("Organize e acompanhe seus estudos ferroviários.")
         display_results = st.session_state.get("display_results", {})
         available = {key: MODALITY_LABELS[key] for key in MODALITY_LABELS if key in display_results}
-        with st.container(border=True, key="new_budget_card"):
-            st.markdown("**Novo orçamento**")
+        mode=storage_mode(user)
+        try:
+            saved = list_budgets(user.user_id,user)
+        except RuntimeError as exc:
+            st.error(str(exc))
+            saved = []
+
+        portfolio_total = sum(float(row.get("total", 0)) for row in saved)
+        st.markdown(
+            '<div class="portfolio-summary">'
+            f'<div><span>PROJETOS</span><strong>{len(saved)}</strong></div>'
+            f'<div><span>VALOR DA CARTEIRA</span><strong>{currency(portfolio_total)}</strong></div>'
+            '</div>', unsafe_allow_html=True,
+        )
+
+        with st.expander("Adicionar projeto", icon=":material/add_circle:"):
             if available:
                 modality = st.selectbox("Cenário calculado", list(available),
                     format_func=available.get, key="saved_budget_modality")
-                name = st.text_input("Nome do orçamento", placeholder="Ex.: Linha Leste · Estudo inicial",
+                name = st.text_input("Nome do projeto", placeholder="Ex.: Linha Leste · Estudo inicial",
                     key="saved_budget_name", max_chars=80)
-                if st.button("Adicionar aos meus orçamentos", icon=":material/add:", type="primary",
+                if st.button("Salvar na carteira", icon=":material/bookmark_add:", type="primary",
                     key="save_budget", use_container_width=True):
                     if not name.strip():
                         st.warning("Digite um nome para identificar o orçamento.")
@@ -89,23 +112,27 @@ def render_user_sidebar(user):
             else:
                 st.info("Atualize um orçamento para poder adicioná-lo aqui.")
 
-        mode=storage_mode(user)
         if mode=="session":
             st.caption("No acesso compartilhado de demonstração, os orçamentos ficam somente nesta sessão.")
         elif mode=="sqlite":
-            st.caption("Orçamentos preservados entre logout e login neste servidor.")
-        try:
-            saved = list_budgets(user.user_id,user)
-        except RuntimeError as exc:
-            st.error(str(exc))
-            saved = []
-        st.markdown(f'<div class="saved-count"><b>{len(saved)}</b> projeto(s) salvo(s)</div>',
+            st.caption(":material/verified_user: Projetos preservados entre seus acessos.")
+
+        search = st.text_input("Buscar na carteira", placeholder="Buscar projeto ou modalidade",
+            key="budget_search", label_visibility="collapsed")
+        normalized_search = search.strip().casefold()
+        filtered = [row for row in saved if not normalized_search or normalized_search in
+            f'{row.get("name", "")} {row.get("modality", "")}'.casefold()]
+        st.markdown(f'<div class="saved-count"><span>PROJETOS SALVOS</span><b>{len(filtered)}</b></div>',
             unsafe_allow_html=True)
         if not saved:
             with st.container(key="empty_budget_collection"):
-                st.markdown(":material/folder_open:")
-                st.caption("Nenhum orçamento adicionado ainda.")
-        for row in saved[:20]:
+                st.markdown("### Sua carteira está vazia")
+                st.caption("Calcule um cenário e use “Adicionar projeto” para começar.")
+        elif not filtered:
+            with st.container(key="empty_budget_search"):
+                st.markdown("### Nenhum projeto encontrado")
+                st.caption("Tente buscar por outro nome ou modalidade.")
+        for row in filtered[:20]:
             result=row.get("result_json",{})
             if isinstance(result,str):
                 try:
@@ -115,9 +142,15 @@ def render_user_sidebar(user):
             budget_id = str(row.get("id", ""))
             distance = _distance_label(result, scenario)
             per_km = _per_km(result, row, scenario)
+            modality = str(row.get("modality", "Modalidade"))
+            modality_initials, modality_class = _modality_visual(modality)
             with st.container(border=True, key=f"saved_budget_card_{budget_id}"):
-                st.markdown(f'<span class="budget-type">{escape(str(row.get("modality", "Modalidade")))}</span>',
-                    unsafe_allow_html=True)
+                st.markdown(
+                    '<div class="project-card-heading">'
+                    f'<span class="project-mark {modality_class}">{modality_initials}</span>'
+                    f'<span class="budget-type">{escape(modality)}</span>'
+                    '</div>', unsafe_allow_html=True,
+                )
                 st.markdown(f"### {escape(str(row.get('name','Orçamento')))}")
                 st.caption(f":material/calendar_today: {_date_label(row.get('created_at'))}")
                 st.markdown(f'<div class="budget-total-label">CUSTO TOTAL</div>'
@@ -126,7 +159,7 @@ def render_user_sidebar(user):
                 if per_km is not None:
                     st.markdown(f'<div class="budget-per-km">{currency(float(per_km))} <span>por km</span></div>',
                         unsafe_allow_html=True)
-                with st.expander("Ver informações", icon=":material/info:"):
+                with st.expander("Ficha do projeto", icon=":material/description:"):
                     if distance:
                         st.markdown(f"**Extensão do corredor:** {distance}")
                     if isinstance(result,dict) and result.get("line_km") is not None:

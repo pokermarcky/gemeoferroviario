@@ -15,16 +15,24 @@ STYLE = '''<style>
 .sidebar-eyebrow,.login-eyebrow {font-size:.67rem;letter-spacing:.17em;font-weight:800;color:#79b9ad}
 .role-badge {display:inline-flex;padding:.24rem .58rem;border-radius:999px;font-size:.7rem;font-weight:800;letter-spacing:.04em;margin:.2rem 0 .65rem;background:#dceee9;color:#1f665c}
 .role-root{background:#f5d993;color:#72520b}.role-test{background:#dce6f6;color:#315b8b}
-[data-testid="stSidebar"] .st-key-new_budget_card {background:#fff!important;border:1px solid #ccddd8!important;box-shadow:0 8px 22px #173f3d12!important}
 [data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"] {background:#fff}
-[data-testid="stSidebar"] .st-key-budget_collection_heading {margin-top:1.25rem;padding:.2rem .15rem .35rem}
-[data-testid="stSidebar"] .st-key-budget_collection_heading h2 {margin:.1rem 0 0!important;padding:0!important;font-size:1.42rem!important;letter-spacing:-.035em}
+[data-testid="stSidebar"] .st-key-budget_collection_heading {margin-top:1.25rem;padding:.25rem .2rem .45rem;border-bottom:1px solid #d4e2de}
+[data-testid="stSidebar"] .st-key-budget_collection_heading h2 {margin:.1rem 0 0!important;padding:0!important;font-size:1.48rem!important;letter-spacing:-.04em}
 [data-testid="stSidebar"] .st-key-budget_collection_heading [data-testid="stCaptionContainer"] {font-size:.82rem;line-height:1.35;color:#637b77}
-.saved-count {margin:1rem .15rem .6rem;color:#607672;font-size:.78rem;letter-spacing:.02em}.saved-count b{display:inline-grid;place-items:center;min-width:24px;height:24px;margin-right:.3rem;border-radius:999px;background:#28776f;color:#fff;font-size:.74rem}
-[data-testid="stSidebar"] [class*="st-key-saved_budget_card_"] {padding:.9rem!important;margin-bottom:.7rem;border:1px solid #c8dcd6!important;border-left:4px solid #28776f!important;border-radius:14px!important;background:linear-gradient(145deg,#fff,#f5faf8)!important;box-shadow:0 8px 20px #173f3d0d!important}
+[data-testid="stSidebar"] .portfolio-summary {display:grid;grid-template-columns:.72fr 1.55fr;gap:.45rem;margin:.7rem 0 .65rem}
+[data-testid="stSidebar"] .portfolio-summary>div {min-width:0;padding:.66rem .7rem;border:1px solid #cbded8;border-radius:12px;background:#fff;box-shadow:0 5px 14px #173f3d0a}
+[data-testid="stSidebar"] .portfolio-summary span {display:block;margin-bottom:.18rem;color:#71837f;font-size:.57rem;font-weight:800;letter-spacing:.09em;white-space:nowrap}
+[data-testid="stSidebar"] .portfolio-summary strong {display:block;overflow:hidden;color:#173f3d;font-size:.9rem;font-weight:800;letter-spacing:-.025em;text-overflow:ellipsis;white-space:nowrap}
+[data-testid="stSidebar"] .portfolio-summary>div:first-child strong {font-size:1.15rem;color:#28776f}
+[data-testid="stSidebar"] .st-key-budget_search {margin:.55rem 0 .15rem}
+[data-testid="stSidebar"] .st-key-budget_search input {min-height:39px;border-color:#cbded8;border-radius:11px;background:#fff;font-size:.82rem}
+.saved-count {display:flex;align-items:center;justify-content:space-between;margin:.75rem .2rem .5rem;color:#687d79;font-size:.62rem;font-weight:800;letter-spacing:.1em}.saved-count b{display:inline-grid;place-items:center;min-width:23px;height:23px;border-radius:999px;background:#dceee9;color:#24675e;font-size:.7rem;letter-spacing:0}
+[data-testid="stSidebar"] [class*="st-key-saved_budget_card_"] {padding:.85rem!important;margin-bottom:.62rem;border:1px solid #ceded9!important;border-radius:15px!important;background:#fff!important;box-shadow:0 7px 18px #173f3d0b!important;transition:border-color .15s,box-shadow .15s,transform .15s}
+[data-testid="stSidebar"] [class*="st-key-saved_budget_card_"]:hover {border-color:#91b8af!important;box-shadow:0 10px 24px #173f3d14!important;transform:translateY(-1px)}
 [data-testid="stSidebar"] [class*="st-key-saved_budget_card_"] h3 {margin:.28rem 0 0!important;padding:0!important;font-size:1.08rem!important;color:#183f3d;line-height:1.2}
 [data-testid="stSidebar"] [class*="st-key-saved_budget_card_"] [data-testid="stCaptionContainer"] {font-size:.73rem;color:#6b7f7c}
-.budget-type {display:inline-flex;padding:.2rem .5rem;border-radius:999px;background:#dceee9;color:#24675e;font-size:.66rem;font-weight:800;letter-spacing:.045em;text-transform:uppercase}
+.project-card-heading {display:flex;align-items:center;gap:.5rem}.project-mark{display:inline-grid;place-items:center;width:29px;height:29px;border-radius:9px;background:#dceee9;color:#24675e;font-size:.62rem;font-weight:900;letter-spacing:.03em}.project-cargo{background:#eee8dc;color:#775a29}.project-vlt{background:#e5e9f7;color:#455b99}.project-passenger{background:#dceee9;color:#24675e}
+.budget-type {display:inline-flex;padding:.18rem .48rem;border-radius:999px;background:#f0f5f3;color:#526f69;font-size:.61rem;font-weight:800;letter-spacing:.045em;text-transform:uppercase}
 .budget-total-label {margin-top:.7rem;font-size:.61rem;font-weight:800;letter-spacing:.12em;color:#6b817d}.budget-total {font-size:1.24rem;font-weight:800;letter-spacing:-.035em;color:#173f3d;line-height:1.15}.budget-per-km {margin:.25rem 0 .55rem;color:#28776f;font-size:.84rem;font-weight:750}.budget-per-km span{font-weight:500;color:#758985}
 [data-testid="stSidebar"] [class*="st-key-saved_budget_card_"] [data-testid="stExpander"] {margin:.25rem 0 .55rem;background:#fff;border-color:#dce8e4;box-shadow:none}
 [data-testid="stSidebar"] [class*="st-key-saved_budget_card_"] [data-testid="stButton"] button {min-height:36px;font-size:.78rem;padding:.3rem .45rem;border-color:#cbded8;background:#fff;color:#315f59}
@@ -32,7 +40,8 @@ STYLE = '''<style>
 [data-testid="stSidebar"] [class*="st-key-delete_confirmation_"] {margin-top:.55rem;padding:.65rem;border:1px solid #e9b9b2;border-radius:10px;background:#fff7f5}
 [data-testid="stSidebar"] [class*="st-key-delete_confirmation_"] [data-testid="stAlert"] {padding:.5rem;font-size:.78rem}
 [data-testid="stSidebar"] [class*="st-key-delete_confirmation_"] [data-testid="stButton"] button {border-color:#d68c82;color:#9a3e32;background:#fff}
-[data-testid="stSidebar"] .st-key-empty_budget_collection {padding:1rem;text-align:center;border:1px dashed #bcd2cc;border-radius:12px;background:#f8fbfa;color:#6b817d}
+[data-testid="stSidebar"] .st-key-empty_budget_collection,[data-testid="stSidebar"] .st-key-empty_budget_search {padding:1rem;text-align:center;border:1px dashed #bcd2cc;border-radius:12px;background:#f8fbfa;color:#6b817d}
+[data-testid="stSidebar"] .st-key-empty_budget_collection h3,[data-testid="stSidebar"] .st-key-empty_budget_search h3 {margin:0!important;padding:0!important;font-size:.95rem!important}
 .st-key-login_shell {max-width:720px;margin:8vh auto 0;padding:2rem 2.1rem 1.6rem;border:1px solid #c9ddd7;border-radius:22px;background:#fff;box-shadow:0 22px 55px #173f3d1c}
 .st-key-login_shell h1 {font-size:2.25rem;letter-spacing:-.045em;color:#173f3d;padding:.25rem 0}
 .st-key-login_shell [data-testid="stTabs"] [role="tablist"] {margin-top:1.2rem}

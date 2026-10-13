@@ -27,6 +27,17 @@ def test_titulo_principal_centralizado_com_tipografia_moderna():
     assert '"Aptos Display","Segoe UI Variable Display","Segoe UI",Inter,system-ui,sans-serif' in theme
 
 
+def test_carteira_de_projetos_tem_interface_amigavel():
+    app = AppTest.from_file(str(APP)).run(timeout=30)
+    assert not app.exception
+    source=(APP.parent/'railbudget'/'user_workspace.py').read_text(encoding='utf-8')
+    assert '## Carteira de Projetos' in source
+    assert 'key="budget_search"' in source
+    assert '"Adicionar projeto"' in source
+    assert '"Ficha do projeto"' in source
+    assert 'Meus Orçamentos' not in source
+
+
 def test_passageiro_calcula_siec_e_limpa_resultado_invalido():
     from railbudget.engine import Scenario, calculate, load_model
 
