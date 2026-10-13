@@ -34,10 +34,12 @@ def test_carteira_de_projetos_tem_interface_amigavel():
     assert '## Carteira de Projetos' in source
     assert 'key="budget_search"' in source
     assert '"Adicionar projeto"' in source
-    assert 'Clique em um projeto para abrir seus dados e editar' in source
-    assert 'key=f"project_toggle_{budget_id}"' in source
-    assert 'open_budget_' in source
-    assert '"Alterar projeto"' in source
+    assert 'Clique no nome de um projeto para abrir suas informações' in source
+    assert '@st.dialog("Informações do projeto"' in source
+    assert 'key=f"open_project_{budget_id}"' in source
+    assert '"#### Dados técnicos"' in source
+    assert '"Salvar alteração"' in source
+    assert 'Confirmo que desejo excluir este projeto' in source
     assert '"Ficha do projeto"' not in source
     assert 'Meus Orçamentos' not in source
 
