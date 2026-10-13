@@ -17,6 +17,22 @@ STYLE = '''<style>
 .role-root{background:#f5d993;color:#72520b}.role-test{background:#dce6f6;color:#315b8b}
 [data-testid="stSidebar"] .st-key-new_budget_card {background:#fff!important;border:1px solid #ccddd8!important;box-shadow:0 8px 22px #173f3d12!important}
 [data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"] {background:#fff}
+[data-testid="stSidebar"] .st-key-budget_collection_heading {margin-top:1.25rem;padding:.2rem .15rem .35rem}
+[data-testid="stSidebar"] .st-key-budget_collection_heading h2 {margin:.1rem 0 0!important;padding:0!important;font-size:1.42rem!important;letter-spacing:-.035em}
+[data-testid="stSidebar"] .st-key-budget_collection_heading [data-testid="stCaptionContainer"] {font-size:.82rem;line-height:1.35;color:#637b77}
+.saved-count {margin:1rem .15rem .6rem;color:#607672;font-size:.78rem;letter-spacing:.02em}.saved-count b{display:inline-grid;place-items:center;min-width:24px;height:24px;margin-right:.3rem;border-radius:999px;background:#28776f;color:#fff;font-size:.74rem}
+[data-testid="stSidebar"] [class*="st-key-saved_budget_card_"] {padding:.9rem!important;margin-bottom:.7rem;border:1px solid #c8dcd6!important;border-left:4px solid #28776f!important;border-radius:14px!important;background:linear-gradient(145deg,#fff,#f5faf8)!important;box-shadow:0 8px 20px #173f3d0d!important}
+[data-testid="stSidebar"] [class*="st-key-saved_budget_card_"] h3 {margin:.28rem 0 0!important;padding:0!important;font-size:1.08rem!important;color:#183f3d;line-height:1.2}
+[data-testid="stSidebar"] [class*="st-key-saved_budget_card_"] [data-testid="stCaptionContainer"] {font-size:.73rem;color:#6b7f7c}
+.budget-type {display:inline-flex;padding:.2rem .5rem;border-radius:999px;background:#dceee9;color:#24675e;font-size:.66rem;font-weight:800;letter-spacing:.045em;text-transform:uppercase}
+.budget-total-label {margin-top:.7rem;font-size:.61rem;font-weight:800;letter-spacing:.12em;color:#6b817d}.budget-total {font-size:1.24rem;font-weight:800;letter-spacing:-.035em;color:#173f3d;line-height:1.15}.budget-per-km {margin:.25rem 0 .55rem;color:#28776f;font-size:.84rem;font-weight:750}.budget-per-km span{font-weight:500;color:#758985}
+[data-testid="stSidebar"] [class*="st-key-saved_budget_card_"] [data-testid="stExpander"] {margin:.25rem 0 .55rem;background:#fff;border-color:#dce8e4;box-shadow:none}
+[data-testid="stSidebar"] [class*="st-key-saved_budget_card_"] [data-testid="stButton"] button {min-height:36px;font-size:.78rem;padding:.3rem .45rem;border-color:#cbded8;background:#fff;color:#315f59}
+[data-testid="stSidebar"] [class*="st-key-saved_budget_card_"] [data-testid="stButton"] button:hover {border-color:#6ba397;background:#edf6f3;color:#174f48}
+[data-testid="stSidebar"] [class*="st-key-delete_confirmation_"] {margin-top:.55rem;padding:.65rem;border:1px solid #e9b9b2;border-radius:10px;background:#fff7f5}
+[data-testid="stSidebar"] [class*="st-key-delete_confirmation_"] [data-testid="stAlert"] {padding:.5rem;font-size:.78rem}
+[data-testid="stSidebar"] [class*="st-key-delete_confirmation_"] [data-testid="stButton"] button {border-color:#d68c82;color:#9a3e32;background:#fff}
+[data-testid="stSidebar"] .st-key-empty_budget_collection {padding:1rem;text-align:center;border:1px dashed #bcd2cc;border-radius:12px;background:#f8fbfa;color:#6b817d}
 .st-key-login_shell {max-width:720px;margin:8vh auto 0;padding:2rem 2.1rem 1.6rem;border:1px solid #c9ddd7;border-radius:22px;background:#fff;box-shadow:0 22px 55px #173f3d1c}
 .st-key-login_shell h1 {font-size:2.25rem;letter-spacing:-.045em;color:#173f3d;padding:.25rem 0}
 .st-key-login_shell [data-testid="stTabs"] [role="tablist"] {margin-top:1.2rem}
