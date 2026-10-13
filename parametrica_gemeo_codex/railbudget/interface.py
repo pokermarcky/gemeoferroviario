@@ -27,26 +27,22 @@ STYLE = '''<style>
 [data-testid="stSidebar"] .st-key-budget_search {margin:.55rem 0 .15rem}
 [data-testid="stSidebar"] .st-key-budget_search input {min-height:39px;border-color:#cbded8;border-radius:11px;background:#fff;font-size:.82rem}
 .saved-count {display:flex;align-items:center;justify-content:space-between;margin:.75rem .2rem .5rem;color:#687d79;font-size:.62rem;font-weight:800;letter-spacing:.1em}.saved-count b{display:inline-grid;place-items:center;min-width:23px;height:23px;border-radius:999px;background:#dceee9;color:#24675e;font-size:.7rem;letter-spacing:0}
-[data-testid="stSidebar"] [class*="st-key-saved_budget_card_"] {margin-bottom:.62rem;border:1px solid #ceded9!important;border-radius:15px!important;background:#fff!important;box-shadow:0 7px 18px #173f3d0b!important;overflow:hidden;transition:border-color .15s,box-shadow .15s,transform .15s}
+[data-testid="stSidebar"] [class*="st-key-saved_budget_card_"] {padding:.82rem!important;margin-bottom:.62rem;border:1px solid #ceded9!important;border-radius:15px!important;background:#fff!important;box-shadow:0 7px 18px #173f3d0b!important;transition:border-color .15s,box-shadow .15s,transform .15s}
 [data-testid="stSidebar"] [class*="st-key-saved_budget_card_"]:hover {border-color:#91b8af!important;box-shadow:0 10px 24px #173f3d14!important;transform:translateY(-1px)}
 [data-testid="stSidebar"] [class*="st-key-saved_budget_card_"] [data-testid="stCaptionContainer"] {font-size:.73rem;color:#6b7f7c}
-[data-testid="stSidebar"] [class*="st-key-project_toggle_"] button {min-height:58px!important;padding:.65rem .8rem!important;justify-content:flex-start;border:0!important;border-radius:0!important;background:linear-gradient(145deg,#fff,#f4f9f7)!important;color:#183f3d!important;font-size:.96rem!important;font-weight:800!important;text-align:left!important}
-[data-testid="stSidebar"] [class*="st-key-project_toggle_"] button:hover {background:#eaf4f1!important;color:#174f48!important}
-[data-testid="stSidebar"] [class*="st-key-project_details_"] {padding:.15rem .85rem .85rem;border-top:1px solid #e2ebe8;background:#fff}
+[data-testid="stSidebar"] [class*="st-key-open_project_"] button {min-height:45px!important;margin-top:.32rem;padding:.42rem 0!important;justify-content:space-between;border:0!important;background:transparent!important;color:#183f3d!important;font-size:1rem!important;font-weight:800!important;text-align:left!important;box-shadow:none!important}
+[data-testid="stSidebar"] [class*="st-key-open_project_"] button:hover {color:#28776f!important;background:#edf6f3!important}
 .project-card-heading {display:flex;align-items:center;gap:.5rem}.project-mark{display:inline-grid;place-items:center;width:29px;height:29px;border-radius:9px;background:#dceee9;color:#24675e;font-size:.62rem;font-weight:900;letter-spacing:.03em}.project-cargo{background:#eee8dc;color:#775a29}.project-vlt{background:#e5e9f7;color:#455b99}.project-passenger{background:#dceee9;color:#24675e}
 .budget-type {display:inline-flex;padding:.18rem .48rem;border-radius:999px;background:#f0f5f3;color:#526f69;font-size:.61rem;font-weight:800;letter-spacing:.045em;text-transform:uppercase}
 .budget-total-label {margin-top:.7rem;font-size:.61rem;font-weight:800;letter-spacing:.12em;color:#6b817d}.budget-total {font-size:1.24rem;font-weight:800;letter-spacing:-.035em;color:#173f3d;line-height:1.15}.budget-per-km {margin:.25rem 0 .55rem;color:#28776f;font-size:.84rem;font-weight:750}.budget-per-km span{font-weight:500;color:#758985}
-[data-testid="stSidebar"] [class*="st-key-saved_budget_card_"] [data-testid="stExpander"] {margin:0;background:#fff;border:0!important;border-radius:0;box-shadow:none}
-[data-testid="stSidebar"] [class*="st-key-saved_budget_card_"] [data-testid="stExpander"] summary {min-height:58px;padding:.45rem .75rem;background:linear-gradient(145deg,#fff,#f7faf9)}
-[data-testid="stSidebar"] [class*="st-key-saved_budget_card_"] [data-testid="stExpander"] summary p {font-size:.96rem;font-weight:800;color:#183f3d;line-height:1.2}
-[data-testid="stSidebar"] [class*="st-key-saved_budget_card_"] [data-testid="stExpanderDetails"] {padding:.2rem .85rem .85rem;border-top:1px solid #e2ebe8}
-.project-section-title {margin:.8rem 0 .42rem;padding-top:.7rem;border-top:1px solid #e4ece9;color:#66807a;font-size:.62rem;font-weight:850;letter-spacing:.11em}
-.project-edit-title {margin-top:.45rem;border-top:0;color:#28776f}
 [data-testid="stSidebar"] [class*="st-key-saved_budget_card_"] [data-testid="stButton"] button {min-height:36px;font-size:.78rem;padding:.3rem .45rem;border-color:#cbded8;background:#fff;color:#315f59}
 [data-testid="stSidebar"] [class*="st-key-saved_budget_card_"] [data-testid="stButton"] button:hover {border-color:#6ba397;background:#edf6f3;color:#174f48}
-[data-testid="stSidebar"] [class*="st-key-delete_confirmation_"] {margin-top:.55rem;padding:.65rem;border:1px solid #e9b9b2;border-radius:10px;background:#fff7f5}
-[data-testid="stSidebar"] [class*="st-key-delete_confirmation_"] [data-testid="stAlert"] {padding:.5rem;font-size:.78rem}
-[data-testid="stSidebar"] [class*="st-key-delete_confirmation_"] [data-testid="stButton"] button {border-color:#d68c82;color:#9a3e32;background:#fff}
+.project-editor-heading {display:flex;align-items:center;gap:.7rem;margin-bottom:.35rem}.project-editor-heading>div{display:flex;min-width:0;flex-direction:column}.project-editor-heading span:not(.project-mark){color:#71837f;font-size:.62rem;font-weight:800;letter-spacing:.1em}.project-editor-heading strong{overflow:hidden;color:#173f3d;font-size:1.1rem;text-overflow:ellipsis;white-space:nowrap}
+[data-testid="stDialog"] [data-testid="stMetric"] {background:#f7faf9;border-color:#dce8e4;box-shadow:none}
+[data-testid="stDialog"] [data-testid="stMetricValue"] {font-size:1.15rem!important;color:#173f3d}
+[data-testid="stDialog"] h4 {margin-top:.65rem;padding-bottom:.15rem;color:#173f3d}
+[data-testid="stDialog"] [data-testid="stForm"] {margin-bottom:.4rem}
+[data-testid="stDialog"] [class*="st-key-delete_action_"] button:enabled {border-color:#d68c82;background:#fff7f5;color:#9a3e32}
 [data-testid="stSidebar"] .st-key-empty_budget_collection,[data-testid="stSidebar"] .st-key-empty_budget_search {padding:1rem;text-align:center;border:1px dashed #bcd2cc;border-radius:12px;background:#f8fbfa;color:#6b817d}
 [data-testid="stSidebar"] .st-key-empty_budget_collection h3,[data-testid="stSidebar"] .st-key-empty_budget_search h3 {margin:0!important;padding:0!important;font-size:.95rem!important}
 .st-key-login_shell {max-width:720px;margin:8vh auto 0;padding:2rem 2.1rem 1.6rem;border:1px solid #c9ddd7;border-radius:22px;background:#fff;box-shadow:0 22px 55px #173f3d1c}
