@@ -1,5 +1,7 @@
 from railbudget.auth import UserContext
-from railbudget.budget_store import ensure_budget, list_budgets, save_budget, storage_mode
+from railbudget.budget_store import (
+    delete_budget, ensure_budget, list_budgets, save_budget, storage_mode, update_budget,
+)
 
 
 def test_sqlite_preserva_orcamento_por_usuario(monkeypatch,tmp_path):
@@ -41,3 +43,24 @@ def test_projeto_inicial_e_criado_sem_duplicacao(monkeypatch,tmp_path):
     saved=list_budgets(root.user_id,root)
     assert len(saved)==1
     assert saved[0]['modality']=='VLT'
+
+
+def test_root_edita_e_exclui_apenas_o_proprio_orcamento(monkeypatch,tmp_path):
+    monkeypatch.setenv("RAILPARAMETRIC_BUDGET_DB",str(tmp_path/"budgets.sqlite3"))
+    root=UserContext("root-1","root@example.com","Administrador","root","test-suite")
+    other=UserContext("root-2","other@example.com","Administrador","root","test-suite")
+    saved=save_budget(root,"Nome inicial","VLT",{"total":100,"per_km":50})
+
+    updated=update_budget(root,saved["id"],"Nome revisado")
+    assert updated["name"]=="Nome revisado"
+    assert updated["total"]==100
+    try:
+        delete_budget(other,saved["id"])
+    except LookupError:
+        pass
+    else:
+        raise AssertionError("Outro usuário conseguiu excluir orçamento alheio")
+
+    assert len(list_budgets(root.user_id,root))==1
+    delete_budget(root,saved["id"])
+    assert list_budgets(root.user_id,root)==[]
