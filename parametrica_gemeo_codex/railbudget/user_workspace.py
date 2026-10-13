@@ -43,7 +43,6 @@ def _per_km(result, row, scenario):
 
 
 def _close_budget_actions(budget_id):
-    st.session_state.pop(f"edit_budget_{budget_id}", None)
     st.session_state.pop(f"delete_budget_{budget_id}", None)
 
 
@@ -124,6 +123,8 @@ def render_user_sidebar(user):
             f'{row.get("name", "")} {row.get("modality", "")}'.casefold()]
         st.markdown(f'<div class="saved-count"><span>PROJETOS SALVOS</span><b>{len(filtered)}</b></div>',
             unsafe_allow_html=True)
+        if filtered:
+            st.caption(":material/touch_app: Clique em um projeto para abrir seus dados e editar.")
         if not saved:
             with st.container(key="empty_budget_collection"):
                 st.markdown("### Sua carteira está vazia")
@@ -144,22 +145,26 @@ def render_user_sidebar(user):
             per_km = _per_km(result, row, scenario)
             modality = str(row.get("modality", "Modalidade"))
             modality_initials, modality_class = _modality_visual(modality)
-            with st.container(border=True, key=f"saved_budget_card_{budget_id}"):
-                st.markdown(
-                    '<div class="project-card-heading">'
-                    f'<span class="project-mark {modality_class}">{modality_initials}</span>'
-                    f'<span class="budget-type">{escape(modality)}</span>'
-                    '</div>', unsafe_allow_html=True,
-                )
-                st.markdown(f"### {escape(str(row.get('name','Orçamento')))}")
-                st.caption(f":material/calendar_today: {_date_label(row.get('created_at'))}")
-                st.markdown(f'<div class="budget-total-label">CUSTO TOTAL</div>'
-                    f'<div class="budget-total">{currency(float(row.get("total",0)))}</div>',
-                    unsafe_allow_html=True)
-                if per_km is not None:
-                    st.markdown(f'<div class="budget-per-km">{currency(float(per_km))} <span>por km</span></div>',
+            project_name = str(row.get("name", "Orçamento"))
+            with st.container(key=f"saved_budget_card_{budget_id}"):
+                with st.expander(project_name, icon=":material/train:"):
+                    st.markdown(
+                        '<div class="project-card-heading">'
+                        f'<span class="project-mark {modality_class}">{modality_initials}</span>'
+                        f'<span class="budget-type">{escape(modality)}</span>'
+                        '</div>', unsafe_allow_html=True,
+                    )
+                    st.caption(f":material/calendar_today: {_date_label(row.get('created_at'))}")
+                    st.markdown(f'<div class="budget-total-label">CUSTO TOTAL</div>'
+                        f'<div class="budget-total">{currency(float(row.get("total",0)))}</div>',
                         unsafe_allow_html=True)
-                with st.expander("Ficha do projeto", icon=":material/description:"):
+                    if per_km is not None:
+                        st.markdown(
+                            f'<div class="budget-per-km">{currency(float(per_km))} '
+                            '<span>por km</span></div>', unsafe_allow_html=True,
+                        )
+                    st.markdown('<div class="project-section-title">DADOS DO PROJETO</div>',
+                        unsafe_allow_html=True)
                     if distance:
                         st.markdown(f"**Extensão do corredor:** {distance}")
                     if isinstance(result,dict) and result.get("line_km") is not None:
@@ -173,30 +178,13 @@ def render_user_sidebar(user):
                         st.markdown(f"**Via:** {'Simples' if int(scenario['lines'])==1 else 'Dupla'}")
                     if scenario.get("bdi") is not None:
                         st.markdown(f"**BDI:** {float(scenario['bdi'])*100:.2f}%".replace(".",","))
-
-                edit_key = f"edit_budget_{budget_id}"
-                delete_key = f"delete_budget_{budget_id}"
-                action_edit, action_delete = st.columns(2)
-                if action_edit.button("Editar", icon=":material/edit:", key=f"edit_action_{budget_id}",
-                    use_container_width=True):
-                    st.session_state[edit_key] = True
-                    st.session_state[delete_key] = False
-                    st.rerun()
-                if action_delete.button("Excluir", icon=":material/delete:", key=f"delete_action_{budget_id}",
-                    use_container_width=True):
-                    st.session_state[delete_key] = True
-                    st.session_state[edit_key] = False
-                    st.rerun()
-
-                if st.session_state.get(edit_key):
+                    st.markdown('<div class="project-section-title">EDITAR PROJETO</div>',
+                        unsafe_allow_html=True)
                     with st.form(f"edit_form_{budget_id}", border=False):
                         new_name = st.text_input("Nome do projeto", value=row.get("name", ""),
                             max_chars=80, key=f"edit_name_{budget_id}")
-                        save_column, cancel_column = st.columns(2)
-                        save_edit = save_column.form_submit_button("Salvar", type="primary",
+                        save_edit = st.form_submit_button("Salvar alterações", type="primary",
                             icon=":material/check:", use_container_width=True)
-                        cancel_edit = cancel_column.form_submit_button("Cancelar",
-                            use_container_width=True)
                     if save_edit:
                         try:
                             update_budget(user, budget_id, new_name)
@@ -205,26 +193,28 @@ def render_user_sidebar(user):
                             st.rerun()
                         except (RuntimeError, ValueError, LookupError) as exc:
                             st.error(str(exc))
-                    if cancel_edit:
-                        _close_budget_actions(budget_id)
-                        st.rerun()
-
-                if st.session_state.get(delete_key):
-                    with st.container(key=f"delete_confirmation_{budget_id}"):
-                        st.warning("Excluir este projeto? Esta ação não poderá ser desfeita.")
-                        confirm_column, cancel_column = st.columns(2)
-                        confirm = confirm_column.button("Sim, excluir", icon=":material/delete_forever:",
-                            key=f"confirm_delete_{budget_id}", use_container_width=True)
-                        cancel = cancel_column.button("Cancelar", key=f"cancel_delete_{budget_id}",
-                            use_container_width=True)
-                    if confirm:
-                        try:
-                            delete_budget(user, budget_id)
-                            _close_budget_actions(budget_id)
-                            st.toast("Projeto excluído.", icon=":material/delete:")
+                    delete_key = f"delete_budget_{budget_id}"
+                    if not st.session_state.get(delete_key):
+                        if st.button("Excluir projeto", icon=":material/delete:",
+                            key=f"delete_action_{budget_id}", use_container_width=True):
+                            st.session_state[delete_key] = True
                             st.rerun()
-                        except (RuntimeError, LookupError) as exc:
-                            st.error(str(exc))
-                    if cancel:
-                        _close_budget_actions(budget_id)
-                        st.rerun()
+                    else:
+                        with st.container(key=f"delete_confirmation_{budget_id}"):
+                            st.warning("Excluir este projeto? Esta ação não poderá ser desfeita.")
+                            confirm_column, cancel_column = st.columns(2)
+                            confirm = confirm_column.button("Sim, excluir", icon=":material/delete_forever:",
+                                key=f"confirm_delete_{budget_id}", use_container_width=True)
+                            cancel = cancel_column.button("Cancelar", key=f"cancel_delete_{budget_id}",
+                                use_container_width=True)
+                        if confirm:
+                            try:
+                                delete_budget(user, budget_id)
+                                _close_budget_actions(budget_id)
+                                st.toast("Projeto excluído.", icon=":material/delete:")
+                                st.rerun()
+                            except (RuntimeError, LookupError) as exc:
+                                st.error(str(exc))
+                        if cancel:
+                            _close_budget_actions(budget_id)
+                            st.rerun()
