@@ -153,3 +153,67 @@ def ensure_budget(user,name,modality,result):
     existing=next((row for row in list_budgets(user.user_id,user)
         if str(row.get("name","")).strip().casefold()==normalized),None)
     return existing or save_budget(user,name,modality,result)
+
+
+def update_budget(user, budget_id, name):
+    """Renomeia um orçamento do próprio usuário, sem alterar sua memória de cálculo."""
+    if not is_primary_root(user):
+        raise PermissionError("Meus Orçamentos está disponível somente para o root principal.")
+    clean_name = str(name).strip()
+    if not clean_name:
+        raise ValueError("Digite um nome para identificar o orçamento.")
+
+    mode = storage_mode(user)
+    if mode == "supabase":
+        identifier = quote(str(budget_id), safe="")
+        owner = quote(user.user_id, safe="")
+        updated = _request("PATCH", f"?id=eq.{identifier}&owner_id=eq.{owner}", {"name": clean_name})
+        if not updated:
+            raise LookupError("Orçamento não encontrado.")
+        return updated[0]
+    if mode == "session":
+        row = next((item for item in _session_rows()
+            if item.get("id") == budget_id and item.get("owner_id") == user.user_id), None)
+        if row is None:
+            raise LookupError("Orçamento não encontrado.")
+        row["name"] = clean_name
+        return row
+    with _sqlite_connection() as connection:
+        cursor = connection.execute(
+            "UPDATE saved_budgets SET name=? WHERE id=? AND owner_id=?",
+            (clean_name, budget_id, user.user_id),
+        )
+        connection.commit()
+    if cursor.rowcount != 1:
+        raise LookupError("Orçamento não encontrado.")
+    return next(row for row in list_budgets(user.user_id, user) if row["id"] == budget_id)
+
+
+def delete_budget(user, budget_id):
+    """Exclui definitivamente um orçamento, sempre limitado ao proprietário."""
+    if not is_primary_root(user):
+        raise PermissionError("Meus Orçamentos está disponível somente para o root principal.")
+    mode = storage_mode(user)
+    if mode == "supabase":
+        identifier = quote(str(budget_id), safe="")
+        owner = quote(user.user_id, safe="")
+        deleted = _request("DELETE", f"?id=eq.{identifier}&owner_id=eq.{owner}")
+        if not deleted:
+            raise LookupError("Orçamento não encontrado.")
+        return
+    if mode == "session":
+        rows = _session_rows()
+        index = next((index for index, item in enumerate(rows)
+            if item.get("id") == budget_id and item.get("owner_id") == user.user_id), None)
+        if index is None:
+            raise LookupError("Orçamento não encontrado.")
+        rows.pop(index)
+        return
+    with _sqlite_connection() as connection:
+        cursor = connection.execute(
+            "DELETE FROM saved_budgets WHERE id=? AND owner_id=?",
+            (budget_id, user.user_id),
+        )
+        connection.commit()
+    if cursor.rowcount != 1:
+        raise LookupError("Orçamento não encontrado.")
