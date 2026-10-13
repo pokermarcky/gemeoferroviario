@@ -146,8 +146,15 @@ def render_user_sidebar(user):
             modality = str(row.get("modality", "Modalidade"))
             modality_initials, modality_class = _modality_visual(modality)
             project_name = str(row.get("name", "Orçamento"))
+            open_key = f"open_budget_{budget_id}"
             with st.container(key=f"saved_budget_card_{budget_id}"):
-                with st.expander(project_name, icon=":material/train:"):
+                if st.button(project_name, icon=":material/edit:",
+                    key=f"project_toggle_{budget_id}", use_container_width=True,
+                    help="Abrir ou fechar a edição deste projeto"):
+                    st.session_state[open_key] = not st.session_state.get(open_key, False)
+                    st.rerun()
+                if st.session_state.get(open_key, False):
+                  with st.container(key=f"project_details_{budget_id}"):
                     st.markdown(
                         '<div class="project-card-heading">'
                         f'<span class="project-mark {modality_class}">{modality_initials}</span>'
@@ -155,6 +162,21 @@ def render_user_sidebar(user):
                         '</div>', unsafe_allow_html=True,
                     )
                     st.caption(f":material/calendar_today: {_date_label(row.get('created_at'))}")
+                    st.markdown('<div class="project-section-title project-edit-title">ALTERAR PROJETO</div>',
+                        unsafe_allow_html=True)
+                    with st.form(f"edit_form_{budget_id}", border=False):
+                        new_name = st.text_input("Nome do projeto", value=row.get("name", ""),
+                            max_chars=80, key=f"edit_name_{budget_id}")
+                        save_edit = st.form_submit_button("Alterar projeto", type="primary",
+                            icon=":material/save:", use_container_width=True)
+                    if save_edit:
+                        try:
+                            update_budget(user, budget_id, new_name)
+                            _close_budget_actions(budget_id)
+                            st.toast("Projeto alterado com sucesso.", icon=":material/check_circle:")
+                            st.rerun()
+                        except (RuntimeError, ValueError, LookupError) as exc:
+                            st.error(str(exc))
                     st.markdown(f'<div class="budget-total-label">CUSTO TOTAL</div>'
                         f'<div class="budget-total">{currency(float(row.get("total",0)))}</div>',
                         unsafe_allow_html=True)
@@ -178,21 +200,6 @@ def render_user_sidebar(user):
                         st.markdown(f"**Via:** {'Simples' if int(scenario['lines'])==1 else 'Dupla'}")
                     if scenario.get("bdi") is not None:
                         st.markdown(f"**BDI:** {float(scenario['bdi'])*100:.2f}%".replace(".",","))
-                    st.markdown('<div class="project-section-title">EDITAR PROJETO</div>',
-                        unsafe_allow_html=True)
-                    with st.form(f"edit_form_{budget_id}", border=False):
-                        new_name = st.text_input("Nome do projeto", value=row.get("name", ""),
-                            max_chars=80, key=f"edit_name_{budget_id}")
-                        save_edit = st.form_submit_button("Salvar alterações", type="primary",
-                            icon=":material/check:", use_container_width=True)
-                    if save_edit:
-                        try:
-                            update_budget(user, budget_id, new_name)
-                            _close_budget_actions(budget_id)
-                            st.toast("Projeto atualizado.", icon=":material/check_circle:")
-                            st.rerun()
-                        except (RuntimeError, ValueError, LookupError) as exc:
-                            st.error(str(exc))
                     delete_key = f"delete_budget_{budget_id}"
                     if not st.session_state.get(delete_key):
                         if st.button("Excluir projeto", icon=":material/delete:",
