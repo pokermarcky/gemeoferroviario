@@ -155,19 +155,31 @@ def ensure_budget(user,name,modality,result):
     return existing or save_budget(user,name,modality,result)
 
 
-def update_budget(user, budget_id, name):
-    """Renomeia um orçamento do próprio usuário, sem alterar sua memória de cálculo."""
+def update_budget(user, budget_id, name=None, result=None, modality=None):
+    """Atualiza identificação e/ou memória de cálculo do orçamento do proprietário."""
     if not is_primary_root(user):
         raise PermissionError("Meus Orçamentos está disponível somente para o root principal.")
-    clean_name = str(name).strip()
-    if not clean_name:
-        raise ValueError("Digite um nome para identificar o orçamento.")
+    updates = {}
+    if name is not None:
+        clean_name = str(name).strip()
+        if not clean_name:
+            raise ValueError("Digite um nome para identificar o orçamento.")
+        updates["name"] = clean_name
+    if result is not None:
+        if not isinstance(result, dict) or "total" not in result:
+            raise ValueError("O resultado recalculado do orçamento é inválido.")
+        updates["total"] = float(result["total"])
+        updates["result_json"] = result
+    if modality is not None:
+        updates["modality"] = str(modality).strip()
+    if not updates:
+        raise ValueError("Nenhuma alteração foi informada.")
 
     mode = storage_mode(user)
     if mode == "supabase":
         identifier = quote(str(budget_id), safe="")
         owner = quote(user.user_id, safe="")
-        updated = _request("PATCH", f"?id=eq.{identifier}&owner_id=eq.{owner}", {"name": clean_name})
+        updated = _request("PATCH", f"?id=eq.{identifier}&owner_id=eq.{owner}", updates)
         if not updated:
             raise LookupError("Orçamento não encontrado.")
         return updated[0]
@@ -176,12 +188,18 @@ def update_budget(user, budget_id, name):
             if item.get("id") == budget_id and item.get("owner_id") == user.user_id), None)
         if row is None:
             raise LookupError("Orçamento não encontrado.")
-        row["name"] = clean_name
+        row.update(updates)
         return row
+    columns = []
+    values = []
+    for field, value in updates.items():
+        columns.append(f"{field}=?")
+        values.append(json.dumps(value, ensure_ascii=False) if field == "result_json" else value)
+    values.extend((budget_id, user.user_id))
     with _sqlite_connection() as connection:
         cursor = connection.execute(
-            "UPDATE saved_budgets SET name=? WHERE id=? AND owner_id=?",
-            (clean_name, budget_id, user.user_id),
+            f"UPDATE saved_budgets SET {', '.join(columns)} WHERE id=? AND owner_id=?",
+            values,
         )
         connection.commit()
     if cursor.rowcount != 1:
