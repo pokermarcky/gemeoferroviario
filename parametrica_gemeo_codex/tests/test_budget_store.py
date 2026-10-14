@@ -54,6 +54,13 @@ def test_root_edita_e_exclui_apenas_o_proprio_orcamento(monkeypatch,tmp_path):
     updated=update_budget(root,saved["id"],"Nome revisado")
     assert updated["name"]=="Nome revisado"
     assert updated["total"]==100
+    revised={"total":275.50,"per_km":91.833,"scenario":{"km":3.0}}
+    updated=update_budget(root,saved["id"],result=revised)
+    assert updated["total"]==275.50
+    assert updated["result_json"]==revised
+    persisted=list_budgets(root.user_id,root)[0]
+    assert persisted["total"]==275.50
+    assert persisted["result_json"]==revised
     try:
         delete_budget(other,saved["id"])
     except LookupError:
