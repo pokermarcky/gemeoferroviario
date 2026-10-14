@@ -51,6 +51,87 @@ def _modality_visual(modality):
     return "PS", "project-passenger"
 
 
+def _modality_key(modality):
+    label = str(modality).casefold()
+    if "vlt" in label:
+        return "vlt"
+    if "carga" in label:
+        return "cargo"
+    return "main"
+
+
+def _load_budget_for_editing(row, result):
+    """Restaura os parâmetros salvos antes de os controles do orçamento serem recriados."""
+    scenario = result.get("scenario", {}) if isinstance(result, dict) else {}
+    key = _modality_key(row.get("modality", ""))
+    st.session_state["budget_edit_context"] = {
+        "id": str(row.get("id", "")),
+        "name": str(row.get("name", "Orçamento")),
+        "modality": str(row.get("modality", "Modalidade")),
+        "key": key,
+    }
+    st.session_state.setdefault("results", {})[key] = result
+    st.session_state.setdefault("display_results", {})[key] = result
+
+    if key == "vlt":
+        surface = float(scenario.get("surface_km", 0.90))
+        elevated = float(scenario.get("elevated_km", 1.70))
+        st.session_state["vlt_surface_km"] = surface
+        st.session_state["vlt_elevated_km"] = elevated
+        st.session_state["vlt_calculated_inputs"] = (surface, elevated)
+        return
+
+    freight = key == "cargo"
+    km = float(scenario.get("km", 1.0))
+    configuration = "Superfície" if freight else scenario.get("configuration", "Superfície")
+    lines = int(scenario.get("lines", 1))
+    drainage = scenario.get("drainage", "Reforçada")
+    fence = scenario.get("fence", "Cerca")
+    amvs = int(scenario.get("amvs", 0 if freight else 1))
+    detection = scenario.get("detection", "Circuito de via")
+    trainsets = 0 if freight else int(scenario.get("trainsets", 0))
+    bdi = float(scenario.get("bdi", 0.0))
+
+    st.session_state[f"{key}_km"] = km
+    st.session_state[f"{key}_lines"] = lines
+    st.session_state[f"{key}_drainage"] = drainage
+    st.session_state[f"{key}_fence"] = fence
+    st.session_state[f"{key}_amvs"] = amvs
+    st.session_state[f"{key}_detection"] = detection
+    st.session_state[f"{key}_aplicar_bdi"] = bdi > 0
+    st.session_state[f"{key}_bdi_personalizado"] = bdi * 100 if bdi > 0 else 26.30
+    st.session_state[f"{key}_service_bulk"] = None
+    if not freight:
+        st.session_state[f"{key}_profile"] = "SIEC • lastro / AMV nº 14"
+        st.session_state[f"{key}_configuration"] = configuration
+        st.session_state[f"{key}_trainsets"] = trainsets
+    else:
+        axle = int(scenario.get("axle_load", 25))
+        locomotives = float(scenario.get("locomotives", 0.0))
+        wagons = float(scenario.get("wagons", 0.0))
+        st.session_state[f"{key}_axle"] = axle
+        st.session_state[f"{key}_locomotives"] = locomotives
+        st.session_state[f"{key}_wagons"] = wagons
+
+    scope = result.get("scope_summary", []) if isinstance(result, dict) else []
+    selected = {item.get("group"): bool(item.get("selected")) for item in scope}
+    fallback = [True, bool(scenario.get("topography", True)), True,
+        scenario.get("fence", "Nenhuma") != "Nenhuma", int(scenario.get("amvs", 0)) > 0,
+        bool(scenario.get("ducts", False)), bool(scenario.get("overhead", False)),
+        bool(scenario.get("signaling", False)), bool(scenario.get("rolling_stock", False))]
+    for index, item in enumerate(scope[:8 if freight else 9]):
+        st.session_state[f"{key}_grupo_{index}"] = selected.get(item.get("group"), fallback[index])
+    if not scope:
+        for index, checked in enumerate(fallback[:8 if freight else 9]):
+            st.session_state[f"{key}_grupo_{index}"] = checked
+
+    extra = ((int(scenario.get("axle_load", 25)), float(scenario.get("locomotives", 0.0)),
+        float(scenario.get("wagons", 0.0))) if freight else ())
+    st.session_state[f"{key}_calculated_inputs"] = (
+        km, configuration, lines, drainage, fence, amvs, detection, trainsets, extra,
+    )
+
+
 @st.dialog("Informações do projeto", width="small")
 def _edit_project_dialog(user, row, result):
     """Editor concentrado, sem alongar ou poluir a barra lateral."""
@@ -88,6 +169,13 @@ def _edit_project_dialog(user, row, result):
         st.markdown(f"**Via:** {'Simples' if int(scenario['lines']) == 1 else 'Dupla'}")
     if scenario.get("bdi") is not None:
         st.markdown(f"**BDI:** {float(scenario['bdi']) * 100:.2f}%".replace(".", ","))
+
+    st.divider()
+    if st.button("Editar parâmetros e custos", icon=":material/tune:", type="primary",
+        key=f"load_budget_{budget_id}", use_container_width=True,
+        on_click=_load_budget_for_editing, args=(row, result)):
+        st.rerun()
+    st.caption("Os parâmetros serão carregados na modalidade correspondente. Recalcule e salve no mesmo projeto.")
 
     st.divider()
     st.markdown("#### Alterar nome")

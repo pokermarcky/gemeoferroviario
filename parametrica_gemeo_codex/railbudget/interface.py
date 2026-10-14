@@ -43,6 +43,10 @@ STYLE = '''<style>
 [data-testid="stDialog"] h4 {margin-top:.65rem;padding-bottom:.15rem;color:#173f3d}
 [data-testid="stDialog"] [data-testid="stForm"] {margin-bottom:.4rem}
 [data-testid="stDialog"] [class*="st-key-delete_action_"] button:enabled {border-color:#d68c82;background:#fff7f5;color:#9a3e32}
+.st-key-project_edit_banner {margin:.6rem 0 .9rem;padding:.9rem 1rem!important;border-color:#73a89d!important;border-left:5px solid #28776f!important;background:linear-gradient(100deg,#e7f3ef,#fff)!important;box-shadow:0 7px 18px #173f3d0c!important}
+.st-key-project_edit_banner h3 {margin:0!important;padding:0!important;color:#174f48;font-size:1.08rem!important}
+[class*="st-key-save_project_edit_"] {margin:.75rem 0;padding:.85rem 1rem!important;border-color:#83b3a9!important;background:#f3f9f7!important}
+[class*="st-key-save_project_edit_"] p {margin-bottom:.25rem}
 [data-testid="stSidebar"] .st-key-empty_budget_collection,[data-testid="stSidebar"] .st-key-empty_budget_search {padding:1rem;text-align:center;border:1px dashed #bcd2cc;border-radius:12px;background:#f8fbfa;color:#6b817d}
 [data-testid="stSidebar"] .st-key-empty_budget_collection h3,[data-testid="stSidebar"] .st-key-empty_budget_search h3 {margin:0!important;padding:0!important;font-size:.95rem!important}
 .st-key-login_shell {max-width:720px;margin:8vh auto 0;padding:2rem 2.1rem 1.6rem;border:1px solid #c9ddd7;border-radius:22px;background:#fff;box-shadow:0 22px 55px #173f3d1c}

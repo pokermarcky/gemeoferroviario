@@ -38,10 +38,39 @@ def test_carteira_de_projetos_tem_interface_amigavel():
     assert '@st.dialog("Informações do projeto"' in source
     assert 'key=f"open_project_{budget_id}"' in source
     assert '"#### Dados técnicos"' in source
+    assert '"Editar parâmetros e custos"' in source
+    assert 'budget_edit_context' in source
     assert '"Salvar alteração"' in source
     assert 'Confirmo que desejo excluir este projeto' in source
     assert '"Ficha do projeto"' not in source
     assert 'Meus Orçamentos' not in source
+
+
+def test_projeto_vlt_salvo_pode_ser_reaberto_recalculado_e_atualizado(monkeypatch,tmp_path):
+    monkeypatch.setenv('RAILPARAMETRIC_BUDGET_DB',str(tmp_path/'budgets.sqlite3'))
+    app=AppTest.from_file(str(APP)).run(timeout=30)
+    open_project=next(button for button in app.button
+        if button.key and button.key.startswith('open_project_'))
+    app=open_project.click().run(timeout=30)
+    load_project=next(button for button in app.button
+        if button.key and button.key.startswith('load_budget_'))
+    app=load_project.click().run(timeout=30)
+    assert not app.exception
+    assert app.session_state['budget_edit_context']['key']=='vlt'
+    assert app.number_input(key='vlt_surface_km').value==.9
+    app.number_input(key='vlt_surface_km').set_value(1.2).run(timeout=30)
+    assert app.button(key='save_project_changes_vlt').disabled
+    app.button(key='vlt_calculate').click().run(timeout=30)
+    assert not app.button(key='save_project_changes_vlt').disabled
+    app.button(key='save_project_changes_vlt').click().run(timeout=30)
+    assert not app.exception
+    assert 'budget_edit_context' not in app.session_state
+
+    from railbudget.auth import UserContext
+    from railbudget.budget_store import list_budgets
+    root=UserContext('test-suite-root','root@test.invalid','Testes','root','test-suite')
+    saved=list_budgets(root.user_id,root)
+    assert saved[0]['result_json']['scenario']['surface_km']==1.2
 
 
 def test_passageiro_calcula_siec_e_limpa_resultado_invalido():
@@ -80,6 +109,8 @@ def test_navegacao_e_controles_solicitados():
         'upload_SIURB_Insumos','upload_SICRO_Insumos'}
     assert all(set(u.proto.type) == {'.csv', '.xls', '.xlsx', '.xlsm'} for u in app.get('file_uploader'))
     source=APP.read_text(encoding='utf-8')
+    assert '"Salvar alterações no projeto"' in source
+    assert 'render_project_save_action' in source
     assert "key=key+'_service_bulk'" in source
     assert "['Marcar todas','Desmarcar todas']" in source
     assert app.number_input(key='main_bdi_personalizado').value == 26.30

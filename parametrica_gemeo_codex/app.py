@@ -14,7 +14,7 @@ from railbudget.reference_data import (SOURCES, KINDS, parse_reference, apply_re
     embedded_inventory, normalized_excel)
 from railbudget.auth import (budget_download_limit, can, can_download_budget, is_primary_root,
     primary_root_context, require_user)
-from railbudget.budget_store import ensure_budget
+from railbudget.budget_store import ensure_budget, update_budget
 from railbudget.reference_store import load_reference_bases, save_reference_base
 from railbudget.user_workspace import render_user_sidebar
 
@@ -193,6 +193,27 @@ def display_table(frame, monetary=(), height=None):
     st.dataframe(shown,**options)
 
 
+def render_project_save_action(key, result, disabled=False):
+    """Grava o cenário recalculado no mesmo projeto que está em edição."""
+    context = st.session_state.get("budget_edit_context")
+    if not context or context.get("key") != key:
+        return
+    with st.container(border=True, key=f"save_project_edit_{key}"):
+        st.markdown(f"**Atualizar projeto salvo:** {context['name']}")
+        if disabled:
+            st.caption("Atualize o orçamento antes de salvar as alterações no projeto.")
+        if st.button("Salvar alterações no projeto", icon=":material/save:", type="primary",
+            key=f"save_project_changes_{key}", use_container_width=True, disabled=disabled):
+            try:
+                update_budget(current_user, context["id"], name=context["name"], result=result,
+                    modality=context["modality"])
+                st.session_state.pop("budget_edit_context", None)
+                st.toast("Projeto e custos atualizados com sucesso.", icon=":material/check_circle:")
+                st.rerun()
+            except (RuntimeError, ValueError, LookupError) as exc:
+                st.error(str(exc))
+
+
 def render_vlt_budget():
     st.subheader('Configure seu VLT')
     st.caption('Modelo inicial integralmente referenciado no orçamento do edital do Ramal VLT Aeroporto - Castelão.')
@@ -233,6 +254,7 @@ def render_vlt_budget():
         columns[1].metric('Por km de corredor',currency(result['per_km']),border=True)
         columns[2].metric('Por km de linha',currency(result['per_line_km']),border=True)
     st.caption(f"Corredor: {br(result['scenario']['km'],3)} km · Via dupla: {br(result['scenario']['line_km'],3)} km de linha · Data-base: {result['reference_period']}")
+    render_project_save_action('vlt', result, disabled=stale)
     summary=pd.DataFrame([{'Componente':name,'Valor (R$)':value}
         for name,value in result['segments'].items()])
     views=st.columns([1,1.1],gap='large')
@@ -280,6 +302,7 @@ def render_result(r,key,modality='passageiro'):
         result_columns[2].metric('Por km de linha',currency(r['per_line_km']),border=True)
     financial_caption=f"Custo direto: {currency(r['direct'])} | BDI aplicado: {br(r['scenario']['bdi']*100,6)}% | Acréscimo de BDI: {currency(r['bdi_amount'])}"
     st.caption(financial_caption.replace('$',r'\$'))
+    render_project_save_action(key, r)
     columns={'eap':'EAP','group':'Grupo','code':'Código','source':'Fonte','label':'Aplicação','description':'Descrição','unit':'Unidade','quantity':'Quantidade','unit_cost':'Custo unitário (R$)','total':'Custo total (R$)','date':'Data-base'}
     frame=pd.DataFrame(r['items'])[list(columns)].rename(columns=columns) if r['items'] else pd.DataFrame(columns=columns.values())
     summary_tab,detail_tab=st.tabs(['Resumo geral','Detalhamento por grupo'])
@@ -409,6 +432,14 @@ def reference_card(source,kind):
 budgets_tab,reference_tab=st.tabs(['ORÇAMENTOS','BASES DE REFERÊNCIA'],key='workspace')
 with budgets_tab:
     st.caption('Escolha uma modalidade para configurar o corredor e revisar o orçamento.')
+    editing=st.session_state.get('budget_edit_context')
+    if editing:
+        with st.container(border=True,key='project_edit_banner'):
+            st.markdown(f"### Editando: {editing['name']}")
+            st.caption(f"Abra a aba {editing['modality']}, ajuste os parâmetros, selecione Atualizar orçamento e depois Salvar alterações no projeto.")
+            if st.button('Cancelar edição',key='cancel_project_edit',icon=':material/close:'):
+                st.session_state.pop('budget_edit_context',None)
+                st.rerun()
     passageiro,carga,vlt,shortline=st.tabs([
         'Ferrovia de passageiro','Ferrovia de carga','VLT - Veículo leve sobre Trilho','Shortline'])
 
