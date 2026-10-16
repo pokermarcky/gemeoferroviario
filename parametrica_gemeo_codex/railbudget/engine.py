@@ -81,6 +81,52 @@ class Scenario:
     profile: str='siec'
     bdi: float=0.263
     months: int=0
+    elevated_height: float=8.0
+    elevated_span: float=20.0
+    elevated_width_single: float=7.0
+    elevated_width_double: float=11.0
+    foundation_type: str='Hélice contínua'
+    foundation_depth: float=20.0
+    piles_per_support: int=4
+    pile_diameter: float=0.80
+    urban_interference: str='Média'
+
+
+FOUNDATION_OPTIONS={
+    'Hélice contínua':{
+        'mobilization':'SIEC-02.01.04.400.01',
+        'piles':{.25:'SIEC-02.01.04.400.02',.30:'SIEC-02.01.04.400.03',
+            .35:'SIEC-02.01.04.400.04',.40:'SIEC-02.01.04.400.05',
+            .50:'SIEC-02.01.04.400.06',.60:'SIEC-02.01.04.400.07',
+            .70:'SIEC-02.01.04.400.08',.80:'SIEC-02.01.04.400.09',
+            .90:'SIEC-02.01.04.400.10'},
+    },
+    'Estaca raiz':{
+        'mobilization':'SIEC-02.01.04.500.01',
+        'piles':{.16:'SIEC-02.01.04.500.11',.20:'SIEC-02.01.04.500.12',
+            .25:'SIEC-02.01.04.500.13',.31:'SIEC-02.01.04.500.14',
+            .41:'SIEC-02.01.04.500.15',.45:'SIEC-02.01.04.500.16'},
+    },
+}
+FOUNDATION_CAPACITIES={
+    'Hélice contínua':{.25:30,.30:45,.35:60,.40:80,.50:130,.60:160,.70:220,.80:290,.90:360},
+    'Estaca raiz':{.16:35,.20:50,.25:70,.31:100,.41:150,.45:200},
+}
+
+
+def foundation_diameters(kind):
+    return tuple(FOUNDATION_OPTIONS[kind]['piles'])
+
+
+def foundation_capacity(kind,diameter):
+    match=min(FOUNDATION_CAPACITIES[kind],key=lambda value:abs(value-diameter))
+    return FOUNDATION_CAPACITIES[kind][match]
+
+
+def _catalog_key_by_code(catalog,code):
+    matches=[key for key,row in catalog.items() if row.get('code')==code and row.get('price') is not None]
+    if not matches:raise ValueError('A base ativa não possui o serviço de fundação '+code+'.')
+    return matches[0]
 
 def load_model(root=ROOT):
     root=Path(root)
@@ -115,6 +161,23 @@ def validate(p,rules):
     if type(p.trainsets) is not int or not 0<=p.trainsets<=10000:raise ValueError('Quantidade de composições deve ser inteira entre 0 e 10.000.')
     if type(p.months) is not int or not 0<=p.months<=1200:raise ValueError('Prazo inválido.')
     if not math.isfinite(p.bdi) or not 0<=p.bdi<=1:raise ValueError('BDI deve estar entre 0% e 100%.')
+    if p.configuration=='Elevado' and p.profile=='siec':
+        numeric=[(p.elevated_height,3,30,'altura média dos pilares'),
+            (p.elevated_span,10,45,'distância entre pilares'),
+            (p.elevated_width_single,4,12,'largura do tabuleiro da via singela'),
+            (p.elevated_width_double,8,20,'largura do tabuleiro da via dupla'),
+            (p.foundation_depth,5,60,'profundidade das fundações')]
+        for value,minimum,maximum,name in numeric:
+            if not math.isfinite(value) or not minimum<=value<=maximum:
+                raise ValueError(f'{name.capitalize()} deve estar entre {minimum} e {maximum} m.')
+        if p.foundation_type not in FOUNDATION_OPTIONS:raise ValueError('Tipo de fundação profunda inválido.')
+        if type(p.piles_per_support) is not int or not 2<=p.piles_per_support<=16:
+            raise ValueError('Quantidade de estacas por apoio deve ser inteira entre 2 e 16.')
+        if not any(math.isclose(p.pile_diameter,value,abs_tol=1e-8)
+            for value in foundation_diameters(p.foundation_type)):
+            raise ValueError('Diâmetro indisponível na base SIEC para a fundação selecionada.')
+        if p.urban_interference not in ('Baixa','Média','Alta'):
+            raise ValueError('Nível de interferência urbana inválido.')
     if math.ceil(p.amvs/p.lines)*rules['profiles'][p.profile]['envelope']>=p.km*1000:
         raise ValueError('Os envelopes dos AMVs ocupam toda a extensão de uma linha. Aumente a extensão ou reduza os AMVs.')
 
@@ -145,23 +208,64 @@ def calculate(p,rules,catalog):
     validate(p,rules)
     model=rules['profiles'][p.profile]
     duration=p.months or model['elevated_months' if p.configuration=='Elevado' else 'surface_months']
+    parametric_elevated=p.configuration=='Elevado' and p.profile=='siec'
+    span=p.elevated_span if parametric_elevated else model['span']
+    height=p.elevated_height if parametric_elevated else model['height']
     ctx={**rules['parameters'],**rules['constants'],**asdict(p),'trainsets':float(p.trainsets),'envelope':model['envelope'],
-         'duration':duration,'span':model['span'],'height':model['height']}
+         'duration':duration,'span':span,'height':height}
+    if parametric_elevated:
+        ctx['V18']=p.piles_per_support
+        ctx['V19']=p.foundation_depth
     for name,expression in rules['derived']:ctx[name]=evaluate(expression,ctx)
+    if parametric_elevated:
+        active_width=p.elevated_width_single if p.lines==1 else p.elevated_width_double
+        default_width=7 if p.lines==1 else 11
+        ctx['active_deck_width']=active_width
+        ctx['deck_area']=ctx['L']*active_width+p.amvs*model['envelope']*2
+        ctx['elevated_height_factor']=p.elevated_height/8
+        ctx['foundation_block_factor']=(p.piles_per_support/4)*(p.pile_diameter/.80)**2
+        ctx['deck_width_factor']=active_width/default_width
     items=[]
     for r in rules['rules']:
         if not selected(r,p):continue
         q=evaluate(r['quantity'],ctx)
+        quantity_formula=r['quantity']
+        candidates=r['candidates']
+        note=r['note']
+        if parametric_elevated and r['id'].startswith('vp:Elevado:'):
+            row=int(r['id'].rsplit(':',1)[1])
+            if row==19:
+                code=FOUNDATION_OPTIONS[p.foundation_type]['mobilization']
+                candidates=[_catalog_key_by_code(catalog,code)]
+                note=f'Mobilização compatível com {p.foundation_type.lower()}, conforme serviço disponível na base SIEC.'
+            elif row==20:
+                diameter=min(foundation_diameters(p.foundation_type),key=lambda value:abs(value-p.pile_diameter))
+                code=FOUNDATION_OPTIONS[p.foundation_type]['piles'][diameter]
+                candidates=[_catalog_key_by_code(catalog,code)]
+                note=(f'{p.foundation_type}, diâmetro {diameter:.2f} m e profundidade média de '
+                    f'{p.foundation_depth:.2f} m; quantidade preliminar sujeita a sondagens e projeto geotécnico.')
+            elif row==21:
+                q*= (p.pile_diameter/.80)**2
+                quantity_formula+='*(pile_diameter/0.80)^2'
+            elif 22<=row<=26:
+                q*=ctx['foundation_block_factor']
+                quantity_formula+='*foundation_block_factor'
+            elif 27<=row<=30:
+                q*=ctx['elevated_height_factor']
+                quantity_formula+='*elevated_height_factor'
+            elif row==36:
+                q*=ctx['deck_width_factor']
+                quantity_formula+='*deck_width_factor'
         if q<0:raise ValueError('Quantidade negativa: '+r['label']+'. Revise extensão e premissas.')
         if q==0:continue
-        price=resolve_price(r['candidates'],catalog,rules['source_priority'])
+        price=resolve_price(candidates,catalog,rules['source_priority'])
         if r['unit']!=price['unit']:raise ValueError('Unidade incompatível: '+r['id'])
         items.append({'id':r['id'],'eap':r['eap'],'group':r['group'],'label':r['label'],
                       'code':price['code'],'source':price['source'],'description':price['description'],
                       'unit':price['unit'],'quantity':q,'unit_cost':price['price'],
                       'total':money(q*price['price']),'price_key':price['key'],'date':price['date'],
-                      'quantity_formula':r['quantity'],'original_formula':r['original_formula'],
-                      'note':r['note'],'origin':r['origin'],'sheet':r['sheet'],'row':r['row'],
+                      'quantity_formula':quantity_formula,'original_formula':r['original_formula'],
+                      'note':note,'origin':r['origin'],'sheet':r['sheet'],'row':r['row'],
                       'provenance':price['provenance']})
     items.sort(key=lambda x:rules['groups'].index(x['group']))
     sequence=Counter()
@@ -184,8 +288,39 @@ def calculate(p,rules,catalog):
     if p.overhead:warnings.append('Rede aérea paramétrica: vãos de 50 m, um suporte por linha, dois pontos de tensionamento por trecho de 1,5 km e seccionamento por trecho de 3 km. Projeto eletromecânico define arranjos finais.')
     if p.signaling:warnings.append(f'Sinalização paramétrica com detecção por {p.detection.lower()}, blocos de 500 m e um intertravamento de referência a cada 10 km ou fração.')
     if p.rolling_stock:warnings.append(f'Material rodante: {p.trainsets} composição(ões) de 8 carros pelo custo unitário do contrato CPTM 8186142011, data-base abril/2016. O custo da frota é por composição; o valor por km é somente o rateio pela extensão atendida, sem reajuste monetário.')
-    return {'scenario':asdict(p),'model_label':model['label'],'duration':duration,'items':items,'groups':groups,
+    elevated=None
+    if parametric_elevated:
+        component_rules={
+            'Fundações':{'Sondagens','Mobilização fundações','Estacas','Armadura das estacas','Escavação de blocos','Blocos e encontros'},
+            'Pilares e travessas':{'Pilares e travessas'},
+            'Tabuleiro':{'Aparelhos de apoio','Laje de distribuição','Vigas pré-moldadas','Impermeabilização'},
+        }
+        structural={name:money(sum(x['total'] for x in items if x['label'] in labels))
+            for name,labels in component_rules.items()}
+        elevated_group=next((value for group,value in groups.items() if group.startswith('1 ')),0.0)
+        structural['Via e proteções do elevado']=money(elevated_group-sum(structural.values()))
+        recommendation=('Estaca raiz: tende a ser mais adequada a acessos restritos e locais sensíveis a vibração.'
+            if p.urban_interference=='Alta' else
+            'Hélice contínua: solução de referência com boa produtividade, condicionada ao acesso do equipamento.'
+            if p.urban_interference=='Média' else
+            'Hélice contínua: referência inicial; compare produtividade, capacidade e condições geotécnicas.')
+        capacity_per_pile=foundation_capacity(p.foundation_type,p.pile_diameter)
+        support_capacity=capacity_per_pile*p.piles_per_support
+        elevated={'active_width':ctx['active_deck_width'],'spans':int(ctx['spans']),
+            'supports':int(ctx['supports']),'total_piles':int(ctx['supports']*p.piles_per_support),
+            'total_pile_length':ctx['supports']*p.piles_per_support*p.foundation_depth,
+            'nominal_capacity_per_pile':capacity_per_pile,'nominal_capacity_per_support':support_capacity,
+            'recommendation':recommendation,'components':structural,
+            'reference':{'height':8.0,'span':20.0,'width_single':7.0,'width_double':11.0,
+                'foundation_type':'Hélice contínua','foundation_depth':20.0,
+                'piles_per_support':4,'pile_diameter':.80}}
+        warnings.append('Elevado: fundações, pilares e tabuleiro foram parametrizados sobre a referência SIEC. A solução final depende de sondagens, cargas, geometria e projeto geotécnico e estrutural.')
+        if support_capacity<1160:
+            warnings.append(f'Fundação selecionada: capacidade nominal declarada de {support_capacity:g} tf por apoio, inferior aos 1.160 tf da referência inicial (4 estacas hélice Ø 0,80 m). Verifique quantidade, cargas e geotecnia.')
+    result={'scenario':asdict(p),'model_label':model['label'],'duration':duration,'items':items,'groups':groups,
             'direct':direct,'bdi_amount':bdi,'total':total,'per_km':money(total/p.km),'per_line_km':money(total/(p.km*p.lines)),
             'counts':dict(Counter(x['source'] for x in items)),'warnings':warnings,'rule_version':rules['version'],
             'derived':rules['derived'],
             'context':{k:v for k,v in ctx.items() if isinstance(v,(int,float))}}
+    if elevated:result['elevated']=elevated
+    return result

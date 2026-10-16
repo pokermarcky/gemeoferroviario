@@ -3,7 +3,8 @@ from hashlib import sha256
 import re
 import pandas as pd
 import streamlit as st
-from railbudget.engine import Scenario, load_model, calculate, select_groups
+from railbudget.engine import (Scenario, load_model, calculate, select_groups,
+    FOUNDATION_OPTIONS, foundation_diameters, foundation_capacity)
 from railbudget.exporters import make_excel, currency, br, caption
 from railbudget.interface import apply_theme
 from railbudget.static_scene_v2 import static_header_v2
@@ -91,7 +92,59 @@ def budget_controls(key,freight=False):
     if subterraneo:
         st.warning('Estimativa subterrânea preliminar por equivalência SIEC. Premissa inicial: um tubo circular de 10,00 m por via. O resultado não substitui projeto geotécnico, estrutural, hidráulico, de ventilação ou de segurança.')
 
-    st.markdown('**2. Serviços incluídos**')
+    elevated_parameters={}
+    if not freight and configuration=='Elevado':
+        with st.container(border=True,key=key+'_elevated_panel'):
+            st.markdown('**2. Parâmetros estruturais do elevado**')
+            st.caption('A referência SIEC é mantida nos valores iniciais. Altere a geometria para recalcular quantitativos de fundações, pilares e tabuleiro.')
+            geometry=st.columns(4)
+            height=geometry[0].number_input('Altura média dos pilares (m)',min_value=3.0,max_value=30.0,
+                value=8.0,step=.5,format='%.2f',key=key+'_elevated_height')
+            span=geometry[1].number_input('Distância entre pilares (m)',min_value=10.0,max_value=45.0,
+                value=20.0,step=1.0,format='%.2f',key=key+'_elevated_span',
+                help='Vão médio entre eixos dos apoios. O sistema calcula vãos e apoios inteiros por arredondamento para cima.')
+            width_single=geometry[2].number_input('Largura do tabuleiro singelo (m)',min_value=4.0,max_value=12.0,
+                value=7.0,step=.10,format='%.2f',key=key+'_elevated_width_single')
+            width_double=geometry[3].number_input('Largura do tabuleiro duplo (m)',min_value=8.0,max_value=20.0,
+                value=11.0,step=.10,format='%.2f',key=key+'_elevated_width_double')
+            active_width=width_single if lines==1 else width_double
+            st.caption(f'Largura aplicada neste cenário: **{br(active_width,2)} m** para via '+('singela.' if lines==1 else 'dupla.'))
+            with st.expander('Fundações profundas e condição urbana',expanded=True):
+                foundation_columns=st.columns(3)
+                interference=foundation_columns[0].selectbox('Interferência urbana',['Baixa','Média','Alta'],
+                    index=1,key=key+'_elevated_urban_interference',
+                    help='Orienta a escolha preliminar; não cria um adicional financeiro sem serviço correspondente na base.')
+                foundation=foundation_columns[1].selectbox('Tipo de fundação profunda',list(FOUNDATION_OPTIONS),
+                    key=key+'_elevated_foundation_type')
+                diameters=foundation_diameters(foundation)
+                default_diameter=.80 if foundation=='Hélice contínua' else .41
+                diameter=foundation_columns[2].selectbox('Diâmetro da estaca (m)',diameters,
+                    index=diameters.index(default_diameter),format_func=lambda value:f'{value:.2f} m'.replace('.',','),
+                    key=key+'_elevated_pile_diameter_'+('helice' if foundation=='Hélice contínua' else 'raiz'))
+                sizing=st.columns(2)
+                foundation_depth=sizing[0].number_input('Profundidade média das estacas (m)',min_value=5.0,max_value=60.0,
+                    value=20.0,step=1.0,format='%.2f',key=key+'_elevated_foundation_depth')
+                piles=sizing[1].number_input('Estacas por apoio',min_value=2,max_value=16,value=4,step=1,
+                    key=key+'_elevated_piles_per_support')
+                nominal_capacity=foundation_capacity(foundation,float(diameter))*int(piles)
+                st.caption('Capacidade nominal declarada na composição SIEC: '
+                    f'**{br(foundation_capacity(foundation,float(diameter)),0)} tf por estaca** · '
+                    f'**{br(nominal_capacity,0)} tf por apoio**. Referência inicial: 1.160 tf por apoio.')
+                if nominal_capacity<1160:
+                    st.warning('A capacidade nominal por apoio ficou abaixo da referência inicial. O valor pode ser simulado, mas exige revisão da quantidade de estacas, das cargas e da geotecnia.')
+                if interference=='Alta':
+                    st.info('Sugestão preliminar: estaca raiz tende a favorecer acessos restritos e locais sensíveis a vibração. Confirme capacidade e quantidade com sondagens e projeto.')
+                else:
+                    st.info('Sugestão preliminar: hélice contínua oferece boa produtividade quando há acesso para equipamento. Confirme diâmetro e profundidade por sondagens e cargas de projeto.')
+                st.caption('As alternativas e os diâmetros exibidos possuem serviços correspondentes na base SIEC vigente. A escolha é orçamentária preliminar, não um dimensionamento.')
+            elevated_parameters=dict(elevated_height=float(height),elevated_span=float(span),
+                elevated_width_single=float(width_single),elevated_width_double=float(width_double),
+                foundation_type=foundation,foundation_depth=float(foundation_depth),
+                piles_per_support=int(piles),pile_diameter=float(diameter),urban_interference=interference)
+
+    service_step='3' if elevated_parameters else '2'
+    bdi_step='4' if elevated_parameters else '3'
+    st.markdown(f'**{service_step}. Serviços incluídos**')
     st.caption('Marque somente os grupos que fazem parte do escopo do projeto.')
     service_indices=list(range(len(rules['groups'][:8] if freight else rules['groups'])))
     with st.container(border=True,key=key+'_service_toolbar'):
@@ -145,7 +198,7 @@ def budget_controls(key,freight=False):
             st.caption('A base SIEC contém custos horários de operação de locomotiva e vagões, mas não preços de aquisição. As quantidades acima ficam registradas como escopo pendente e não entram no total.')
             st.caption('Pátios, terminais, pontes, passagens em nível e interfaces de carga também exigem orçamento próprio.')
     with st.container(border=True,key=key+'_bdi_panel'):
-        st.markdown('**3. BDI e condições do orçamento**')
+        st.markdown(f'**{bdi_step}. BDI e condições do orçamento**')
         apply_bdi=st.checkbox('Aplicar BDI',value=True,key=key+'_aplicar_bdi',persist_state='session')
         percentage=st.number_input('BDI personalizado (%)',min_value=0.0,max_value=100.0,
             value=26.30,step=0.10,format='%.2f',
@@ -160,20 +213,22 @@ def budget_controls(key,freight=False):
                 fence=fence if enabled[3] else 'Nenhuma',amvs=int(amvs) if enabled[4] else 0,
                 ducts=enabled[5],topography=enabled[1],overhead=enabled[6],signaling=enabled[7],
                 detection=detection,rolling_stock=False if freight else enabled[8],trainsets=0 if freight else int(trainsets) if enabled[8] else 0,
-                profile='siec',bdi=percentage/100)
+                profile='siec',bdi=percentage/100,**elevated_parameters)
             result=calculate_freight(p,axle,rules,catalog) if freight else calculate_underground(p,rules,catalog) if subterraneo else calculate(p,rules,catalog)
             if freight:
                 result['scenario'].update(locomotives=float(locomotives),wagons=float(wagons))
                 result['warnings'].append('Frota fora do total: '+br(locomotives,2)+' locomotiva(s) equivalente(s)/km, '+br(wagons,2)+' vagão(ões) equivalente(s)/km. Pátios, terminais, pontes e passagens em nível também não foram orçados.')
             st.session_state.results[key]=result
             st.session_state[key+'_reference_signature']=reference_signature
+            elevated_inputs=tuple(elevated_parameters.values()) if elevated_parameters else ()
             st.session_state[key+'_calculated_inputs']=(km,configuration,lines,drainage,fence,amvs,detection,trainsets if not freight else 0,
-                () if not freight else (axle,locomotives,wagons))
+                elevated_inputs if not freight else (axle,locomotives,wagons))
         except (ValueError,KeyError,ZeroDivisionError) as exc:
             st.session_state.results.pop(key,None);st.error(str(exc))
     rate=percentage/100 if apply_bdi else 0.0
+    elevated_inputs=tuple(elevated_parameters.values()) if elevated_parameters else ()
     current_inputs=(km,configuration,lines,drainage,fence,amvs,detection,trainsets if not freight else 0,
-        () if not freight else (axle,locomotives,wagons))
+        elevated_inputs if not freight else (axle,locomotives,wagons))
     st.session_state.setdefault(key+'_calculated_inputs',current_inputs)
     stale=key+'_calculated_inputs' in st.session_state and st.session_state[key+'_calculated_inputs']!=current_inputs
     if stale:
@@ -287,6 +342,42 @@ def result_group_label(group,result):
     return label
 
 
+def render_elevated_summary(result):
+    elevated=result.get('elevated')
+    if not elevated:return
+    scenario=result['scenario']
+    with st.container(border=True,key='elevated_result_summary'):
+        st.markdown('### Síntese estrutural do elevado')
+        st.caption('Quantitativos preliminares derivados da geometria escolhida e vinculados aos serviços SIEC do orçamento.')
+        metrics=st.columns(4)
+        metrics[0].metric('Vãos / apoios',f"{elevated['spans']} / {elevated['supports']}",border=True)
+        metrics[1].metric('Largura do tabuleiro',br(elevated['active_width'],2)+' m',border=True)
+        metrics[2].metric('Total de estacas',str(elevated['total_piles']),border=True)
+        metrics[3].metric('Capacidade nominal / apoio',br(elevated['nominal_capacity_per_support'],0)+' tf',border=True)
+        st.markdown(
+            f"**Solução informada:** {scenario['foundation_type']} Ø {br(scenario['pile_diameter'],2)} m · "
+            f"{scenario['piles_per_support']} estacas/apoio · profundidade média {br(scenario['foundation_depth'],2)} m · "
+            f"extensão total {br(elevated['total_pile_length'],2)} m."
+        )
+        st.caption(elevated['recommendation'])
+        first_group=next((group for group in result['groups'] if group.startswith('1 ')),None)
+        if first_group in result.get('selected_groups',result['groups']):
+            structure=pd.DataFrame([{'Componente estrutural':name,'Custo direto (R$)':value}
+                for name,value in elevated['components'].items()])
+            with st.expander('Ver composição estrutural e memória dos parâmetros',expanded=False):
+                display_table(structure,monetary=('Custo direto (R$)',))
+                memory=pd.DataFrame([
+                    {'Parâmetro':'Altura média dos pilares','Valor aplicado':br(scenario['elevated_height'],2)+' m','Referência SIEC':'8,00 m'},
+                    {'Parâmetro':'Distância entre pilares','Valor aplicado':br(scenario['elevated_span'],2)+' m','Referência SIEC':'20,00 m'},
+                    {'Parâmetro':'Largura do tabuleiro','Valor aplicado':br(elevated['active_width'],2)+' m','Referência SIEC':'7,00 m singela / 11,00 m dupla'},
+                    {'Parâmetro':'Fundação profunda','Valor aplicado':scenario['foundation_type'],'Referência SIEC':'Hélice contínua'},
+                    {'Parâmetro':'Estacas por apoio','Valor aplicado':str(scenario['piles_per_support']),'Referência SIEC':'4'},
+                    {'Parâmetro':'Profundidade média','Valor aplicado':br(scenario['foundation_depth'],2)+' m','Referência SIEC':'20,00 m'},
+                    {'Parâmetro':'Diâmetro','Valor aplicado':br(scenario['pile_diameter'],2)+' m','Referência SIEC':'0,80 m'},
+                ])
+                display_table(memory)
+
+
 def render_result(r,key,modality='passageiro'):
     st.session_state.display_results[key]=r
     with st.container(key='result_header_'+key):
@@ -302,6 +393,8 @@ def render_result(r,key,modality='passageiro'):
         result_columns[2].metric('Por km de linha',currency(r['per_line_km']),border=True)
     financial_caption=f"Custo direto: {currency(r['direct'])} | BDI aplicado: {br(r['scenario']['bdi']*100,6)}% | Acréscimo de BDI: {currency(r['bdi_amount'])}"
     st.caption(financial_caption.replace('$',r'\$'))
+    if r['scenario']['configuration']=='Elevado' and modality=='passageiro':
+        render_elevated_summary(r)
     render_project_save_action(key, r)
     columns={'eap':'EAP','group':'Grupo','code':'Código','source':'Fonte','label':'Aplicação','description':'Descrição','unit':'Unidade','quantity':'Quantidade','unit_cost':'Custo unitário (R$)','total':'Custo total (R$)','date':'Data-base'}
     frame=pd.DataFrame(r['items'])[list(columns)].rename(columns=columns) if r['items'] else pd.DataFrame(columns=columns.values())

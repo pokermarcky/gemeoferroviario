@@ -76,6 +76,11 @@ h3 {font-size:1.25rem!important;letter-spacing:-.025em;color:var(--ink)}
 .st-key-reference_heading {margin:.7rem 0 1rem;padding:1rem 1.2rem;border:1px solid #6da399;border-left:6px solid #28776f;border-radius:14px;background:linear-gradient(115deg,#dceee9,#f7faf8);box-shadow:0 8px 22px #24463f12}
 .st-key-reference_heading h2 {margin:0;padding:0!important;color:#174b45;font-size:1.65rem!important}
 .st-key-main_bdi_panel,.st-key-cargo_bdi_panel {border-color:#b8d0ca!important;background:#f8fbfa!important}
+.st-key-main_elevated_panel {margin:.85rem 0 1rem;padding:1rem 1.1rem!important;border-color:#7eaea4!important;border-left:5px solid #28776f!important;background:linear-gradient(115deg,#edf6f3,#fff)!important;box-shadow:0 8px 24px #24463f0d!important}
+.st-key-main_elevated_panel [data-testid="stExpander"] {margin-top:.65rem;border-color:#bdd4ce;background:#fff}
+.st-key-elevated_result_summary {margin:.85rem 0 1rem;padding:1rem 1.1rem!important;border-color:#8bb6ad!important;background:linear-gradient(135deg,#f1f8f6,#fff)!important;box-shadow:0 8px 24px #24463f0d!important}
+.st-key-elevated_result_summary h3 {margin:0;padding:0 0 .15rem!important;color:#174f48}
+.st-key-elevated_result_summary [data-testid="stMetric"] {background:#fff;border-top:3px solid #60998e!important}
 .st-key-main_service_toolbar,.st-key-cargo_service_toolbar {padding:.55rem .8rem!important;margin:.35rem 0 .8rem;border-color:#b9d2cc!important;background:linear-gradient(90deg,#f4f9f7,#fff)!important;box-shadow:none!important}
 .st-key-main_service_toolbar p,.st-key-cargo_service_toolbar p {margin:0}
 .st-key-main_service_toolbar [data-testid="stCaptionContainer"],.st-key-cargo_service_toolbar [data-testid="stCaptionContainer"] {font-size:.78rem}

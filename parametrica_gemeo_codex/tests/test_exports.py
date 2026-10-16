@@ -67,3 +67,20 @@ def test_excel_de_carga_explica_que_frota_nao_esta_precificada():
     assert resumo['Vagões informados (un/km)']==12.5
     assert 'aquisição' in resumo['Observação']
     assert '9 Material rodante' not in workbook.sheetnames
+
+
+def test_excel_do_elevado_expoe_parametros_e_memoria_estrutural():
+    rules,catalog=load_model()
+    result=calculate(Scenario(configuration='Elevado',rolling_stock=False,
+        elevated_height=10,elevated_span=25,elevated_width_single=8,
+        foundation_type='Estaca raiz',foundation_depth=22,piles_per_support=6,
+        pile_diameter=.41,urban_interference='Alta'),rules,catalog)
+    workbook=load_workbook(BytesIO(export_all(result,catalog)['orcamento.xlsx']),data_only=True)
+    assert 'Elevado' in workbook.sheetnames
+    sheet=workbook['Elevado']
+    values={(sheet[f'B{row}'].value,sheet[f'C{row}'].value) for row in range(5,sheet.max_row+1)}
+    assert ('Altura média dos pilares',10) in values
+    assert ('Distância entre pilares',25) in values
+    assert ('Tipo de fundação','Estaca raiz') in values
+    assert ('Total de estacas',246) in values
+    assert sheet.freeze_panes is None
