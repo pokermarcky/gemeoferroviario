@@ -5,6 +5,8 @@ import pandas as pd
 import streamlit as st
 from railbudget.engine import (Scenario, load_model, calculate, select_groups,
     FOUNDATION_OPTIONS, foundation_diameters, foundation_capacity)
+from railbudget.elevated import (calculate_elevated, sensitivity, DECK_FACTORS, PIER_FACTORS,
+    GEOTECH_FACTORS, METHOD_FACTORS, EXECUTION_FACTORS)
 from railbudget.exporters import make_excel, currency, br, caption
 from railbudget.interface import apply_theme
 from railbudget.static_scene_v2 import static_header_v2
@@ -92,11 +94,11 @@ def budget_controls(key,freight=False):
     if subterraneo:
         st.warning('Estimativa subterrânea preliminar por equivalência SIEC. Premissa inicial: um tubo circular de 10,00 m por via. O resultado não substitui projeto geotécnico, estrutural, hidráulico, de ventilação ou de segurança.')
 
-    elevated_parameters={}
+    elevated_parameters={};segment_records=[]
     if not freight and configuration=='Elevado':
         with st.container(border=True,key=key+'_elevated_panel'):
             st.markdown('**2. Parâmetros estruturais do elevado**')
-            st.caption('A referência SIEC é mantida nos valores iniciais. Altere a geometria para recalcular quantitativos de fundações, pilares e tabuleiro.')
+            st.caption('Configure primeiro o trecho predominante. Abra somente os painéis necessários para detalhar soluções ou variações do corredor.')
             geometry=st.columns(4)
             height=geometry[0].number_input('Altura média dos pilares (m)',min_value=3.0,max_value=30.0,
                 value=8.0,step=.5,format='%.2f',key=key+'_elevated_height')
@@ -109,7 +111,7 @@ def budget_controls(key,freight=False):
                 value=11.0,step=.10,format='%.2f',key=key+'_elevated_width_double')
             active_width=width_single if lines==1 else width_double
             st.caption(f'Largura aplicada neste cenário: **{br(active_width,2)} m** para via '+('singela.' if lines==1 else 'dupla.'))
-            with st.expander('Fundações profundas e condição urbana',expanded=True):
+            with st.expander('Fundações e condição urbana',expanded=False):
                 foundation_columns=st.columns(3)
                 interference=foundation_columns[0].selectbox('Interferência urbana',['Baixa','Média','Alta'],
                     index=1,key=key+'_elevated_urban_interference',
@@ -137,10 +139,75 @@ def budget_controls(key,freight=False):
                 else:
                     st.info('Sugestão preliminar: hélice contínua oferece boa produtividade quando há acesso para equipamento. Confirme diâmetro e profundidade por sondagens e cargas de projeto.')
                 st.caption('As alternativas e os diâmetros exibidos possuem serviços correspondentes na base SIEC vigente. A escolha é orçamentária preliminar, não um dimensionamento.')
+            with st.expander('Dividir o corredor em trechos homogêneos',expanded=False):
+                use_segments=st.checkbox('Usar geometrias diferentes ao longo do corredor',
+                    key=key+'_elevated_use_segments',help='Permite variar altura, vão e fundação sem duplicar canteiro e administração.')
+                if use_segments:
+                    editor_key=key+'_elevated_segments_editor'
+                    if editor_key not in st.session_state:
+                        st.session_state[editor_key]=pd.DataFrame([{'Trecho':'Trecho 1','Extensão (km)':float(km),
+                            'Altura (m)':float(height),'Vão (m)':float(span),'Fundação':foundation,
+                            'Diâmetro (m)':float(diameter),'Profundidade (m)':float(foundation_depth),
+                            'Estacas/apoio':int(piles),'Interferência':interference}])
+                    segments=st.data_editor(st.session_state[editor_key],num_rows='dynamic',hide_index=True,
+                        width='stretch',key=editor_key+'_widget',column_config={
+                            'Trecho':st.column_config.TextColumn('Trecho',width='medium',required=True),
+                            'Extensão (km)':st.column_config.NumberColumn('Extensão (km)',min_value=.01,format='%.3f',required=True),
+                            'Altura (m)':st.column_config.NumberColumn('Altura (m)',min_value=3.,max_value=30.,format='%.2f',required=True),
+                            'Vão (m)':st.column_config.NumberColumn('Vão (m)',min_value=10.,max_value=45.,format='%.2f',required=True),
+                            'Fundação':st.column_config.SelectboxColumn('Fundação',options=list(FOUNDATION_OPTIONS),required=True),
+                            'Diâmetro (m)':st.column_config.NumberColumn('Diâmetro (m)',min_value=.16,max_value=.90,format='%.2f',required=True),
+                            'Profundidade (m)':st.column_config.NumberColumn('Profundidade (m)',min_value=5.,max_value=60.,format='%.2f',required=True),
+                            'Estacas/apoio':st.column_config.NumberColumn('Estacas/apoio',min_value=2,max_value=16,step=1,required=True),
+                            'Interferência':st.column_config.SelectboxColumn('Interferência',options=['Baixa','Média','Alta'],required=True)})
+                    segment_records=segments.to_dict('records')
+                    segment_sum=sum(float(row.get('Extensão (km)',0) or 0) for row in segment_records)
+                    delta=segment_sum-float(km)
+                    message=f'Soma dos trechos: {br(segment_sum,3)} km · corredor: {br(km,3)} km'
+                    if abs(delta)<=.001:st.success(message)
+                    else:st.warning(message+' · ajuste a diferença de '+br(abs(delta),3)+' km.')
+                else:
+                    segment_records=[]
+                    st.caption('Desativado: o corredor inteiro usará a geometria predominante informada acima.')
+            with st.expander('Soluções estruturais e método executivo',expanded=False):
+                technical=st.columns(2)
+                deck_type=technical[0].selectbox('Tipologia do tabuleiro',list(DECK_FACTORS),key=key+'_elevated_deck_type')
+                pier_type=technical[1].selectbox('Tipologia dos pilares',list(PIER_FACTORS),key=key+'_elevated_pier_type')
+                geotech=technical[0].selectbox('Condição geotécnica',list(GEOTECH_FACTORS),index=1,key=key+'_elevated_geotech')
+                method=technical[1].selectbox('Método executivo',list(METHOD_FACTORS),key=key+'_elevated_method')
+                execution=st.selectbox('Condição de execução',list(EXECUTION_FACTORS),key=key+'_elevated_execution')
+                factor_summary=(f'Tabuleiro ×{br(DECK_FACTORS[deck_type][0],2)} · Pilares ×{br(PIER_FACTORS[pier_type][0],2)} · '
+                    f'Geotecnia ×{br(GEOTECH_FACTORS[geotech][0],2)} · Método ×{br(METHOD_FACTORS[method][0],2)} · '
+                    f'Execução ×{br(EXECUTION_FACTORS[execution][0],2)}')
+                st.caption('Coeficientes declarados no resultado: '+factor_summary+'.')
+            with st.expander('Obras singulares e proteção acústica',expanded=False):
+                st.caption('Provisões separadas e editáveis; não são apresentadas como preços SIEC.')
+                specials=st.columns(2)
+                special_length=specials[0].number_input('Extensão de vãos especiais (m)',min_value=0.,max_value=float(km)*1000,
+                    value=0.,step=10.,key=key+'_elevated_special_length')
+                special_addition=specials[1].number_input('Adicional dos vãos especiais (%)',min_value=0.,max_value=500.,
+                    value=50.,step=5.,key=key+'_elevated_special_addition')
+                transitions=specials[0].number_input('Encontros e transições (un)',min_value=0,max_value=1000,value=0,step=1,
+                    key=key+'_elevated_transitions')
+                transition_cost=specials[1].number_input('Provisão por encontro/transição (R$)',min_value=0.,max_value=1e10,
+                    value=2000000.,step=100000.,key=key+'_elevated_transition_cost')
+                barrier=st.columns(3)
+                barrier_length=barrier[0].number_input('Barreira acústica (m)',min_value=0.,max_value=float(km)*2000,
+                    value=0.,step=50.,key=key+'_elevated_barrier_length')
+                barrier_height=barrier[1].number_input('Altura da barreira (m)',min_value=.5,max_value=10.,
+                    value=3.,step=.5,key=key+'_elevated_barrier_height')
+                barrier_cost=barrier[2].number_input('Custo da barreira (R$/m²)',min_value=0.,max_value=1e7,
+                    value=2500.,step=100.,key=key+'_elevated_barrier_cost')
             elevated_parameters=dict(elevated_height=float(height),elevated_span=float(span),
                 elevated_width_single=float(width_single),elevated_width_double=float(width_double),
                 foundation_type=foundation,foundation_depth=float(foundation_depth),
-                piles_per_support=int(piles),pile_diameter=float(diameter),urban_interference=interference)
+                piles_per_support=int(piles),pile_diameter=float(diameter),urban_interference=interference,
+                elevated_segments=tuple(segment_records),deck_type=deck_type,pier_type=pier_type,
+                geotechnical_condition=geotech,construction_method=method,execution_constraint=execution,
+                special_span_length=float(special_length),special_span_addition=float(special_addition),
+                transitions=int(transitions),transition_unit_cost=float(transition_cost),
+                noise_barrier_length=float(barrier_length),noise_barrier_height=float(barrier_height),
+                noise_barrier_unit_cost=float(barrier_cost))
 
     service_step='3' if elevated_parameters else '2'
     bdi_step='4' if elevated_parameters else '3'
@@ -214,19 +281,19 @@ def budget_controls(key,freight=False):
                 ducts=enabled[5],topography=enabled[1],overhead=enabled[6],signaling=enabled[7],
                 detection=detection,rolling_stock=False if freight else enabled[8],trainsets=0 if freight else int(trainsets) if enabled[8] else 0,
                 profile='siec',bdi=percentage/100,**elevated_parameters)
-            result=calculate_freight(p,axle,rules,catalog) if freight else calculate_underground(p,rules,catalog) if subterraneo else calculate(p,rules,catalog)
+            result=calculate_freight(p,axle,rules,catalog) if freight else calculate_underground(p,rules,catalog) if subterraneo else calculate_elevated(p,rules,catalog,segment_records or None) if configuration=='Elevado' else calculate(p,rules,catalog)
             if freight:
                 result['scenario'].update(locomotives=float(locomotives),wagons=float(wagons))
                 result['warnings'].append('Frota fora do total: '+br(locomotives,2)+' locomotiva(s) equivalente(s)/km, '+br(wagons,2)+' vagão(ões) equivalente(s)/km. Pátios, terminais, pontes e passagens em nível também não foram orçados.')
             st.session_state.results[key]=result
             st.session_state[key+'_reference_signature']=reference_signature
-            elevated_inputs=tuple(elevated_parameters.values()) if elevated_parameters else ()
+            elevated_inputs=tuple(repr(value) for value in elevated_parameters.values()) if elevated_parameters else ()
             st.session_state[key+'_calculated_inputs']=(km,configuration,lines,drainage,fence,amvs,detection,trainsets if not freight else 0,
                 elevated_inputs if not freight else (axle,locomotives,wagons))
         except (ValueError,KeyError,ZeroDivisionError) as exc:
             st.session_state.results.pop(key,None);st.error(str(exc))
     rate=percentage/100 if apply_bdi else 0.0
-    elevated_inputs=tuple(elevated_parameters.values()) if elevated_parameters else ()
+    elevated_inputs=tuple(repr(value) for value in elevated_parameters.values()) if elevated_parameters else ()
     current_inputs=(km,configuration,lines,drainage,fence,amvs,detection,trainsets if not freight else 0,
         elevated_inputs if not freight else (axle,locomotives,wagons))
     st.session_state.setdefault(key+'_calculated_inputs',current_inputs)
@@ -342,7 +409,7 @@ def result_group_label(group,result):
     return label
 
 
-def render_elevated_summary(result):
+def render_elevated_summary(result,key):
     elevated=result.get('elevated')
     if not elevated:return
     scenario=result['scenario']
@@ -360,6 +427,13 @@ def render_elevated_summary(result):
             f"extensão total {br(elevated['total_pile_length'],2)} m."
         )
         st.caption(elevated['recommendation'])
+        st.markdown(
+            '<div class="elevated-scheme"><div class="scheme-rail"></div>'
+            '<div class="scheme-deck"></div><div class="scheme-pier p1"></div>'
+            '<div class="scheme-pier p2"></div><div class="scheme-pier p3"></div>'
+            f'<span class="scheme-span">Vão predominante: {br(scenario["elevated_span"],2)} m</span>'
+            f'<span class="scheme-height">Altura: {br(scenario["elevated_height"],2)} m</span></div>',
+            unsafe_allow_html=True)
         first_group=next((group for group in result['groups'] if group.startswith('1 ')),None)
         if first_group in result.get('selected_groups',result['groups']):
             structure=pd.DataFrame([{'Componente estrutural':name,'Custo direto (R$)':value}
@@ -376,6 +450,44 @@ def render_elevated_summary(result):
                     {'Parâmetro':'Diâmetro','Valor aplicado':br(scenario['pile_diameter'],2)+' m','Referência SIEC':'0,80 m'},
                 ])
                 display_table(memory)
+        summaries=elevated.get('segment_summaries',[])
+        if summaries:
+            with st.expander('Trechos homogêneos e soluções adotadas',expanded=False):
+                segment_frame=pd.DataFrame(summaries)
+                display_table(segment_frame,height=min(420,95+40*len(segment_frame)))
+                factors=pd.DataFrame([{'Critério':name,'Solução':data['choice'],
+                    'Coeficiente':br(data['factor'],2),'Aplicação':data['criterion']}
+                    for name,data in elevated.get('technical_factors',{}).items()])
+                if not factors.empty:
+                    st.markdown('**Coeficientes técnicos declarados**')
+                    display_table(factors)
+        indicators=elevated.get('indicators',{})
+        if indicators:
+            with st.expander('Indicadores gerenciais do elevado',expanded=False):
+                indicator_rows=[]
+                for name,value in indicators.items():
+                    shown=(currency(value) if name.startswith('Custo ') else
+                        br(value,2)+'%' if name.endswith('(%)') else
+                        br(value,2) if isinstance(value,float) else str(value))
+                    indicator_rows.append({'Indicador':name,'Resultado':shown})
+                display_table(pd.DataFrame(indicator_rows))
+        with st.expander('Análise de sensibilidade',expanded=False):
+            st.caption('Compara o total quando os principais parâmetros variam ±10%, mantendo as demais premissas.')
+            signature=sha256(repr(result['scenario']).encode()).hexdigest()
+            sensitivity_key=key+'_elevated_sensitivity'
+            if st.button('Calcular sensibilidade',key=key+'_sensitivity_button',icon=':material/analytics:'):
+                try:
+                    scenario_data=dict(result['scenario'])
+                    segment_data=scenario_data.pop('elevated_segments',[]) or None
+                    parameter=Scenario(**scenario_data)
+                    st.session_state[sensitivity_key]=(signature,sensitivity(result,parameter,rules,catalog,segment_data))
+                except (ValueError,KeyError,TypeError) as exc:
+                    st.error('Sensibilidade não calculada: '+str(exc))
+            cached=st.session_state.get(sensitivity_key)
+            if cached and cached[0]==signature:
+                sensitivity_frame=pd.DataFrame(cached[1])
+                if sensitivity_frame.empty:st.info('A sensibilidade ainda não está disponível para esta combinação de trechos.')
+                else:display_table(sensitivity_frame,monetary=('Cenário inferior (R$)','Cenário-base (R$)','Cenário superior (R$)'))
 
 
 def render_result(r,key,modality='passageiro'):
@@ -394,7 +506,7 @@ def render_result(r,key,modality='passageiro'):
     financial_caption=f"Custo direto: {currency(r['direct'])} | BDI aplicado: {br(r['scenario']['bdi']*100,6)}% | Acréscimo de BDI: {currency(r['bdi_amount'])}"
     st.caption(financial_caption.replace('$',r'\$'))
     if r['scenario']['configuration']=='Elevado' and modality=='passageiro':
-        render_elevated_summary(r)
+        render_elevated_summary(r,key)
     render_project_save_action(key, r)
     columns={'eap':'EAP','group':'Grupo','code':'Código','source':'Fonte','label':'Aplicação','description':'Descrição','unit':'Unidade','quantity':'Quantidade','unit_cost':'Custo unitário (R$)','total':'Custo total (R$)','date':'Data-base'}
     frame=pd.DataFrame(r['items'])[list(columns)].rename(columns=columns) if r['items'] else pd.DataFrame(columns=columns.values())

@@ -2,6 +2,7 @@
 from datetime import datetime
 from html import escape
 import json
+import pandas as pd
 
 import streamlit as st
 
@@ -118,6 +119,25 @@ def _load_budget_for_editing(row, result):
             st.session_state[f"{key}_elevated_pile_diameter_{suffix}"] = diameter
             st.session_state[f"{key}_elevated_foundation_depth"] = float(scenario.get("foundation_depth", 20.0))
             st.session_state[f"{key}_elevated_piles_per_support"] = int(scenario.get("piles_per_support", 4))
+            segments=scenario.get("elevated_segments") or []
+            use_segments=len(segments)>1
+            st.session_state[f"{key}_elevated_use_segments"] = use_segments
+            if use_segments:
+                frame=pd.DataFrame(segments)
+                st.session_state[f"{key}_elevated_segments_editor"] = frame
+                st.session_state.pop(f"{key}_elevated_segments_editor_widget",None)
+            st.session_state[f"{key}_elevated_deck_type"] = scenario.get("deck_type", "Vigas pré-moldadas com laje")
+            st.session_state[f"{key}_elevated_pier_type"] = scenario.get("pier_type", "Pilar único circular")
+            st.session_state[f"{key}_elevated_geotech"] = scenario.get("geotechnical_condition", "Intermediária")
+            st.session_state[f"{key}_elevated_method"] = scenario.get("construction_method", "Montagem com guindaste")
+            st.session_state[f"{key}_elevated_execution"] = scenario.get("execution_constraint", "Frente livre")
+            st.session_state[f"{key}_elevated_special_length"] = float(scenario.get("special_span_length", 0.0))
+            st.session_state[f"{key}_elevated_special_addition"] = float(scenario.get("special_span_addition", 50.0))
+            st.session_state[f"{key}_elevated_transitions"] = int(scenario.get("transitions", 0))
+            st.session_state[f"{key}_elevated_transition_cost"] = float(scenario.get("transition_unit_cost", 2000000.0))
+            st.session_state[f"{key}_elevated_barrier_length"] = float(scenario.get("noise_barrier_length", 0.0))
+            st.session_state[f"{key}_elevated_barrier_height"] = float(scenario.get("noise_barrier_height", 3.0))
+            st.session_state[f"{key}_elevated_barrier_cost"] = float(scenario.get("noise_barrier_unit_cost", 2500.0))
     else:
         axle = int(scenario.get("axle_load", 25))
         locomotives = float(scenario.get("locomotives", 0.0))
@@ -142,11 +162,20 @@ def _load_budget_for_editing(row, result):
         extra = (int(scenario.get("axle_load", 25)), float(scenario.get("locomotives", 0.0)),
             float(scenario.get("wagons", 0.0)))
     elif configuration == "Elevado":
-        extra = (float(scenario.get("elevated_height", 8.0)),float(scenario.get("elevated_span", 20.0)),
+        saved_segments=scenario.get("elevated_segments") or []
+        selected_segments=tuple(saved_segments) if len(saved_segments)>1 else ()
+        values=(float(scenario.get("elevated_height", 8.0)),float(scenario.get("elevated_span", 20.0)),
             float(scenario.get("elevated_width_single", 7.0)),float(scenario.get("elevated_width_double", 11.0)),
             scenario.get("foundation_type", "Hélice contínua"),float(scenario.get("foundation_depth", 20.0)),
-            int(scenario.get("piles_per_support", 4)),float(scenario.get("pile_diameter", .80)),
-            scenario.get("urban_interference", "Média"))
+            int(scenario.get("piles_per_support", 4)),float(scenario.get("pile_diameter", .80),),
+            scenario.get("urban_interference", "Média"),selected_segments,
+            scenario.get("deck_type", "Vigas pré-moldadas com laje"),scenario.get("pier_type", "Pilar único circular"),
+            scenario.get("geotechnical_condition", "Intermediária"),scenario.get("construction_method", "Montagem com guindaste"),
+            scenario.get("execution_constraint", "Frente livre"),float(scenario.get("special_span_length", 0.0)),
+            float(scenario.get("special_span_addition", 50.0)),int(scenario.get("transitions", 0)),
+            float(scenario.get("transition_unit_cost", 2000000.0)),float(scenario.get("noise_barrier_length", 0.0)),
+            float(scenario.get("noise_barrier_height", 3.0)),float(scenario.get("noise_barrier_unit_cost", 2500.0)))
+        extra=tuple(repr(value) for value in values)
     else:
         extra = ()
     st.session_state[f"{key}_calculated_inputs"] = (
