@@ -53,6 +53,17 @@ NOMES = {
     "sectioning_length": "intervalo de seccionamento (m)",
     "signal_block_length": "comprimento do bloco de sinalização (m)",
     "interlocking_length": "intervalo de intertravamento (m)",
+    "elevated_height": "altura média dos pilares",
+    "elevated_span": "distância entre pilares",
+    "elevated_width_single": "largura do tabuleiro singelo",
+    "elevated_width_double": "largura do tabuleiro duplo",
+    "foundation_depth": "profundidade média das estacas",
+    "piles_per_support": "estacas por apoio",
+    "pile_diameter": "diâmetro da estaca",
+    "active_deck_width": "largura aplicada do tabuleiro",
+    "elevated_height_factor": "fator da altura dos pilares",
+    "foundation_block_factor": "fator geométrico dos blocos",
+    "deck_width_factor": "fator da largura do tabuleiro",
     "ceil": "arredondar para cima",
     "floor": "arredondar para baixo",
     "min": "mínimo",
@@ -118,6 +129,10 @@ UNIDADES = {
     "P16": "m", "P17": "m³", "P18": "m³", "P19": "m³", "P20": "m³",
     "P21": "meses", "P22": "meses", "P23": "h/mês", "P24": "m",
     "P25": "m", "P29": "m", "P30": "un", "P33": "h",
+    "elevated_height": "m", "elevated_span": "m",
+    "elevated_width_single": "m", "elevated_width_double": "m",
+    "foundation_depth": "m", "piles_per_support": "un",
+    "pile_diameter": "m", "active_deck_width": "m",
 }
 
 

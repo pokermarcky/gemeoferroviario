@@ -41,6 +41,35 @@ def test_four_manual_complete_budgets(model,cfg,lines,expected):
         assert item['quantity']==pytest.approx(rule['original_quantity']*multiplier)
         assert item['total']==money(rule['original_total']*multiplier)
 
+
+def test_elevado_siec_parametriza_geometria_e_fundacoes_sem_alterar_referencia(model):
+    rules,catalog=model
+    reference=calculate(Scenario(configuration='Elevado',rolling_stock=False),rules,catalog)
+    assert reference['scenario']['elevated_height']==8
+    assert reference['scenario']['elevated_span']==20
+    assert reference['elevated']['spans']==50
+    assert reference['elevated']['supports']==51
+    assert reference['elevated']['total_piles']==204
+    assert reference['elevated']['active_width']==7
+    assert reference['elevated']['nominal_capacity_per_support']==1160
+
+    custom=calculate(Scenario(configuration='Elevado',rolling_stock=False,
+        elevated_height=12,elevated_span=25,elevated_width_single=8,
+        foundation_type='Estaca raiz',foundation_depth=24,piles_per_support=6,
+        pile_diameter=.41,urban_interference='Alta'),rules,catalog)
+    assert custom['elevated']['spans']==40
+    assert custom['elevated']['supports']==41
+    assert custom['elevated']['total_piles']==246
+    assert custom['elevated']['total_pile_length']==5904
+    assert custom['elevated']['active_width']==8
+    assert custom['elevated']['nominal_capacity_per_support']==900
+    assert custom['total']!=reference['total']
+    pile=next(item for item in custom['items'] if item['id']=='vp:Elevado:20')
+    assert pile['code']=='SIEC-02.01.04.500.15'
+    assert pile['quantity']==5904
+    assert 'Estaca raiz' in custom['elevated']['recommendation']
+    assert any('inferior aos 1.160 tf' in warning for warning in custom['warnings'])
+
 @pytest.mark.parametrize('cfg',['Superfície','Elevado'])
 def test_two_combined_budgets_reconcile_to_both_manual_workbooks(model,cfg):
     """Ponte independente de subtotais manuais; não é um terceiro orçamento original."""

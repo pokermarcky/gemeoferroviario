@@ -180,12 +180,51 @@ def make_excel(r,catalog):
     if 'axle_load' in scenario:premise_rows.append(('Carga','Carga por eixo',scenario['axle_load'],'t/eixo','Seleciona a alternativa de trilho da ferrovia de carga.'))
     if 'locomotives' in scenario:premise_rows.append(('Carga','Locomotivas equivalentes',scenario['locomotives'],'un/km','Escopo informativo; não compõe o total.'))
     if 'wagons' in scenario:premise_rows.append(('Carga','Vagões equivalentes',scenario['wagons'],'un/km','Escopo informativo; não compõe o total.'))
+    if scenario['configuration']=='Elevado':
+        premise_rows.extend([
+            ('Elevado','Altura média dos pilares',scenario['elevated_height'],'m','Redimensiona os quantitativos de pilares e travessas.'),
+            ('Elevado','Distância entre pilares',scenario['elevated_span'],'m','Define a quantidade inteira de vãos e apoios.'),
+            ('Elevado','Largura do tabuleiro singelo',scenario['elevated_width_single'],'m','Aplicada quando o cenário possui via singela.'),
+            ('Elevado','Largura do tabuleiro duplo',scenario['elevated_width_double'],'m','Aplicada quando o cenário possui via dupla.'),
+            ('Elevado','Tipo de fundação profunda',scenario['foundation_type'],'','Seleciona o serviço SIEC de execução e mobilização.'),
+            ('Elevado','Profundidade média das estacas',scenario['foundation_depth'],'m','Dimensiona a extensão total de estacas.'),
+            ('Elevado','Estacas por apoio',scenario['piles_per_support'],'un','Dimensiona estacas, armadura e blocos preliminares.'),
+            ('Elevado','Diâmetro da estaca',scenario['pile_diameter'],'m','Seleciona o serviço SIEC e ajusta armadura e blocos.'),
+            ('Elevado','Interferência urbana',scenario['urban_interference'],'','Orienta a recomendação de fundação; não aplica adicional sem preço de referência.'),
+        ])
     refs={}
     for category,label,value,unit,application in premise_rows:
         prem.append([category,label,value,unit,application])
         if label=='Extensão do corredor':refs['km']=prem.max_row
         elif label=='Quantidade de vias':refs['lines']=prem.max_row
         elif label=='BDI':refs['bdi']=prem.max_row
+    elevated_sheet=None
+    if r.get('elevated'):
+        elevated_sheet=w.create_sheet('Elevado')
+        elevated_sheet.append(['Memória paramétrica do elevado'])
+        elevated_sheet.append([caption(r)])
+        elevated_sheet.append(['Quantitativos preliminares. A solução final depende de sondagens e projeto geotécnico e estrutural.'])
+        elevated_sheet.append(['Categoria','Parâmetro','Valor aplicado','Unidade','Referência SIEC','Efeito no orçamento'])
+        active_width=r['elevated']['active_width']
+        elevated_rows=[
+            ('Geometria','Altura média dos pilares',scenario['elevated_height'],'m',8.0,'Escala pilares e travessas.'),
+            ('Geometria','Distância entre pilares',scenario['elevated_span'],'m',20.0,'Define vãos e apoios inteiros.'),
+            ('Geometria','Largura aplicada do tabuleiro',active_width,'m',7.0 if scenario['lines']==1 else 11.0,'Escala laje, impermeabilização e vigas.'),
+            ('Quantitativo','Quantidade de vãos',r['elevated']['spans'],'un','','Extensão dividida pelo vão, arredondada para cima.'),
+            ('Quantitativo','Quantidade de apoios',r['elevated']['supports'],'un','','Quantidade de vãos mais um.'),
+            ('Fundação','Tipo de fundação',scenario['foundation_type'],'','Hélice contínua','Seleciona serviço e mobilização SIEC.'),
+            ('Fundação','Diâmetro da estaca',scenario['pile_diameter'],'m',.80,'Seleciona o serviço SIEC e ajusta armadura e blocos.'),
+            ('Fundação','Estacas por apoio',scenario['piles_per_support'],'un',4,'Dimensiona estacas, armadura e blocos.'),
+            ('Fundação','Profundidade média',scenario['foundation_depth'],'m',20.0,'Dimensiona a extensão total de estacas.'),
+            ('Quantitativo','Total de estacas',r['elevated']['total_piles'],'un','','Apoios multiplicados pelas estacas por apoio.'),
+            ('Quantitativo','Extensão total de estacas',r['elevated']['total_pile_length'],'m','','Total de estacas multiplicado pela profundidade média.'),
+            ('Verificação','Capacidade nominal por estaca',r['elevated']['nominal_capacity_per_pile'],'tf','','Valor declarado no serviço SIEC selecionado.'),
+            ('Verificação','Capacidade nominal por apoio',r['elevated']['nominal_capacity_per_support'],'tf',1160,'Comparação preliminar; não substitui dimensionamento.'),
+            ('Orientação','Interferência urbana',scenario['urban_interference'],'','','Orienta a solução; não aplica adicional financeiro.'),
+        ]
+        for row in elevated_rows:elevated_sheet.append(row)
+        for component,value in r['elevated']['components'].items():
+            elevated_sheet.append(['Custo estrutural',component,value,'R$','','Custo direto dentro do grupo Via permanente.'])
     sheets={};lookup={}
     used={x['price_key'] for x in r['items']}
     for k in sorted(used):
@@ -205,7 +244,7 @@ def make_excel(r,catalog):
                     x['unit'],x['quantity'],x['unit_cost'],x['total'],x['date'],x['price_key'],memoria_quantidade(x['quantity_formula'],r['context'],x['quantity'],x['unit']),reference])
     for src,color in PALETTE.items():eap.conditional_formatting.add(f'D5:D{eap.max_row}',FormulaRule(formula=[f'$D5="{src}"'],fill=PatternFill('solid',fgColor=color)))
     for sh in w:
-        header=4 if sh in (eap,prem) else (3 if sh==summary else 1)
+        header=4 if sh in tuple(x for x in (eap,prem,elevated_sheet) if x is not None) else (3 if sh==summary else 1)
         sh.freeze_panes=None;sh.auto_filter.ref=f'A{header}:{sh.cell(sh.max_row,sh.max_column).coordinate}'
         for cell in sh[header]:cell.fill=PatternFill('solid',fgColor=NAVY);cell.font=Font(name='Arial',bold=True,color='FFFFFF')
         for row in sh.iter_rows(min_row=header+1):
@@ -234,6 +273,16 @@ def make_excel(r,catalog):
         if row%2==0:
             for col in range(1,6):prem.cell(row,col).fill=PatternFill('solid',fgColor='F8FAFC')
         prem[f'C{row}'].font=Font(name='Arial',size=10,color='1D4ED8')
+    if elevated_sheet:
+        elevated_sheet['A1'].font=Font(name='Arial',size=15,bold=True,color=NAVY)
+        elevated_sheet['A2'].font=Font(name='Arial',size=10,italic=True,color='64748B')
+        for col,width in {'A':20,'B':38,'C':22,'D':14,'E':24,'F':72}.items():elevated_sheet.column_dimensions[col].width=width
+        for row in range(5,elevated_sheet.max_row+1):
+            elevated_sheet.row_dimensions[row].height=36
+            if elevated_sheet[f'D{row}'].value=='R$':elevated_sheet[f'C{row}'].number_format='"R$" #,##0.00'
+            elif isinstance(elevated_sheet[f'C{row}'].value,(int,float)):elevated_sheet[f'C{row}'].number_format='#,##0.00'
+            if row%2==0:
+                for col in range(1,7):elevated_sheet.cell(row,col).fill=PatternFill('solid',fgColor='F8FAFC')
     for sh in sheets.values():sh.column_dimensions['C'].width=75;sh.column_dimensions['G'].width=100
     add_group_sheets(w,r,refs,caches,{'direct':direct_row,'bdi':bdi_row,'total':total_row})
     data=BytesIO();w.save(data)

@@ -105,6 +105,19 @@ def _load_budget_for_editing(row, result):
         st.session_state[f"{key}_profile"] = "SIEC • lastro / AMV nº 14"
         st.session_state[f"{key}_configuration"] = configuration
         st.session_state[f"{key}_trainsets"] = trainsets
+        if configuration == "Elevado":
+            foundation_type = scenario.get("foundation_type", "Hélice contínua")
+            diameter = float(scenario.get("pile_diameter", .80))
+            st.session_state[f"{key}_elevated_height"] = float(scenario.get("elevated_height", 8.0))
+            st.session_state[f"{key}_elevated_span"] = float(scenario.get("elevated_span", 20.0))
+            st.session_state[f"{key}_elevated_width_single"] = float(scenario.get("elevated_width_single", 7.0))
+            st.session_state[f"{key}_elevated_width_double"] = float(scenario.get("elevated_width_double", 11.0))
+            st.session_state[f"{key}_elevated_urban_interference"] = scenario.get("urban_interference", "Média")
+            st.session_state[f"{key}_elevated_foundation_type"] = foundation_type
+            suffix = "helice" if foundation_type == "Hélice contínua" else "raiz"
+            st.session_state[f"{key}_elevated_pile_diameter_{suffix}"] = diameter
+            st.session_state[f"{key}_elevated_foundation_depth"] = float(scenario.get("foundation_depth", 20.0))
+            st.session_state[f"{key}_elevated_piles_per_support"] = int(scenario.get("piles_per_support", 4))
     else:
         axle = int(scenario.get("axle_load", 25))
         locomotives = float(scenario.get("locomotives", 0.0))
@@ -125,8 +138,17 @@ def _load_budget_for_editing(row, result):
         for index, checked in enumerate(fallback[:8 if freight else 9]):
             st.session_state[f"{key}_grupo_{index}"] = checked
 
-    extra = ((int(scenario.get("axle_load", 25)), float(scenario.get("locomotives", 0.0)),
-        float(scenario.get("wagons", 0.0))) if freight else ())
+    if freight:
+        extra = (int(scenario.get("axle_load", 25)), float(scenario.get("locomotives", 0.0)),
+            float(scenario.get("wagons", 0.0)))
+    elif configuration == "Elevado":
+        extra = (float(scenario.get("elevated_height", 8.0)),float(scenario.get("elevated_span", 20.0)),
+            float(scenario.get("elevated_width_single", 7.0)),float(scenario.get("elevated_width_double", 11.0)),
+            scenario.get("foundation_type", "Hélice contínua"),float(scenario.get("foundation_depth", 20.0)),
+            int(scenario.get("piles_per_support", 4)),float(scenario.get("pile_diameter", .80)),
+            scenario.get("urban_interference", "Média"))
+    else:
+        extra = ()
     st.session_state[f"{key}_calculated_inputs"] = (
         km, configuration, lines, drainage, fence, amvs, detection, trainsets, extra,
     )

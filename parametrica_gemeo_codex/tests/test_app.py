@@ -176,6 +176,32 @@ def test_banco_de_dutos_e_opcoes_do_grupo():
     assert not any(x.key == 'main_fence' for x in app.selectbox)
 
 
+def test_elevado_de_passageiros_tem_controles_estruturais_e_recalcula():
+    app=AppTest.from_file(str(APP)).run(timeout=30)
+    app.selectbox(key='main_configuration').set_value('Elevado').run(timeout=30)
+    assert app.number_input(key='main_elevated_height').value==8.0
+    assert app.number_input(key='main_elevated_span').value==20.0
+    assert app.number_input(key='main_elevated_width_single').value==7.0
+    assert app.number_input(key='main_elevated_width_double').value==11.0
+    assert app.selectbox(key='main_elevated_foundation_type').options==['Hélice contínua','Estaca raiz']
+    app.number_input(key='main_elevated_height').set_value(12.0)
+    app.number_input(key='main_elevated_span').set_value(25.0)
+    app.number_input(key='main_elevated_width_single').set_value(8.0)
+    app.selectbox(key='main_elevated_urban_interference').set_value('Alta')
+    app.selectbox(key='main_elevated_foundation_type').set_value('Estaca raiz').run(timeout=30)
+    app.selectbox(key='main_elevated_pile_diameter_raiz').set_value(.41)
+    app.number_input(key='main_elevated_foundation_depth').set_value(24.0)
+    app.number_input(key='main_elevated_piles_per_support').set_value(6)
+    app.button(key='main_calculate').click().run(timeout=30)
+    assert not app.exception
+    result=app.session_state['results']['main']
+    assert result['scenario']['configuration']=='Elevado'
+    assert result['scenario']['foundation_type']=='Estaca raiz'
+    assert result['elevated']['supports']==41
+    assert result['elevated']['total_piles']==246
+    assert result['elevated']['active_width']==8
+
+
 def test_upload_siec_recalcula_orcamento_com_codigo_sem_prefixo():
     from railbudget.reference_data import parse_reference
 
