@@ -134,6 +134,7 @@ def cache_formulas(data, caches):
     return out.getvalue()
 
 def make_excel(r,catalog):
+    catalog={**catalog,**r.get('custom_prices',{})}
     w=Workbook();summary=w.active;summary.title='Resumo';eap=w.create_sheet('EAP');prem=w.create_sheet('Premissas')
     caches={f'xl/worksheets/sheet{i}.xml':{} for i in (1,2,3)}
     summary.append(['Parametric Rails | Orçamento']);summary.append([caption(r)])
@@ -223,6 +224,19 @@ def make_excel(r,catalog):
             ('Orientação','Interferência urbana',scenario['urban_interference'],'','','Orienta a solução; não aplica adicional financeiro.'),
         ]
         for row in elevated_rows:elevated_sheet.append(row)
+        for segment in r['elevated'].get('segment_summaries',[]):
+            description=(f"{segment['Extensão (km)']:.3f} km; altura {segment['Altura (m)']:.2f} m; "
+                f"vão {segment['Vão (m)']:.2f} m; {segment['Fundação']} Ø {segment['Diâmetro (m)']:.2f} m")
+            effect=(f"{segment['Vãos']} vãos; {segment['Apoios']} apoios; {segment['Estacas']} estacas; "
+                f"{segment['Extensão de estacas (m)']:.2f} m de estacas")
+            elevated_sheet.append(['Trecho homogêneo',segment['Trecho'],description,'',
+                f"Capacidade nominal {segment['Capacidade nominal/apoio (tf)']:.0f} tf/apoio",effect])
+        for name,data in r['elevated'].get('technical_factors',{}).items():
+            elevated_sheet.append(['Coeficiente técnico',name,data['choice'],'',data['factor'],data['criterion']])
+        for name,value in r['elevated'].get('indicators',{}).items():
+            unit=('R$' if name.startswith('Custo ') else '%' if name.endswith('(%)') else
+                'm³' if '(m³)' in name else 'kg' if '(kg)' in name else '')
+            elevated_sheet.append(['Indicador gerencial',name,value,unit,'','Resultado derivado do cenário calculado.'])
         for component,value in r['elevated']['components'].items():
             elevated_sheet.append(['Custo estrutural',component,value,'R$','','Custo direto dentro do grupo Via permanente.'])
     sheets={};lookup={}

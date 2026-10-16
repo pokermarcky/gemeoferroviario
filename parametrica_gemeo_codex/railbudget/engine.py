@@ -90,6 +90,19 @@ class Scenario:
     piles_per_support: int=4
     pile_diameter: float=0.80
     urban_interference: str='Média'
+    elevated_segments: tuple=()
+    deck_type: str='Vigas pré-moldadas com laje'
+    pier_type: str='Pilar único circular'
+    geotechnical_condition: str='Intermediária'
+    construction_method: str='Montagem com guindaste'
+    execution_constraint: str='Frente livre'
+    special_span_length: float=0.0
+    special_span_addition: float=50.0
+    transitions: int=0
+    transition_unit_cost: float=2000000.0
+    noise_barrier_length: float=0.0
+    noise_barrier_height: float=3.0
+    noise_barrier_unit_cost: float=2500.0
 
 
 FOUNDATION_OPTIONS={

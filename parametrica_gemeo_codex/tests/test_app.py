@@ -202,6 +202,27 @@ def test_elevado_de_passageiros_tem_controles_estruturais_e_recalcula():
     assert result['elevated']['active_width']==8
 
 
+def test_elevado_avancado_organiza_solucoes_em_paineis_recolhiveis():
+    app=AppTest.from_file(str(APP)).run(timeout=30)
+    app.selectbox(key='main_configuration').set_value('Elevado').run(timeout=30)
+    labels={item.label for item in app.expander}
+    assert {'Fundações e condição urbana','Dividir o corredor em trechos homogêneos',
+        'Soluções estruturais e método executivo','Obras singulares e proteção acústica'}.issubset(labels)
+    assert app.selectbox(key='main_elevated_deck_type').options[0]=='Vigas pré-moldadas com laje'
+    assert app.selectbox(key='main_elevated_pier_type').options[-1]=='Pórtico'
+    app.selectbox(key='main_elevated_deck_type').set_value('Viga-caixão pré-moldada segmental')
+    app.selectbox(key='main_elevated_pier_type').set_value('Pórtico')
+    app.number_input(key='main_elevated_transitions').set_value(2)
+    app.button(key='main_calculate').click().run(timeout=30)
+    assert not app.exception
+    result=app.session_state['results']['main']
+    assert result['scenario']['deck_type']=='Viga-caixão pré-moldada segmental'
+    assert result['scenario']['pier_type']=='Pórtico'
+    assert result['scenario']['transitions']==2
+    assert result['elevated']['indicators']['Custo por apoio']>0
+    assert app.button(key='main_sensitivity_button')
+
+
 def test_upload_siec_recalcula_orcamento_com_codigo_sem_prefixo():
     from railbudget.reference_data import parse_reference
 
