@@ -4,9 +4,10 @@ from streamlit.components.v1 import html
 
 STYLE = '''<style>
 :root {--ink:#243f48;--accent:#28776f;--line:#dde7e4}
-[data-testid="stAppViewContainer"] {background:linear-gradient(180deg,#f8faf9 0,#f1f5f3 48rem);color:var(--ink)}
+[data-testid="stAppViewContainer"] {background:linear-gradient(180deg,#ffb26b 0,#ffcf9e 24rem,#ffe4c8 60rem);background-attachment:fixed;color:var(--ink)}
+[data-testid="stHeader"] {background:transparent}
 .block-container {max-width:1180px;padding:1.3rem 2rem 4rem}
-[data-testid="stSidebar"] {background:#f3f7f5;border-right:1px solid #cadad5}
+[data-testid="stSidebar"] {background:#ffe8d1;border-right:1px solid #f0b47c}
 [data-testid="stSidebar"] [data-testid="stSidebarContent"] {padding:1rem .8rem 2rem}
 [data-testid="stSidebar"] .st-key-user_profile_card {padding:1rem;border:1px solid #ffffff24;border-radius:16px;background:linear-gradient(145deg,#173c3e,#285b57);color:#fff;box-shadow:0 10px 28px #0b252528}
 [data-testid="stSidebar"] .st-key-user_profile_card h3 {color:#fff!important;margin:.2rem 0 0;padding:0}
@@ -57,7 +58,7 @@ STYLE = '''<style>
 .st-key-hero p {color:#647a7f;font-size:.95rem;text-align:center}
 .hero-eyebrow {display:block;text-align:center;font-family:"Aptos","Segoe UI Variable Text","Segoe UI",Inter,system-ui,sans-serif;font-size:.67rem;letter-spacing:.17em;font-weight:750;color:#428077}
 h3 {font-size:1.25rem!important;letter-spacing:-.025em;color:var(--ink)}
-[data-testid="stCaptionContainer"] {color:#63777d}
+[data-testid="stCaptionContainer"] {color:#4a5c60}
 [data-testid="stTabs"] [role="tablist"] {gap:.5rem;border:0!important;margin:.6rem 0 1rem;flex-wrap:wrap;height:auto!important}
 [data-testid="stTabs"] [data-testid="stTab"] {height:auto!important;min-height:44px;padding:.65rem 1rem;background:#fff;border:1px solid var(--line);border-radius:12px;color:#496168;white-space:normal;transition:background .15s}
 [data-testid="stTabs"] [data-testid="stTab"][aria-selected="true"] {background:#e5f1ed;border-color:#57988d;color:#18564d;box-shadow:inset 0 -2px #57988d}
