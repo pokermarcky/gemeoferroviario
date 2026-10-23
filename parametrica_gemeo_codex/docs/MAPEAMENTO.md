@@ -54,3 +54,22 @@ Com as premissas iniciais, 20 t/eixo reproduz exatamente os quantitativos e o cu
 Orçamentos de carga salvos antes desta versão reabrem com a geometria da referência (0,60/0,30/0,20 m), que foi a usada no cálculo original. O resultado salvo não é alterado.
 
 **Fora do total, listados separadamente:** locomotivas e vagões (a SIEC tem custo horário de operação, não preço de aquisição), pátios de cruzamento ou terminais, pontes e viadutos (a referência do elevado é de passageiros) e passagens em nível. As quantidades informadas aparecem no resultado, na aba Resumo do Excel e nas premissas, sempre como "Não precificado · fora do total". Nenhum preço é atribuído.
+
+## Shortline (aba ORÇAMENTOS → Shortline)
+
+Módulo: `railbudget/shortline.py`, versão de regra `SHORTLINE-1`. É aditivo: chama `calculate_freight` e não altera `freight.py`, `engine.py` nem `config/rules.json`.
+
+| Parte do orçamento | Origem do preço | Como a quantidade é obtida |
+| --- | --- | --- |
+| Linha principal (grupos 1, 2, 3, 4, 5 e 8) | SIEC, pelo motor de carga em superfície | Via singela com a extensão informada; carga por eixo de 16 a 25 t com a mesma geometria e os mesmos perfis (TR-57 ou UIC 60) da ferrovia de carga |
+| 1.3 Desvios e pátios | SIEC, mesmas composições da via corrida | Extensão = desvios × comprimento útil + vias de pátio; só os itens de via a partir da limpeza do terreno (linha 19 da referência), sem canteiro, sondagens, mobilização e administração local |
+| 5 AMVs | SIEC, AMV nº 14 | 2 por desvio de cruzamento + AMVs de pátio; o envelope é abatido da linha principal |
+| 8 Sinalização | SIEC | Opcional e desmarcada no início; cobre a linha principal |
+| Passagens em nível, locomotivas, vagões, terminais, obras de arte especiais | Sem preço | Quantidade registrada em `pending_scope` e na aba Premissas do Excel; não entra no total |
+
+Grupos excluídos do modelo: 6 Infraestrutura de cabos, 7 Rede aérea e 9 Material rodante.
+
+Premissas a validar: comprimento útil dos desvios pelo trem-tipo, leiaute e extensão das vias de pátio, número de AMVs, ausência de drenagem e vedação próprias no pátio, e a capacidade da via para a carga por eixo escolhida. A memória de cálculo das quantidades de desvios e pátio aparece no Excel com o prefixo "desvios e pátio".
+
+Orçamentos salvos da Shortline usam a modalidade "Shortline" e podem ser reabertos para edição; os parâmetros são restaurados de `scenario`.
+

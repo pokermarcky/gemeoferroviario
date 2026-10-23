@@ -14,6 +14,8 @@ from railbudget.freight import (calculate_freight, axle_class, load_axle_config,
     freight_input_signature, PENDING_FIELDS)
 from railbudget.underground import calculate_underground
 from railbudget.vlt import calculate_vlt, make_vlt_excel
+from railbudget.shortline import (AMVS_PER_SIDING, SHORTLINE_GROUPS, ShortlineParams,
+    calculate_shortline, default_selection)
 from railbudget.reference_data import (SOURCES, KINDS, parse_reference, apply_reference_bases,
     embedded_inventory, normalized_excel)
 from railbudget.auth import (budget_download_limit, can, can_download_budget, is_primary_root,
@@ -425,6 +427,90 @@ def render_vlt_budget():
             key='vlt_excel',icon=':material/download:')
 
 
+def render_shortline_budget():
+    key='shortline'
+    defaults=ShortlineParams()
+    st.subheader('Configure sua shortline')
+    st.caption('Ferrovia de carga curta em via singela, com desvios de cruzamento e pátio. Usa as composições SIEC da ferrovia de carga; nenhum preço é estimado fora da base.')
+    with st.container(border=True):
+        st.markdown('**1. Traçado, desvios e pátio**')
+        line=st.columns(3)
+        km=line[0].number_input('Extensão da linha principal (km)',min_value=0.01,max_value=10000.0,
+            value=defaults.km,step=1.0,format='%.3f',key=key+'_km')
+        axle=line[1].number_input('Carga por eixo (t/eixo)',min_value=16.0,max_value=25.0,value=defaults.axle_load,
+            step=0.5,format='%.1f',key=key+'_axle_load',
+            help='Até 20 t: TR-57; acima de 20 até 25 t: UIC 60, com a geometria de via da ferrovia de carga. Sujeito a projeto estrutural.')
+        line[2].caption('Implantação: superfície · via singela em lastro · tração diesel (sem rede aérea).')
+        yard=st.columns(4)
+        sidings=yard[0].number_input('Desvios de cruzamento (un)',min_value=0,max_value=500,
+            value=defaults.sidings,step=1,key=key+'_sidings')
+        siding_length=yard[1].number_input('Comprimento útil por desvio (m)',min_value=0.0,max_value=10000.0,
+            value=defaults.siding_length,step=50.0,format='%.0f',key=key+'_siding_length',
+            help='Premissa a validar pelo comprimento do trem-tipo.')
+        yard_length=yard[2].number_input('Vias de pátio e terminal (m)',min_value=0.0,max_value=100000.0,
+            value=defaults.yard_length,step=100.0,format='%.0f',key=key+'_yard_length',
+            help='Soma das vias auxiliares de pátio, além da linha principal.')
+        yard_amvs=yard[3].number_input('AMVs de pátio (un)',min_value=0,max_value=1000,
+            value=defaults.yard_amvs,step=1,key=key+'_yard_amvs')
+        st.caption(f'AMVs no orçamento: {AMVS_PER_SIDING} por desvio + {int(yard_amvs)} de pátio = '
+            f'**{AMVS_PER_SIDING*int(sidings)+int(yard_amvs)} AMV(s) nº 14**. Via adicional de desvios e pátio: '
+            f'**{br((int(sidings)*float(siding_length)+float(yard_length))/1000,3)} km**.')
+    with st.container(border=True):
+        st.markdown('**2. Serviços incluídos**')
+        st.caption('Marque os grupos que fazem parte do escopo. A marcação recorta o total sem recalcular as quantidades.')
+        chosen=[]
+        for index,group in enumerate(SHORTLINE_GROUPS):
+            if index%4==0:columns=st.columns(4)
+            with columns[index%4]:
+                checkbox_key=f'{key}_grupo_{index}'
+                st.session_state.setdefault(checkbox_key,default_selection(group))
+                if st.checkbox(group.split(' ',1)[1],key=checkbox_key,persist_state='session'):chosen.append(group)
+        options=st.columns(3)
+        drainage=options[0].selectbox('Tipo de drenagem',['Normal','Reforçada','Complexa'],key=key+'_drainage')
+        fence=options[1].selectbox('Tipo de vedação',['Cerca','Muro'],key=key+'_fence')
+        detection=options[2].selectbox('Detecção de trens (se houver sinalização)',['Contador de eixos','Circuito de via'],
+            key=key+'_detection')
+    with st.container(border=True):
+        st.markdown('**3. Escopo registrado fora do total**')
+        st.caption('Quantidades guardadas no orçamento e no Excel, sem preço: a base SIEC não tem composição de aquisição ou de projeto para estes itens.')
+        scope=st.columns(3)
+        crossings=scope[0].number_input('Passagens em nível (un)',min_value=0,max_value=10000,
+            value=defaults.level_crossings,step=1,key=key+'_level_crossings')
+        locomotives=scope[1].number_input('Locomotivas (un)',min_value=0,max_value=10000,
+            value=defaults.locomotives,step=1,key=key+'_locomotives')
+        wagons=scope[2].number_input('Vagões (un)',min_value=0,max_value=100000,
+            value=defaults.wagons,step=1,key=key+'_wagons')
+    with st.container(border=True,key=key+'_bdi_panel'):
+        st.markdown('**4. BDI e condições do orçamento**')
+        apply_bdi=st.checkbox('Aplicar BDI',value=True,key=key+'_aplicar_bdi',persist_state='session')
+        percentage=st.number_input('BDI personalizado (%)',min_value=0.0,max_value=100.0,value=26.30,step=0.10,
+            format='%.2f',key=key+'_bdi_personalizado',persist_state='session')
+        st.caption('Sugestão inicial: 26,30%. O usuário pode ajustar o percentual; ele é aplicado uma única vez ao total e aos subtotais.')
+    params=ShortlineParams(km=float(km),sidings=int(sidings),siding_length=float(siding_length),
+        yard_length=float(yard_length),yard_amvs=int(yard_amvs),axle_load=float(axle),drainage=drainage,
+        fence=fence,detection=detection,level_crossings=int(crossings),locomotives=int(locomotives),wagons=int(wagons))
+    update=st.button('Atualizar orçamento',key=key+'_calculate',type='primary',icon=':material/calculate:')
+    reference_refresh=st.session_state.get(key+'_reference_signature')!=reference_signature
+    if update or reference_refresh or key not in st.session_state.results:
+        try:
+            st.session_state.results[key]=calculate_shortline(params,rules,catalog,bdi=percentage/100)
+            st.session_state[key+'_calculated_inputs']=params
+            st.session_state[key+'_reference_signature']=reference_signature
+        except (ValueError,KeyError,ZeroDivisionError) as exc:
+            st.session_state.results.pop(key,None);st.error(str(exc));return
+    stale=st.session_state.get(key+'_calculated_inputs')!=params
+    if stale:
+        st.info('Você alterou o cenário. Selecione Atualizar orçamento para conferir os novos valores.');return
+    result=st.session_state.results.get(key)
+    if not result:return
+    st.info('Shortline em superfície com composições SIEC de carga (TR-57 ou UIC 60, conforme a carga por eixo). Passagens em nível, frota, terminais e obras de arte especiais ficam registrados fora do total.')
+    render_result(select_groups(result,chosen,bdi_rate=percentage/100 if apply_bdi else 0.0),key,modality='shortline')
+    st.caption(f"Extensão total de via (principal + desvios + pátio): {br(result['scenario']['track_km'],3)} km · "
+        f"custo por km de via: {currency(result['per_track_km'])}".replace('$',r'\$'))
+    with st.expander('Escopo pendente · fora do total',expanded=False):
+        display_table(pd.DataFrame(result['pending_scope']))
+
+
 def result_group_label(group,result):
     """Traduz o nome histórico do agrupamento para a solução exibida."""
     label=group.split(' ',1)[1]
@@ -707,7 +793,7 @@ with budgets_tab:
         render_vlt_budget()
 
     with shortline:
-        pass
+        render_shortline_budget()
 
 with reference_tab:
     with st.container(key='reference_heading'):

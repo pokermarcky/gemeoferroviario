@@ -208,6 +208,7 @@ def make_excel(r,catalog):
             ('Elevado','Diâmetro da estaca',scenario['pile_diameter'],'m','Seleciona o serviço SIEC e ajusta armadura e blocos.'),
             ('Elevado','Interferência urbana',scenario['urban_interference'],'','Orienta a recomendação de fundação; não aplica adicional sem preço de referência.'),
         ])
+    premise_rows.extend(r.get('extra_premises',()))
     refs={}
     for category,label,value,unit,application in premise_rows:
         prem.append([category,label,value,unit,application])
