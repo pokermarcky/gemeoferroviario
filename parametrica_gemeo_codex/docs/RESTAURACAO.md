@@ -8,7 +8,7 @@ Este documento explica como devolver o Parametric Rails a um estado conhecido e 
 
 | Ponto | Tipo | Commit | Estado |
 | --- | --- | --- | --- |
-| `backup/estavel-2026-10-23` | branch no GitHub | `08fdea8` | `main` após o PR #50 (tema vermelho e amarelo, cartão "Seu espaço"), 75 testes aprovados |
+| `backup/estavel-2026-10-23` | branch no GitHub | `08fdea8` | `main` após o PR #50 (tema vermelho e amarelo, cartão "Seu espaço"), 75 testes aprovados. Anterior aos PRs #44, #52, #53 e #54. |
 
 Regras para pontos de restauração:
 

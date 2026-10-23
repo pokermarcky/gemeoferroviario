@@ -14,7 +14,7 @@
 
 1. **Concluído:** seleção financeira dos grupos; abas claras de resumo e detalhamento; abas de grupo no Excel; seleção vazia, isolada, múltipla e comparação testadas.
 2. **Concluído:** rede aérea, sinalização e material rodante, com composições SIEC, referência contratual CPTM por composição e premissas paramétricas documentadas. A infraestrutura de cabos agora usa banco subterrâneo na superfície e canaletas/passa-fios embutidos no tabuleiro elevado. Os controles redundantes de topografia e banco de dutos foram retirados do formulário lateral.
-3. Após confirmação: nomenclatura integralmente em português, incluindo memórias e variáveis exibidas.
+3. **Em revisão:** nomenclatura integralmente em português nas memórias de cálculo. ROUNDUP/ROUNDDOWN e PI() aparecem como "arredondar para cima/baixo" e π; decimais usam vírgula, argumentos usam ponto e vírgula e operadores usam × e ÷; a origem das regras (vp, p2, subterraneo) é exibida por extenso também no Word e no PDF. As expressões executáveis, chaves de rules.json e dados salvos não mudam.
 4. Após confirmação: figuras e memoriais; incorporar PowerPoint e reutilizar as figuras na interface e documentos.
 5. Após confirmação: padronização global Aptos 12, Excel com margens B2, alinhamentos e bordas; cenário de exemplo com verificação visual.
 

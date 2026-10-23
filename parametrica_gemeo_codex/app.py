@@ -10,9 +10,12 @@ from railbudget.elevated import (calculate_elevated, sensitivity, DECK_FACTORS, 
 from railbudget.exporters import make_excel, currency, br, caption
 from railbudget.interface import apply_theme
 from railbudget.static_scene_v2 import static_header_v2
-from railbudget.freight import calculate_freight
+from railbudget.freight import (calculate_freight, axle_class, load_axle_config, platform_width,
+    freight_input_signature, PENDING_FIELDS)
 from railbudget.underground import calculate_underground
 from railbudget.vlt import calculate_vlt, make_vlt_excel
+from railbudget.shortline import (AMVS_PER_SIDING, SHORTLINE_GROUPS, ShortlineParams,
+    calculate_shortline, default_selection)
 from railbudget.reference_data import (SOURCES, KINDS, parse_reference, apply_reference_bases,
     embedded_inventory, normalized_excel)
 from railbudget.auth import (budget_download_limit, can, can_download_budget, is_primary_root,
@@ -84,8 +87,28 @@ def budget_controls(key,freight=False):
             configuration='Superfície' if freight else st.selectbox('Configuração',['Superfície','Elevado','Subterrâneo'],key=key+'_configuration')
         if freight:
             lines=st.selectbox('Via',[1,2],format_func=lambda n:'Simples' if n==1 else 'Dupla',key=key+'_lines')
-            axle=st.selectbox('Alternativa de carga por eixo (t/eixo)',[20,25],index=1,key=key+'_axle',help='20 t: TR57; 25 t: UIC60. Alternativas de orçamento, sujeitas a projeto estrutural.')
-            st.caption('Via de superfície com trilhos e montagem específicos para a alternativa selecionada. Verifique a capacidade em projeto.')
+            axle_config=load_axle_config()
+            axle=st.number_input('Carga por eixo (t/eixo)',min_value=axle_config['min_axle_load'],
+                max_value=axle_config['max_axle_load'],value=25.0,step=0.5,format='%.1f',key=key+'_axle',
+                help='Até 20 t: TR-57. Acima de 20 até 25 t: UIC 60. Acima de 25 t exigiria TR-68, sem preço na base SIEC.')
+            axle_band=axle_class(axle,axle_config)
+            st.caption(f"Faixa {axle_band['label']}. Trilho, dormentes, lastro, sublastro e plataforma são redimensionados pelas premissas abaixo.")
+            limits=axle_config['limits'];defaults=axle_band['defaults']
+            with st.expander('Premissas técnicas da via de carga (a validar)',expanded=False):
+                st.caption('Valores iniciais da faixa selecionada. Não vêm da base SIEC: são premissas preliminares a confirmar em projeto (DNIT ISF-212 e ISF-213).')
+                premise_columns=st.columns(3)
+                freight_premises={
+                    'sleeper_spacing':premise_columns[0].number_input('Espaçamento dos dormentes (m)',
+                        min_value=limits['sleeper_spacing'][0],max_value=limits['sleeper_spacing'][1],
+                        value=defaults['sleeper_spacing'],step=.01,format='%.2f',key=f"{key}_sleeper_spacing_{axle_band['id']}"),
+                    'ballast_depth':premise_columns[1].number_input('Lastro sob o dormente (m)',
+                        min_value=limits['ballast_depth'][0],max_value=limits['ballast_depth'][1],
+                        value=defaults['ballast_depth'],step=.05,format='%.2f',key=f"{key}_ballast_depth_{axle_band['id']}"),
+                    'sublayer_thickness':premise_columns[2].number_input('Espessura do sublastro (m)',
+                        min_value=limits['sublayer_thickness'][0],max_value=limits['sublayer_thickness'][1],
+                        value=defaults['sublayer_thickness'],step=.05,format='%.2f',key=f"{key}_sublayer_{axle_band['id']}"),
+                }
+                st.caption(f"Trilho {axle_band['rail']} ({br(axle_band['rail_kg_m'],1)} kg/m). Plataforma resultante em via simples: {br(platform_width(freight_premises['ballast_depth'],axle_config),2)} m (base do lastro com talude 1,5:1 e banquetas de 0,45 m).")
         else:
             with general[3]:
                 lines=st.selectbox('Via',[1,2],format_func=lambda n:'Simples' if n==1 else 'Dupla',key=key+'_lines')
@@ -262,8 +285,13 @@ def budget_controls(key,freight=False):
             fleet=st.columns(2)
             with fleet[0]:locomotives=st.number_input('Locomotivas equivalentes (un/km)',min_value=0.0,max_value=10000.0,value=0.0,step=0.01,format='%.2f',key=key+'_locomotives')
             with fleet[1]:wagons=st.number_input('Vagões equivalentes (un/km)',min_value=0.0,max_value=100000.0,value=0.0,step=0.01,format='%.2f',key=key+'_wagons')
-            st.caption('A base SIEC contém custos horários de operação de locomotiva e vagões, mas não preços de aquisição. As quantidades acima ficam registradas como escopo pendente e não entram no total.')
-            st.caption('Pátios, terminais, pontes, passagens em nível e interfaces de carga também exigem orçamento próprio.')
+            facilities=st.columns(3)
+            with facilities[0]:yards=st.number_input('Pátios de cruzamento ou terminais (un)',min_value=0,max_value=10000,value=0,step=1,key=key+'_yards')
+            with facilities[1]:bridge_length=st.number_input('Pontes e viadutos (m)',min_value=0.0,max_value=1000000.0,value=0.0,step=10.0,format='%.1f',key=key+'_bridge_length')
+            with facilities[2]:level_crossings=st.number_input('Passagens em nível (un)',min_value=0,max_value=10000,value=0,step=1,key=key+'_level_crossings')
+            st.caption('A base SIEC contém custos horários de operação de locomotiva e vagões, mas não preços de aquisição. Pátios, obras de arte especiais e passagens em nível dependem de projeto. Essas quantidades aparecem em uma lista separada, fora do total.')
+            freight_pending={'locomotives':locomotives,'wagons':wagons,'yards':yards,
+                'bridge_length':bridge_length,'level_crossings':level_crossings}
     with st.container(border=True,key=key+'_bdi_panel'):
         st.markdown(f'**{bdi_step}. BDI e condições do orçamento**')
         apply_bdi=st.checkbox('Aplicar BDI',value=True,key=key+'_aplicar_bdi',persist_state='session')
@@ -281,21 +309,20 @@ def budget_controls(key,freight=False):
                 ducts=enabled[5],topography=enabled[1],overhead=enabled[6],signaling=enabled[7],
                 detection=detection,rolling_stock=False if freight else enabled[8],trainsets=0 if freight else int(trainsets) if enabled[8] else 0,
                 profile='siec',bdi=percentage/100,**elevated_parameters)
-            result=calculate_freight(p,axle,rules,catalog) if freight else calculate_underground(p,rules,catalog) if subterraneo else calculate_elevated(p,rules,catalog,segment_records or None) if configuration=='Elevado' else calculate(p,rules,catalog)
+            result=calculate_freight(p,axle,rules,catalog,freight_premises,freight_pending) if freight else calculate_underground(p,rules,catalog) if subterraneo else calculate_elevated(p,rules,catalog,segment_records or None) if configuration=='Elevado' else calculate(p,rules,catalog)
             if freight:
-                result['scenario'].update(locomotives=float(locomotives),wagons=float(wagons))
                 result['warnings'].append('Frota fora do total: '+br(locomotives,2)+' locomotiva(s) equivalente(s)/km, '+br(wagons,2)+' vagão(ões) equivalente(s)/km. Pátios, terminais, pontes e passagens em nível também não foram orçados.')
             st.session_state.results[key]=result
             st.session_state[key+'_reference_signature']=reference_signature
             elevated_inputs=tuple(repr(value) for value in elevated_parameters.values()) if elevated_parameters else ()
             st.session_state[key+'_calculated_inputs']=(km,configuration,lines,drainage,fence,amvs,detection,trainsets if not freight else 0,
-                elevated_inputs if not freight else (axle,locomotives,wagons))
+                elevated_inputs if not freight else freight_input_signature(axle,freight_premises,freight_pending))
         except (ValueError,KeyError,ZeroDivisionError) as exc:
             st.session_state.results.pop(key,None);st.error(str(exc))
     rate=percentage/100 if apply_bdi else 0.0
     elevated_inputs=tuple(repr(value) for value in elevated_parameters.values()) if elevated_parameters else ()
     current_inputs=(km,configuration,lines,drainage,fence,amvs,detection,trainsets if not freight else 0,
-        elevated_inputs if not freight else (axle,locomotives,wagons))
+        elevated_inputs if not freight else freight_input_signature(axle,freight_premises,freight_pending))
     st.session_state.setdefault(key+'_calculated_inputs',current_inputs)
     stale=key+'_calculated_inputs' in st.session_state and st.session_state[key+'_calculated_inputs']!=current_inputs
     if stale:
@@ -400,6 +427,90 @@ def render_vlt_budget():
             key='vlt_excel',icon=':material/download:')
 
 
+def render_shortline_budget():
+    key='shortline'
+    defaults=ShortlineParams()
+    st.subheader('Configure sua shortline')
+    st.caption('Ferrovia de carga curta em via singela, com desvios de cruzamento e pátio. Usa as composições SIEC da ferrovia de carga; nenhum preço é estimado fora da base.')
+    with st.container(border=True):
+        st.markdown('**1. Traçado, desvios e pátio**')
+        line=st.columns(3)
+        km=line[0].number_input('Extensão da linha principal (km)',min_value=0.01,max_value=10000.0,
+            value=defaults.km,step=1.0,format='%.3f',key=key+'_km')
+        axle=line[1].number_input('Carga por eixo (t/eixo)',min_value=16.0,max_value=25.0,value=defaults.axle_load,
+            step=0.5,format='%.1f',key=key+'_axle_load',
+            help='Até 20 t: TR-57; acima de 20 até 25 t: UIC 60, com a geometria de via da ferrovia de carga. Sujeito a projeto estrutural.')
+        line[2].caption('Implantação: superfície · via singela em lastro · tração diesel (sem rede aérea).')
+        yard=st.columns(4)
+        sidings=yard[0].number_input('Desvios de cruzamento (un)',min_value=0,max_value=500,
+            value=defaults.sidings,step=1,key=key+'_sidings')
+        siding_length=yard[1].number_input('Comprimento útil por desvio (m)',min_value=0.0,max_value=10000.0,
+            value=defaults.siding_length,step=50.0,format='%.0f',key=key+'_siding_length',
+            help='Premissa a validar pelo comprimento do trem-tipo.')
+        yard_length=yard[2].number_input('Vias de pátio e terminal (m)',min_value=0.0,max_value=100000.0,
+            value=defaults.yard_length,step=100.0,format='%.0f',key=key+'_yard_length',
+            help='Soma das vias auxiliares de pátio, além da linha principal.')
+        yard_amvs=yard[3].number_input('AMVs de pátio (un)',min_value=0,max_value=1000,
+            value=defaults.yard_amvs,step=1,key=key+'_yard_amvs')
+        st.caption(f'AMVs no orçamento: {AMVS_PER_SIDING} por desvio + {int(yard_amvs)} de pátio = '
+            f'**{AMVS_PER_SIDING*int(sidings)+int(yard_amvs)} AMV(s) nº 14**. Via adicional de desvios e pátio: '
+            f'**{br((int(sidings)*float(siding_length)+float(yard_length))/1000,3)} km**.')
+    with st.container(border=True):
+        st.markdown('**2. Serviços incluídos**')
+        st.caption('Marque os grupos que fazem parte do escopo. A marcação recorta o total sem recalcular as quantidades.')
+        chosen=[]
+        for index,group in enumerate(SHORTLINE_GROUPS):
+            if index%4==0:columns=st.columns(4)
+            with columns[index%4]:
+                checkbox_key=f'{key}_grupo_{index}'
+                st.session_state.setdefault(checkbox_key,default_selection(group))
+                if st.checkbox(group.split(' ',1)[1],key=checkbox_key,persist_state='session'):chosen.append(group)
+        options=st.columns(3)
+        drainage=options[0].selectbox('Tipo de drenagem',['Normal','Reforçada','Complexa'],key=key+'_drainage')
+        fence=options[1].selectbox('Tipo de vedação',['Cerca','Muro'],key=key+'_fence')
+        detection=options[2].selectbox('Detecção de trens (se houver sinalização)',['Contador de eixos','Circuito de via'],
+            key=key+'_detection')
+    with st.container(border=True):
+        st.markdown('**3. Escopo registrado fora do total**')
+        st.caption('Quantidades guardadas no orçamento e no Excel, sem preço: a base SIEC não tem composição de aquisição ou de projeto para estes itens.')
+        scope=st.columns(3)
+        crossings=scope[0].number_input('Passagens em nível (un)',min_value=0,max_value=10000,
+            value=defaults.level_crossings,step=1,key=key+'_level_crossings')
+        locomotives=scope[1].number_input('Locomotivas (un)',min_value=0,max_value=10000,
+            value=defaults.locomotives,step=1,key=key+'_locomotives')
+        wagons=scope[2].number_input('Vagões (un)',min_value=0,max_value=100000,
+            value=defaults.wagons,step=1,key=key+'_wagons')
+    with st.container(border=True,key=key+'_bdi_panel'):
+        st.markdown('**4. BDI e condições do orçamento**')
+        apply_bdi=st.checkbox('Aplicar BDI',value=True,key=key+'_aplicar_bdi',persist_state='session')
+        percentage=st.number_input('BDI personalizado (%)',min_value=0.0,max_value=100.0,value=26.30,step=0.10,
+            format='%.2f',key=key+'_bdi_personalizado',persist_state='session')
+        st.caption('Sugestão inicial: 26,30%. O usuário pode ajustar o percentual; ele é aplicado uma única vez ao total e aos subtotais.')
+    params=ShortlineParams(km=float(km),sidings=int(sidings),siding_length=float(siding_length),
+        yard_length=float(yard_length),yard_amvs=int(yard_amvs),axle_load=float(axle),drainage=drainage,
+        fence=fence,detection=detection,level_crossings=int(crossings),locomotives=int(locomotives),wagons=int(wagons))
+    update=st.button('Atualizar orçamento',key=key+'_calculate',type='primary',icon=':material/calculate:')
+    reference_refresh=st.session_state.get(key+'_reference_signature')!=reference_signature
+    if update or reference_refresh or key not in st.session_state.results:
+        try:
+            st.session_state.results[key]=calculate_shortline(params,rules,catalog,bdi=percentage/100)
+            st.session_state[key+'_calculated_inputs']=params
+            st.session_state[key+'_reference_signature']=reference_signature
+        except (ValueError,KeyError,ZeroDivisionError) as exc:
+            st.session_state.results.pop(key,None);st.error(str(exc));return
+    stale=st.session_state.get(key+'_calculated_inputs')!=params
+    if stale:
+        st.info('Você alterou o cenário. Selecione Atualizar orçamento para conferir os novos valores.');return
+    result=st.session_state.results.get(key)
+    if not result:return
+    st.info('Shortline em superfície com composições SIEC de carga (TR-57 ou UIC 60, conforme a carga por eixo). Passagens em nível, frota, terminais e obras de arte especiais ficam registrados fora do total.')
+    render_result(select_groups(result,chosen,bdi_rate=percentage/100 if apply_bdi else 0.0),key,modality='shortline')
+    st.caption(f"Extensão total de via (principal + desvios + pátio): {br(result['scenario']['track_km'],3)} km · "
+        f"custo por km de via: {currency(result['per_track_km'])}".replace('$',r'\$'))
+    with st.expander('Escopo pendente · fora do total',expanded=False):
+        display_table(pd.DataFrame(result['pending_scope']))
+
+
 def result_group_label(group,result):
     """Traduz o nome histórico do agrupamento para a solução exibida."""
     label=group.split(' ',1)[1]
@@ -490,13 +601,28 @@ def render_elevated_summary(result,key):
                 else:display_table(sensitivity_frame,monetary=('Cenário inferior (R$)','Cenário-base (R$)','Cenário superior (R$)'))
 
 
+def render_freight_scope(r):
+    """Premissas de carga e escopo pendente, exibidos separadamente do total."""
+    freight=r.get('freight')
+    if not freight:return
+    premises=freight['premises']
+    with st.expander('Premissas da via de carga e itens fora do total',expanded=False):
+        st.caption(f"Faixa {freight['class_label']}: trilho {freight['rail']}, dormentes a cada {br(premises['sleeper_spacing'],2)} m, "
+            f"lastro de {br(premises['ballast_depth']*100,0)} cm sob o dormente, sublastro de {br(premises['sublayer_thickness']*100,0)} cm "
+            f"e plataforma de {br(freight['platform_width'],2)} m por via simples. Premissas a validar em projeto.")
+        pending=pd.DataFrame([{'Item':p['item'],'Quantidade':br(p['quantity'],2),'Unidade':p['unit'],
+            'Situação':p['status'],'Motivo':p['reason']} for p in r.get('pending_scope',[])])
+        if not pending.empty:display_table(pending)
+
+
 def render_result(r,key,modality='passageiro'):
     st.session_state.display_results[key]=r
     with st.container(key='result_header_'+key):
         st.markdown('## Resultado do orçamento')
         st.caption('Síntese financeira do cenário e do escopo selecionado.')
     if modality=='carga':
-        st.info('Infraestrutura de carga com alternativa TR57 ou UIC60 da base SIEC. A verificação estrutural da via, frota, pátios, terminais e obras especiais requer orçamento de projeto.')
+        st.info('Infraestrutura de carga com preços SIEC. Trilho, dormentes, lastro, sublastro e plataforma seguem a carga por eixo e premissas preliminares a validar em projeto. Frota, pátios, terminais e obras de arte especiais ficam fora do total.')
+        render_freight_scope(r)
     st.caption('Cenário calculado: '+caption(r))
     with st.container(key='result_kpis_'+key):
         result_columns=st.columns(3,gap='medium')
@@ -667,7 +793,7 @@ with budgets_tab:
         render_vlt_budget()
 
     with shortline:
-        pass
+        render_shortline_budget()
 
 with reference_tab:
     with st.container(key='reference_heading'):

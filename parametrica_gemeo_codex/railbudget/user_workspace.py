@@ -11,11 +11,17 @@ from railbudget.budget_store import (
     delete_budget, list_budgets, save_budget, storage_mode, update_budget,
 )
 from railbudget.exporters import currency
+from railbudget.freight import (axle_class, load_axle_config, freight_input_signature,
+    PREMISE_KEYS, PENDING_FIELDS)
+from railbudget.shortline import (
+    FIELDS as SHORTLINE_FIELDS, SHORTLINE_GROUPS, default_selection as shortline_default_selection,
+    params_from_scenario,
+)
 
 
 ROLE_LABELS = {"root": "Administrador root", "user": "Usuário", "test": "Demonstração"}
 MODALITY_LABELS = {"main": "Ferrovia de passageiro", "cargo": "Ferrovia de carga",
-    "vlt": "VLT - Veículo leve sobre Trilho"}
+    "vlt": "VLT - Veículo leve sobre Trilho", "shortline": "Shortline"}
 
 
 def _date_label(value):
@@ -47,6 +53,8 @@ def _modality_visual(modality):
     label = str(modality).casefold()
     if "vlt" in label:
         return "VLT", "project-vlt"
+    if "shortline" in label:
+        return "SL", "project-cargo"
     if "carga" in label:
         return "CG", "project-cargo"
     return "PS", "project-passenger"
@@ -56,6 +64,8 @@ def _modality_key(modality):
     label = str(modality).casefold()
     if "vlt" in label:
         return "vlt"
+    if "shortline" in label:
+        return "shortline"
     if "carga" in label:
         return "cargo"
     return "main"
@@ -80,6 +90,10 @@ def _load_budget_for_editing(row, result):
         st.session_state["vlt_surface_km"] = surface
         st.session_state["vlt_elevated_km"] = elevated
         st.session_state["vlt_calculated_inputs"] = (surface, elevated)
+        return
+
+    if key == "shortline":
+        _load_shortline_for_editing(result, scenario)
         return
 
     freight = key == "cargo"
@@ -139,12 +153,22 @@ def _load_budget_for_editing(row, result):
             st.session_state[f"{key}_elevated_barrier_height"] = float(scenario.get("noise_barrier_height", 3.0))
             st.session_state[f"{key}_elevated_barrier_cost"] = float(scenario.get("noise_barrier_unit_cost", 2500.0))
     else:
-        axle = int(scenario.get("axle_load", 25))
-        locomotives = float(scenario.get("locomotives", 0.0))
-        wagons = float(scenario.get("wagons", 0.0))
+        axle = float(scenario.get("axle_load", 25))
         st.session_state[f"{key}_axle"] = axle
-        st.session_state[f"{key}_locomotives"] = locomotives
-        st.session_state[f"{key}_wagons"] = wagons
+        band = axle_class(axle)
+        saved_premises = scenario.get("freight_premises")
+        if saved_premises is None:
+            # Orçamentos salvos antes do redimensionamento usaram a geometria da referência SIEC.
+            reference = load_axle_config()["reference_geometry"]
+            saved_premises = {k: reference[k] for k in PREMISE_KEYS}
+        freight_premises = {**band["defaults"], **{k: float(v) for k, v in
+            saved_premises.items() if k in PREMISE_KEYS}}
+        st.session_state[f"{key}_sleeper_spacing_{band['id']}"] = freight_premises["sleeper_spacing"]
+        st.session_state[f"{key}_ballast_depth_{band['id']}"] = freight_premises["ballast_depth"]
+        st.session_state[f"{key}_sublayer_{band['id']}"] = freight_premises["sublayer_thickness"]
+        freight_pending = {name: float(scenario.get(name, 0.0) or 0.0) for name, *_ in PENDING_FIELDS}
+        for name, value in freight_pending.items():
+            st.session_state[f"{key}_{name}"] = int(value) if name in ("yards", "level_crossings") else value
 
     scope = result.get("scope_summary", []) if isinstance(result, dict) else []
     selected = {item.get("group"): bool(item.get("selected")) for item in scope}
@@ -159,8 +183,7 @@ def _load_budget_for_editing(row, result):
             st.session_state[f"{key}_grupo_{index}"] = checked
 
     if freight:
-        extra = (int(scenario.get("axle_load", 25)), float(scenario.get("locomotives", 0.0)),
-            float(scenario.get("wagons", 0.0)))
+        extra = freight_input_signature(axle, freight_premises, freight_pending)
     elif configuration == "Elevado":
         saved_segments=scenario.get("elevated_segments") or []
         selected_segments=tuple(saved_segments) if len(saved_segments)>1 else ()
@@ -181,6 +204,19 @@ def _load_budget_for_editing(row, result):
     st.session_state[f"{key}_calculated_inputs"] = (
         km, configuration, lines, drainage, fence, amvs, detection, trainsets, extra,
     )
+
+
+def _load_shortline_for_editing(result, scenario):
+    params = params_from_scenario(scenario)
+    for field in SHORTLINE_FIELDS:
+        st.session_state[f"shortline_{field}"] = getattr(params, field)
+    bdi = float(scenario.get("bdi", 0.0))
+    st.session_state["shortline_aplicar_bdi"] = bdi > 0
+    st.session_state["shortline_bdi_personalizado"] = bdi * 100 if bdi > 0 else 26.30
+    selected = {item.get("group"): bool(item.get("selected")) for item in result.get("scope_summary", [])}
+    for index, group in enumerate(SHORTLINE_GROUPS):
+        st.session_state[f"shortline_grupo_{index}"] = selected.get(group, shortline_default_selection(group))
+    st.session_state["shortline_calculated_inputs"] = params
 
 
 @st.dialog("Informações do projeto", width="small")

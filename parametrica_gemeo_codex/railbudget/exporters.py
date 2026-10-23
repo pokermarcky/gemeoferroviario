@@ -9,7 +9,7 @@ from datetime import datetime
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile, ZIP_DEFLATED
 from html import escape
-from railbudget.localization import formula_legivel, memoria_quantidade
+from railbudget.localization import formula_legivel, memoria_quantidade, origem_legivel
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -152,6 +152,10 @@ def make_excel(r,catalog):
         summary.append(['Locomotivas informadas (un/km)',r['scenario'].get('locomotives',0)])
         summary.append(['Vagões informados (un/km)',r['scenario'].get('wagons',0)])
         summary.append(['Observação','A base atual não contém preços de aquisição de locomotivas e vagões.'])
+    if r.get('pending_scope'):
+        summary.append(['Escopo de carga fora do total','Quantidade','Unidade','Situação','Motivo'])
+        for pending in r['pending_scope']:
+            summary.append([pending['item'],pending['quantity'],pending['unit'],pending['status'],pending['reason']])
     for note in r['warnings']:summary.append([note])
     chart=BarChart();chart.title='Composição do custo direto';chart.add_data(Reference(summary,min_col=2,min_row=3,max_row=last_group_row),titles_from_data=True);chart.set_categories(Reference(summary,min_col=1,min_row=first_group_row,max_row=last_group_row))
     chart.height=11;chart.width=23;chart.legend=None;chart.title=None
@@ -178,7 +182,18 @@ def make_excel(r,catalog):
         ('Escopo','Composições',scenario['trainsets'],'un','Quantidade de composições incluídas, quando aplicável.'),
         ('Cálculo','BDI',scenario['bdi'],'%','Aplicado uma única vez sobre o custo direto.'),
     ]
-    if 'axle_load' in scenario:premise_rows.append(('Carga','Carga por eixo',scenario['axle_load'],'t/eixo','Seleciona a alternativa de trilho da ferrovia de carga.'))
+    if 'axle_load' in scenario:premise_rows.append(('Carga','Carga por eixo',scenario['axle_load'],'t/eixo','Seleciona a faixa de trilho e as premissas iniciais da via de carga.'))
+    if scenario.get('freight_premises'):
+        freight=scenario['freight_premises'];status='Premissa a validar em projeto; não vem da base SIEC.'
+        premise_rows.extend([
+            ('Carga','Trilho',r.get('freight',{}).get('rail',''),'','Define o código SIEC de trilho, dormente, montagem e solda.'),
+            ('Carga','Espaçamento dos dormentes',freight['sleeper_spacing'],'m','Quantidade de dormentes e fixações. '+status),
+            ('Carga','Lastro sob o dormente',freight['ballast_depth'],'m','Seção trapezoidal de lastro e transporte de brita. '+status),
+            ('Carga','Espessura do sublastro',freight['sublayer_thickness'],'m','Volume de sublastro sobre a plataforma. '+status),
+            ('Carga','Largura da plataforma (via simples)',freight['platform_width'],'m','Base do lastro com banquetas; limpeza, terraplenagem e compactação. '+status),
+        ])
+    for name,label,unit in (('yards','Pátios de cruzamento ou terminais','un'),('bridge_length','Pontes e viadutos','m'),('level_crossings','Passagens em nível','un')):
+        if name in scenario:premise_rows.append(('Carga',label,scenario[name],unit,'Escopo informativo; não compõe o total.'))
     if 'locomotives' in scenario:premise_rows.append(('Carga','Locomotivas equivalentes',scenario['locomotives'],'un/km','Escopo informativo; não compõe o total.'))
     if 'wagons' in scenario:premise_rows.append(('Carga','Vagões equivalentes',scenario['wagons'],'un/km','Escopo informativo; não compõe o total.'))
     if scenario['configuration']=='Elevado':
@@ -193,6 +208,7 @@ def make_excel(r,catalog):
             ('Elevado','Diâmetro da estaca',scenario['pile_diameter'],'m','Seleciona o serviço SIEC e ajusta armadura e blocos.'),
             ('Elevado','Interferência urbana',scenario['urban_interference'],'','Orienta a recomendação de fundação; não aplica adicional sem preço de referência.'),
         ])
+    premise_rows.extend(r.get('extra_premises',()))
     refs={}
     for category,label,value,unit,application in premise_rows:
         prem.append([category,label,value,unit,application])
@@ -248,11 +264,11 @@ def make_excel(r,catalog):
         if name not in sheets:
             sheets[name]=w.create_sheet(name);sheets[name].append(['Chave exata','Código','Descrição','Unidade','Preço','Data-base','Proveniência'])
         sh=sheets[name];sh.append([k,p['code'],p['description'],p['unit'],p['price'],p['date'],provenance_pt(p['provenance'])]);lookup[k]=name
-    eap.append(['EAP orçada • '+caption(r)]);eap.append(['Quantidades calculadas para o cenário; preços vinculados por PROCV exato às referências de serviços utilizadas.'])
+    eap.append(['EAP orçada • '+caption(r)]);eap.append(['Quantidades calculadas para o cenário; preços copiados das referências de serviços utilizadas (valores fixos, sem fórmulas).'])
     eap.append(['']);eap.append(['EAP','Grupo','Código','Fonte','Serviço / descrição','Unidade','Quantidade','Custo unitário','Custo total','Data-base','Chave do preço','Cálculo da quantidade','Critério e referência'])
     for x in r['items']:
         n=eap.max_row+1;name=lookup[x['price_key']]
-        origin={'vp':'Via permanente','p2':'Referência histórica','Ajuste 2':'Regra paramétrica complementar'}.get(x['origin'],x['origin'])
+        origin=origem_legivel(x['origin'])
         reference=f"Regra: {origin}. Referência: {x['sheet']}, item {x['row']}. Critério: {x['note'].rstrip('.')} .".replace(' .','.')
         eap.append([x['eap'],x['group'],x['code'],x['source'],x['label']+' — '+x['description'],
                     x['unit'],x['quantity'],x['unit_cost'],x['total'],x['date'],x['price_key'],memoria_quantidade(x['quantity_formula'],r['context'],x['quantity'],x['unit']),reference])
@@ -316,7 +332,7 @@ def add_group_sheets(workbook,result,refs,caches,summary_rows):
         sheet['B3']=caption(result);sheet.merge_cells('B3:J3')
         sheet['B4']='Incluído no total selecionado' if included else 'Excluído do total selecionado'
         sheet.merge_cells('B4:J4')
-        sheet['B5']='Valores vinculados à EAP consolidada. A seleção de escopo é feita na aplicação.'
+        sheet['B5']='Valores copiados da EAP consolidada. A seleção de escopo é feita na aplicação.'
         sheet.merge_cells('B5:J5')
         measures=[('Subtotal direto',direct),
             ('Direto por km de corredor',direct/result['scenario']['km']),
@@ -388,7 +404,7 @@ def make_word(r):
         d.add_heading(g,2)
         for x in rows:
             d.add_paragraph(f"{x['eap']} | {x['label']} | {x['code']} ({x['source']}, {x['date']})",style='Heading 3')
-            detail=d.add_paragraph(f"{br(x['quantity'],6)} {x['unit']} × {currency(x['unit_cost'])} = {currency(x['total'])}. Memória de cálculo: {formula_legivel(x['quantity_formula'])}. Origem: {x['origin']} / {x['sheet']} / linha {x['row']}.")
+            detail=d.add_paragraph(f"{br(x['quantity'],6)} {x['unit']} × {currency(x['unit_cost'])} = {currency(x['total'])}. Memória de cálculo: {formula_legivel(x['quantity_formula'])}. Origem: {origem_legivel(x['origin'])} / {x['sheet']} / linha {x['row']}.")
             detail.paragraph_format.keep_with_next=True
             d.add_paragraph(x['note'])
     out=BytesIO();d.save(out);return out.getvalue()
@@ -417,7 +433,7 @@ def make_pdf(r,detailed=False):
     else:
         flow.append(PageBreak());flow.append(p('Memória de quantidades e preços','Heading1'))
         for x in r['items']:
-            flow.append(KeepTogether([p(x['group']+' / '+x['label'],'Heading3'),p(f"{x['code']} | {x['source']} | {x['date']}"),p(f"{br(x['quantity'],6)} {x['unit']} × {currency(x['unit_cost'])} = {currency(x['total'])}"),p('Memória de cálculo: '+formula_legivel(x['quantity_formula'])),p(f"Origem: {x['origin']} / {x['sheet']} / linha {x['row']}. "+x['note']),Spacer(1,8)]))
+            flow.append(KeepTogether([p(x['group']+' / '+x['label'],'Heading3'),p(f"{x['code']} | {x['source']} | {x['date']}"),p(f"{br(x['quantity'],6)} {x['unit']} × {currency(x['unit_cost'])} = {currency(x['total'])}"),p('Memória de cálculo: '+formula_legivel(x['quantity_formula'])),p(f"Origem: {origem_legivel(x['origin'])} / {x['sheet']} / linha {x['row']}. "+x['note']),Spacer(1,8)]))
     def footer(c,d):c.setFont(regular,8);c.drawString(32,18,'Gêmeo ferroviário • Orçamento paramétrico');c.drawRightString(page[0]-32,18,str(d.page))
     SimpleDocTemplate(out,pagesize=page,leftMargin=32,rightMargin=32,topMargin=32,bottomMargin=34).build(flow,onFirstPage=footer,onLaterPages=footer)
     return out.getvalue()
