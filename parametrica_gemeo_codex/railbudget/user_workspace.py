@@ -13,11 +13,15 @@ from railbudget.budget_store import (
 from railbudget.exporters import currency
 from railbudget.freight import (axle_class, load_axle_config, freight_input_signature,
     PREMISE_KEYS, PENDING_FIELDS)
+from railbudget.shortline import (
+    FIELDS as SHORTLINE_FIELDS, SHORTLINE_GROUPS, default_selection as shortline_default_selection,
+    params_from_scenario,
+)
 
 
 ROLE_LABELS = {"root": "Administrador root", "user": "Usuário", "test": "Demonstração"}
 MODALITY_LABELS = {"main": "Ferrovia de passageiro", "cargo": "Ferrovia de carga",
-    "vlt": "VLT - Veículo leve sobre Trilho"}
+    "vlt": "VLT - Veículo leve sobre Trilho", "shortline": "Shortline"}
 
 
 def _date_label(value):
@@ -49,6 +53,8 @@ def _modality_visual(modality):
     label = str(modality).casefold()
     if "vlt" in label:
         return "VLT", "project-vlt"
+    if "shortline" in label:
+        return "SL", "project-cargo"
     if "carga" in label:
         return "CG", "project-cargo"
     return "PS", "project-passenger"
@@ -58,6 +64,8 @@ def _modality_key(modality):
     label = str(modality).casefold()
     if "vlt" in label:
         return "vlt"
+    if "shortline" in label:
+        return "shortline"
     if "carga" in label:
         return "cargo"
     return "main"
@@ -82,6 +90,10 @@ def _load_budget_for_editing(row, result):
         st.session_state["vlt_surface_km"] = surface
         st.session_state["vlt_elevated_km"] = elevated
         st.session_state["vlt_calculated_inputs"] = (surface, elevated)
+        return
+
+    if key == "shortline":
+        _load_shortline_for_editing(result, scenario)
         return
 
     freight = key == "cargo"
@@ -192,6 +204,19 @@ def _load_budget_for_editing(row, result):
     st.session_state[f"{key}_calculated_inputs"] = (
         km, configuration, lines, drainage, fence, amvs, detection, trainsets, extra,
     )
+
+
+def _load_shortline_for_editing(result, scenario):
+    params = params_from_scenario(scenario)
+    for field in SHORTLINE_FIELDS:
+        st.session_state[f"shortline_{field}"] = getattr(params, field)
+    bdi = float(scenario.get("bdi", 0.0))
+    st.session_state["shortline_aplicar_bdi"] = bdi > 0
+    st.session_state["shortline_bdi_personalizado"] = bdi * 100 if bdi > 0 else 26.30
+    selected = {item.get("group"): bool(item.get("selected")) for item in result.get("scope_summary", [])}
+    for index, group in enumerate(SHORTLINE_GROUPS):
+        st.session_state[f"shortline_grupo_{index}"] = selected.get(group, shortline_default_selection(group))
+    st.session_state["shortline_calculated_inputs"] = params
 
 
 @st.dialog("Informações do projeto", width="small")

@@ -173,6 +173,8 @@ def nome_variavel(nome):
         return NOMES[nome]
     if PARAMETRO.fullmatch(nome):
         return "Parâmetro " + nome
+    if nome.startswith("patio_") and len(nome) > 6:
+        return "desvios e pátio: " + nome_variavel(nome[6:])
     return nome
 
 

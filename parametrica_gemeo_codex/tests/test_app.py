@@ -100,10 +100,10 @@ def test_navegacao_e_controles_solicitados():
     assert not any(x.label == 'Prazo da obra (meses)' for x in app.number_input)
     assert [(x.key, x.proto.label) for x in app.get('download_button')] == [
         ('main_excel', 'Baixar orçamento em Excel'), ('cargo_excel', 'Baixar orçamento em Excel'),
-        ('vlt_excel','Baixar orçamento em Excel')]
+        ('vlt_excel','Baixar orçamento em Excel'),('shortline_excel','Baixar orçamento em Excel')]
     assert not any(x.key == 'main_prepare' for x in app.button)
     assert {x.key for x in app.button if x.label=='Atualizar orçamento'}=={
-        'main_calculate','cargo_calculate','vlt_calculate'}
+        'main_calculate','cargo_calculate','vlt_calculate','shortline_calculate'}
     assert {u.key for u in app.get('file_uploader')} == {
         'upload_SIEC_Serviços','upload_SINAPI_Insumos',
         'upload_SIURB_Insumos','upload_SICRO_Insumos'}
@@ -248,9 +248,9 @@ def test_detalhamento_exibe_apenas_grupos_selecionados():
         app.checkbox(key=f'main_grupo_{index}').uncheck()
     app.run(timeout=30)
     assert not app.exception
-    # A única ocorrência remanescente de Drenagem pertence ao orçamento de carga.
-    assert sum(x.value=='Drenagem' for x in app.subheader)==1
-    assert sum(x.value=='Via permanente' for x in app.subheader)==2
+    # As ocorrências remanescentes de Drenagem pertencem aos orçamentos de carga e shortline.
+    assert sum(x.value=='Drenagem' for x in app.subheader)==2
+    assert sum(x.value=='Via permanente' for x in app.subheader)==3
 
 
 def test_carga_orca_so_infraestrutura_com_siec():
@@ -280,4 +280,36 @@ def test_carga_orca_so_infraestrutura_com_siec():
     assert cargo['scenario']['freight_premises']['ballast_depth']==.40
     assert {p['key']:p['quantity'] for p in cargo['pending_scope']}['bridge_length']==150
     assert cargo['scenario']['yards']==2
-    assert {x.key for x in app.get('download_button')}=={'main_excel','cargo_excel','vlt_excel'}
+    assert {x.key for x in app.get('download_button')}=={'main_excel','cargo_excel','vlt_excel','shortline_excel'}
+
+
+def test_shortline_calcula_salva_e_reabre_para_edicao(monkeypatch,tmp_path):
+    monkeypatch.setenv('RAILPARAMETRIC_BUDGET_DB',str(tmp_path/'budgets.sqlite3'))
+    app=AppTest.from_file(str(APP)).run(timeout=30)
+    assert not app.exception
+    shortline=app.session_state['results']['shortline']
+    assert shortline['scenario']['modality']=='shortline'
+    assert app.checkbox(key='shortline_grupo_6').value is False
+    assert app.checkbox(key='shortline_grupo_1').label=='Desvios e pátios'
+    app.number_input(key='shortline_km').set_value(25.0)
+    app.number_input(key='shortline_level_crossings').set_value(6).run(timeout=30)
+    assert any('Atualizar orçamento' in x.value for x in app.info)
+    app.button(key='shortline_calculate').click().run(timeout=30)
+    assert not app.exception
+    result=app.session_state['results']['shortline']
+    assert result['scenario']['km']==25.0 and result['scenario']['level_crossings']==6
+    assert result['total']>shortline['total']
+    from railbudget.auth import UserContext
+    from railbudget.budget_store import list_budgets, save_budget
+    from railbudget.user_workspace import MODALITY_LABELS
+    root=UserContext('test-suite-root','root@test.invalid','Testes','root','test-suite')
+    save_budget(root,'Shortline teste',MODALITY_LABELS['shortline'],app.session_state['display_results']['shortline'])
+    app=AppTest.from_file(str(APP)).run(timeout=30)
+    saved=next(row for row in list_budgets(root.user_id,root) if row['name']=='Shortline teste')
+    app=next(b for b in app.button if b.key==f"open_project_{saved['id']}").click().run(timeout=30)
+    app=next(b for b in app.button if b.key==f"load_budget_{saved['id']}").click().run(timeout=30)
+    assert not app.exception
+    assert app.session_state['budget_edit_context']['key']=='shortline'
+    assert app.number_input(key='shortline_km').value==25.0
+    assert app.number_input(key='shortline_level_crossings').value==6
+    assert not any('Atualizar orçamento' in x.value for x in app.info if 'alterou' in x.value)
