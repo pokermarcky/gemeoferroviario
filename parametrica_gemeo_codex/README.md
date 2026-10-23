@@ -16,7 +16,7 @@ Abra **ORÇAMENTOS → Ferrovia de passageiro**, informe a extensão, configura�
 
 A opção **Subterrâneo** está visível, mas não produz orçamento até serem cadastrados quantitativos e preços próprios de túneis e sistemas associados. Em passageiros, as estações pequenas, médias e grandes são lançadas por quantidade e **preço unitário informado pelo usuário**; não há composição pronta do edifício completo na base. É necessário recalcular após alterar essas premissas.
 
-Em **Ferrovia de carga**, informe extensão, vias e escopo de infraestrutura. O cenário inicial desativa banco de dutos, rede aérea, sinalização e material rodante. AMVs são opcionais. Locomotivas e vagões aparecem como quantidades de escopo, sem preço de aquisição: a SIEC contém custos horários de operação desses veículos, que não podem representar sua compra. O trilho, os dormentes, o lastro, a plataforma e os AMVs reutilizados da referência SIEC exigem verificação técnica para a carga por eixo, bitola, capacidade e geometria. A carga por eixo informada **não redimensiona** as quantidades nesta versão. Pátios, terminais, obras de arte, passagens em nível e frota ficam fora do total; não compare o valor por km de carga e passageiros como se os escopos fossem idênticos. VLT e Shortline permanecem em definição de escopo.
+Em **Ferrovia de carga**, informe extensão, vias e escopo de infraestrutura. O cenário inicial desativa banco de dutos, rede aérea, sinalização e material rodante. AMVs são opcionais. Locomotivas e vagões aparecem como quantidades de escopo, sem preço de aquisição: a SIEC contém custos horários de operação desses veículos, que não podem representar sua compra. A carga por eixo (16 a 25 t) escolhe o trilho (TR-57 até 20 t, UIC 60 acima) e redimensiona dormentes, fixações, lastro, sublastro e plataforma por premissas editáveis, documentadas em `docs/MAPEAMENTO.md` e a validar em projeto. AMVs, drenagem e vedação seguem a referência SIEC. Pátios, terminais, obras de arte, passagens em nível e frota podem ser informados, mas aparecem em lista separada, fora do total; não compare o valor por km de carga e passageiros como se os escopos fossem idênticos. VLT e Shortline permanecem em definição de escopo.
 
 Na aba **BASES DE REFERÊNCIA**, as abas Insumos e Serviços oferecem campos para SINAPI, SIURB e SICRO. Arquivos CSV/XLSX de até 200 MB recebem prévia das primeiras linhas e permanecem apenas na sessão atual. Eles **não alteram os preços** até serem mapeados e validados código, unidade, data-base e composição.
 
@@ -41,6 +41,7 @@ railbudget/exporters.py        planilha Excel e exportadores internos
 railbudget/localization.py     rótulos e memórias em português
 railbudget/stations.py         estações com quantidades e preços do usuário
 config/rules.json              composições e parâmetros
+config/freight_axle.json       faixas e premissas da carga por eixo
 config/coverage.json           cobertura da EAP de origem
 data/catalog.sqlite           catálogo de preços
 data/scope2_prices.json       referência contratual de material rodante

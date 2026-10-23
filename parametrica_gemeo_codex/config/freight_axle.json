@@ -1,0 +1,54 @@
+{
+  "version": "2026-10-23",
+  "status": "Premissas a validar em projeto. Não vêm da base SIEC; apenas os preços e códigos vêm da SIEC junho/2026.",
+  "references": "DNIT ISF-212 (lastro e sublastro), ISF-213 (trilhos e dormentes), ISF-214 (AMVs), ISF-215 a ISF-218 (obras de arte, sinalização e pátios). Valores numéricos abaixo são faixas preliminares adotadas no aplicativo, não transcrições das ISF.",
+  "min_axle_load": 16.0,
+  "max_axle_load": 25.0,
+  "reference_geometry": {
+    "sleeper_spacing": 0.60,
+    "ballast_depth": 0.30,
+    "sleeper_height": 0.20,
+    "ballast_top_width": 3.60,
+    "ballast_slope": 1.5,
+    "platform_margin": 0.45,
+    "platform_width": 6.0,
+    "sublayer_thickness": 0.20,
+    "note": "Geometria implícita na referência SIEC de superfície: seção de lastro h=0,50 m (0,30 m sob dormente de 0,20 m), topo 3,60 m, talude 1,5:1, base 5,10 m; plataforma de 6,0 m (0,45 m de banqueta de cada lado); sublastro de 20 cm."
+  },
+  "classes": [
+    {
+      "id": "TR57",
+      "label": "até 20 t/eixo · TR-57",
+      "max_axle_load": 20.0,
+      "rail": "TR-57",
+      "rail_kg_m": 57.0,
+      "codes": {
+        "rail": "SIEC-03.04.01.100.08",
+        "sleeper": "SIEC-03.04.01.100.01",
+        "assembly": "SIEC-03.03.04.100.01",
+        "weld": "SIEC-03.03.04.100.30"
+      },
+      "defaults": {"sleeper_spacing": 0.60, "ballast_depth": 0.30, "sublayer_thickness": 0.20}
+    },
+    {
+      "id": "UIC60",
+      "label": "acima de 20 até 25 t/eixo · UIC 60",
+      "max_axle_load": 25.0,
+      "rail": "UIC 60",
+      "rail_kg_m": 60.0,
+      "codes": {
+        "rail": "SIEC-03.04.01.100.10",
+        "sleeper": "SIEC-03.04.01.100.03",
+        "assembly": "SIEC-03.03.04.100.03",
+        "weld": "SIEC-03.03.04.100.32"
+      },
+      "defaults": {"sleeper_spacing": 0.60, "ballast_depth": 0.35, "sublayer_thickness": 0.20}
+    }
+  ],
+  "limits": {
+    "sleeper_spacing": [0.50, 0.65],
+    "ballast_depth": [0.25, 0.45],
+    "sublayer_thickness": [0.20, 0.40]
+  },
+  "above_max_note": "Acima de 25 t/eixo a prática usual adota trilho TR-68; a base SIEC junho/2026 não tem preço de fornecimento do trilho TR-68 e o aplicativo não substitui por outro perfil."
+}

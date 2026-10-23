@@ -152,6 +152,10 @@ def make_excel(r,catalog):
         summary.append(['Locomotivas informadas (un/km)',r['scenario'].get('locomotives',0)])
         summary.append(['Vagões informados (un/km)',r['scenario'].get('wagons',0)])
         summary.append(['Observação','A base atual não contém preços de aquisição de locomotivas e vagões.'])
+    if r.get('pending_scope'):
+        summary.append(['Escopo de carga fora do total','Quantidade','Unidade','Situação','Motivo'])
+        for pending in r['pending_scope']:
+            summary.append([pending['item'],pending['quantity'],pending['unit'],pending['status'],pending['reason']])
     for note in r['warnings']:summary.append([note])
     chart=BarChart();chart.title='Composição do custo direto';chart.add_data(Reference(summary,min_col=2,min_row=3,max_row=last_group_row),titles_from_data=True);chart.set_categories(Reference(summary,min_col=1,min_row=first_group_row,max_row=last_group_row))
     chart.height=11;chart.width=23;chart.legend=None;chart.title=None
@@ -178,7 +182,18 @@ def make_excel(r,catalog):
         ('Escopo','Composições',scenario['trainsets'],'un','Quantidade de composições incluídas, quando aplicável.'),
         ('Cálculo','BDI',scenario['bdi'],'%','Aplicado uma única vez sobre o custo direto.'),
     ]
-    if 'axle_load' in scenario:premise_rows.append(('Carga','Carga por eixo',scenario['axle_load'],'t/eixo','Seleciona a alternativa de trilho da ferrovia de carga.'))
+    if 'axle_load' in scenario:premise_rows.append(('Carga','Carga por eixo',scenario['axle_load'],'t/eixo','Seleciona a faixa de trilho e as premissas iniciais da via de carga.'))
+    if scenario.get('freight_premises'):
+        freight=scenario['freight_premises'];status='Premissa a validar em projeto; não vem da base SIEC.'
+        premise_rows.extend([
+            ('Carga','Trilho',r.get('freight',{}).get('rail',''),'','Define o código SIEC de trilho, dormente, montagem e solda.'),
+            ('Carga','Espaçamento dos dormentes',freight['sleeper_spacing'],'m','Quantidade de dormentes e fixações. '+status),
+            ('Carga','Lastro sob o dormente',freight['ballast_depth'],'m','Seção trapezoidal de lastro e transporte de brita. '+status),
+            ('Carga','Espessura do sublastro',freight['sublayer_thickness'],'m','Volume de sublastro sobre a plataforma. '+status),
+            ('Carga','Largura da plataforma (via simples)',freight['platform_width'],'m','Base do lastro com banquetas; limpeza, terraplenagem e compactação. '+status),
+        ])
+    for name,label,unit in (('yards','Pátios de cruzamento ou terminais','un'),('bridge_length','Pontes e viadutos','m'),('level_crossings','Passagens em nível','un')):
+        if name in scenario:premise_rows.append(('Carga',label,scenario[name],unit,'Escopo informativo; não compõe o total.'))
     if 'locomotives' in scenario:premise_rows.append(('Carga','Locomotivas equivalentes',scenario['locomotives'],'un/km','Escopo informativo; não compõe o total.'))
     if 'wagons' in scenario:premise_rows.append(('Carga','Vagões equivalentes',scenario['wagons'],'un/km','Escopo informativo; não compõe o total.'))
     if scenario['configuration']=='Elevado':
