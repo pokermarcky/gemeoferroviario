@@ -69,6 +69,20 @@ def test_excel_de_carga_explica_que_frota_nao_esta_precificada():
     assert '9 Material rodante' not in workbook.sheetnames
 
 
+def test_excel_de_carga_lista_premissas_e_escopo_fora_do_total():
+    rules,catalog=load_model()
+    scenario=Scenario(rolling_stock=False,trainsets=0,overhead=False,signaling=False,amvs=0,ducts=False)
+    result=calculate_freight(scenario,25,rules,catalog,pending={'yards':2,'bridge_length':80})
+    workbook=load_workbook(BytesIO(export_all(result,catalog)['orcamento.xlsx']),data_only=True)
+    cells=[tuple(row) for sheet in workbook.worksheets for row in sheet.iter_rows(values_only=True)]
+    assert any(row[:3]==('Pontes e viadutos (obras de arte especiais)',80,'m') for row in cells)
+    assert any(row[:2]==('Escopo de carga fora do total','Quantidade') for row in cells)
+    premises={row[1]:row[2] for row in cells if len(row)>2 and row[0]=='Carga'}
+    assert premises['Lastro sob o dormente']==.35
+    assert premises['Trilho']=='UIC 60'
+    assert premises['Pátios de cruzamento ou terminais']==2
+
+
 def test_excel_do_elevado_expoe_parametros_e_memoria_estrutural():
     rules,catalog=load_model()
     result=calculate(Scenario(configuration='Elevado',rolling_stock=False,

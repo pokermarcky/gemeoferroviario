@@ -260,7 +260,11 @@ def test_carga_orca_so_infraestrutura_com_siec():
     assert app.checkbox(key='cargo_grupo_6').value is False
     assert app.checkbox(key='cargo_grupo_7').value is False
     app.number_input(key='cargo_locomotives').set_value(.34)
-    app.number_input(key='cargo_wagons').set_value(.34).run(timeout=30)
+    app.number_input(key='cargo_wagons').set_value(.34)
+    app.number_input(key='cargo_yards').set_value(2)
+    app.number_input(key='cargo_bridge_length').set_value(150.0)
+    app.number_input(key='cargo_axle').set_value(22.5).run(timeout=30)
+    app.number_input(key='cargo_ballast_depth_UIC60').set_value(.40).run(timeout=30)
     app.button(key='cargo_calculate').click().run(timeout=30)
     assert not app.exception
     cargo=app.session_state['results']['cargo']
@@ -272,4 +276,8 @@ def test_carga_orca_so_infraestrutura_com_siec():
     assert cargo['scenario']['locomotives']==.34
     assert cargo['scenario']['wagons']==.34
     assert any('0,34 vagão' in warning for warning in cargo['warnings'])
+    assert cargo['scenario']['axle_load']==22.5
+    assert cargo['scenario']['freight_premises']['ballast_depth']==.40
+    assert {p['key']:p['quantity'] for p in cargo['pending_scope']}['bridge_length']==150
+    assert cargo['scenario']['yards']==2
     assert {x.key for x in app.get('download_button')}=={'main_excel','cargo_excel','vlt_excel'}
