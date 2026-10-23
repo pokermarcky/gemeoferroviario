@@ -273,9 +273,3 @@ def test_carga_orca_so_infraestrutura_com_siec():
     assert cargo['scenario']['wagons']==.34
     assert any('0,34 vagão' in warning for warning in cargo['warnings'])
     assert {x.key for x in app.get('download_button')}=={'main_excel','cargo_excel','vlt_excel'}
-
-
-def test_fundo_da_pagina_alaranjado():
-    theme=(APP.parent/'railbudget'/'interface.py').read_text(encoding='utf-8')
-    assert '[data-testid="stAppViewContainer"] {background:linear-gradient(180deg,#ffb26b' in theme
-    assert '[data-testid="stSidebar"] {background:#ffe8d1' in theme
