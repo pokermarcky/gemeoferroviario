@@ -66,6 +66,8 @@ NOMES = {
     "deck_width_factor": "fator da largura do tabuleiro",
     "ceil": "arredondar para cima",
     "floor": "arredondar para baixo",
+    "ROUNDUP": "arredondar para cima",
+    "ROUNDDOWN": "arredondar para baixo",
     "min": "mínimo",
     "max": "máximo",
     "V5": "extensão do corredor",
@@ -104,6 +106,55 @@ NOMES = {
 }
 IDENTIFICADOR = re.compile(r"\b[A-Za-z_][A-Za-z_0-9]*\b")
 PARAMETRO = re.compile(r"[VP]\d+")
+DECIMAL = re.compile(r"(?<![\w.])(\d+)\.(\d+)(?![\w.])")
+ORIGENS = {
+    "vp": "Via permanente",
+    "p2": "Referência histórica",
+    "Ajuste 2": "Regra paramétrica complementar",
+    "subterraneo": "Modelo subterrâneo preliminar",
+}
+
+
+def origem_legivel(origem):
+    return ORIGENS.get(origem, origem)
+
+
+def _sem_casas_do_excel(expressao):
+    """Remove o argumento de casas decimais de ROUNDUP/ROUNDDOWN(x,0)."""
+    saida = []
+    pilha = []
+    i = 0
+    while i < len(expressao):
+        for funcao in ("ROUNDUP(", "ROUNDDOWN("):
+            if expressao.startswith(funcao, i):
+                saida.append(funcao)
+                pilha.append(True)
+                i += len(funcao)
+                break
+        else:
+            caractere = expressao[i]
+            if caractere == "(":
+                pilha.append(False)
+            elif caractere == ")" and pilha:
+                pilha.pop()
+            elif caractere == "," and pilha and pilha[-1] and expressao[i + 1:].lstrip().startswith("0)"):
+                i = expressao.index("0)", i) + 1
+                continue
+            saida.append(caractere)
+            i += 1
+    return "".join(saida)
+
+
+def _notacao_brasileira(expressao):
+    """Pi, decimais com vírgula e argumentos separados por ponto e vírgula."""
+    texto = _sem_casas_do_excel(str(expressao)).replace("PI()", "π").replace("**", "^")
+    texto = texto.replace(",", "; ")
+    return DECIMAL.sub(r"\1,\2", texto)
+
+
+def _operadores(texto):
+    texto = texto.replace("*", " × ").replace("/", " ÷ ")
+    return re.sub(r"\s+", " ", texto).strip()
 
 
 def nome_variavel(nome):
@@ -116,7 +167,8 @@ def nome_variavel(nome):
 
 def formula_legivel(expressao):
     """Apresenta a memória sem modificar a expressão usada no cálculo."""
-    return IDENTIFICADOR.sub(lambda match: nome_variavel(match.group()), expressao).replace("**", "^")
+    texto = IDENTIFICADOR.sub(lambda match: nome_variavel(match.group()), _notacao_brasileira(expressao))
+    return _operadores(texto)
 
 
 UNIDADES = {
@@ -149,7 +201,5 @@ def memoria_quantidade(expressao, contexto, quantidade, unidade):
         if nome not in contexto:return rotulo
         sufixo=(' '+UNIDADES[nome]) if nome in UNIDADES else ''
         return f"{rotulo} ({numero_legivel(contexto[nome])}{sufixo})"
-    texto=IDENTIFICADOR.sub(substituir,str(expressao).replace('**','^'))
-    texto=texto.replace('*',' × ').replace('/',' ÷ ')
-    texto=re.sub(r'\s+',' ',texto).strip()
+    texto=_operadores(IDENTIFICADOR.sub(substituir,_notacao_brasileira(expressao)))
     return f"{texto} = {numero_legivel(quantidade)} {unidade}"
