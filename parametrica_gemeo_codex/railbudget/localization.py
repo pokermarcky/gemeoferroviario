@@ -64,6 +64,17 @@ NOMES = {
     "elevated_height_factor": "fator da altura dos pilares",
     "foundation_block_factor": "fator geométrico dos blocos",
     "deck_width_factor": "fator da largura do tabuleiro",
+    "axle_load": "carga por eixo (t/eixo)",
+    "rail_kg_m": "massa linear do trilho de carga",
+    "sleeper_spacing": "espaçamento dos dormentes",
+    "ballast_depth": "lastro sob o dormente",
+    "sublayer_thickness": "espessura do sublastro",
+    "freight_platform_width": "largura da plataforma de carga",
+    "freight_platform_factor": "fator da plataforma de carga",
+    "freight_sleepers": "quantidade de dormentes de carga",
+    "freight_ballast_section": "seção do lastro de carga (m²)",
+    "freight_ballast": "volume de lastro de carga (m³)",
+    "freight_surface_area": "área da plataforma de carga (m²)",
     "ceil": "arredondar para cima",
     "floor": "arredondar para baixo",
     "ROUNDUP": "arredondar para cima",
@@ -185,6 +196,8 @@ UNIDADES = {
     "elevated_width_single": "m", "elevated_width_double": "m",
     "foundation_depth": "m", "piles_per_support": "un",
     "pile_diameter": "m", "active_deck_width": "m",
+    "axle_load": "t/eixo", "rail_kg_m": "kg/m", "sleeper_spacing": "m",
+    "ballast_depth": "m", "sublayer_thickness": "m", "freight_platform_width": "m",
 }
 
 
