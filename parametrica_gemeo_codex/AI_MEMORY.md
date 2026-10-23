@@ -64,3 +64,4 @@ Também confirmar:
 - Não alterar nome do repositório, branch, entrypoint ou secrets sem autorização explícita.
 - Registrar mudanças operacionais relevantes em `docs/` e atualizar este arquivo quando o estado canônico mudar.
 - O estado de encerramento desta limpeza está documentado em `docs/ENCERRAMENTO_REPOSITORIOS.md`.
+- Pontos de restauração (branches `backup/...`) e o passo a passo para voltar a um estado estável estão em `docs/RESTAURACAO.md`; o histórico de mudanças fica em `docs/CHANGELOG.md`.

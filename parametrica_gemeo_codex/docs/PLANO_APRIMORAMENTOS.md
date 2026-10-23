@@ -3,7 +3,7 @@
 ## Mapeamento antes das alterações
 
 - `app.py`: formulário por cenário; resultados e arquivos em sessão; comparação A/B; consulta SQLite; conferência dos quatro cenários legados.
-- `railbudget/engine.py`: Scenario, validação, seleção de regras, hierarquia de preços, quantitativos e agregação dos seis grupos. Função calculate independente da interface.
+- `railbudget/engine.py`: Scenario, validação, seleção de regras, hierarquia de preços, quantitativos e agregação dos nove grupos. Função calculate independente da interface.
 - `railbudget/expressions.py`: aritmética restrita e arredondamento monetário.
 - `config/rules.json`: regras de composição, geometria e grupos. `coverage.json`: cobertura das EAPs de origem.
 - `data/catalog.sqlite`: preços e proveniência; snapshots e inventário preservam as planilhas manuais.

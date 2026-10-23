@@ -3,3 +3,6 @@ __pycache__/
 .pytest_cache/
 parametrica_gemeo_codex/.streamlit/secrets.toml
 parametrica_gemeo_codex/.runtime/
+.venv/
+*.egg-info/
+.DS_Store
