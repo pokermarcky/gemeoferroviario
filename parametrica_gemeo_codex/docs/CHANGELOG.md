@@ -2,6 +2,14 @@
 
 Ponto de restauração anterior a estas alterações: branch `backup/estavel-2026-10-23` (commit `08fdea8`).
 
+## 2026-10-23 — Auditoria de segurança, persistência, elevado e Excel
+
+- Relatório completo em `docs/AUDITORIA.md`. Nenhum secret real no repositório nem no histórico.
+- Testes novos: persistência da carteira com Supabase simulado e SQLite (`tests/test_persistencia.py`), conferência independente do elevado (`tests/test_elevado_independente.py`) e integridade do Excel (`tests/test_excel_integridade.py`).
+- Excel: textos da EAP e das abas de grupo deixam de citar PROCV/vínculos, pois o arquivo traz valores fixos desde o PR #28.
+- Removidos do Git os `.pyc` de `railbudget/__pycache__/`.
+- Sem mudança de cálculo, preços ou dados. Testes: 85 antes, 100 depois.
+
 ## 2026-10-23 — Carga por eixo redimensiona a via de carga
 
 - `config/freight_axle.json` (novo) e `railbudget/freight.py`: carga por eixo de 16 a 25 t em duas faixas (TR-57 até 20 t; UIC 60 acima). Trilho, dormentes, fixações, lastro, transporte de brita, sublastro e plataforma passam a ser redimensionados; dormente e solda usam o código SIEC do perfil UIC 60. Acima de 25 t o cálculo é recusado (sem preço SIEC do trilho TR-68).

@@ -263,7 +263,7 @@ def make_excel(r,catalog):
         if name not in sheets:
             sheets[name]=w.create_sheet(name);sheets[name].append(['Chave exata','Código','Descrição','Unidade','Preço','Data-base','Proveniência'])
         sh=sheets[name];sh.append([k,p['code'],p['description'],p['unit'],p['price'],p['date'],provenance_pt(p['provenance'])]);lookup[k]=name
-    eap.append(['EAP orçada • '+caption(r)]);eap.append(['Quantidades calculadas para o cenário; preços vinculados por PROCV exato às referências de serviços utilizadas.'])
+    eap.append(['EAP orçada • '+caption(r)]);eap.append(['Quantidades calculadas para o cenário; preços copiados das referências de serviços utilizadas (valores fixos, sem fórmulas).'])
     eap.append(['']);eap.append(['EAP','Grupo','Código','Fonte','Serviço / descrição','Unidade','Quantidade','Custo unitário','Custo total','Data-base','Chave do preço','Cálculo da quantidade','Critério e referência'])
     for x in r['items']:
         n=eap.max_row+1;name=lookup[x['price_key']]
@@ -331,7 +331,7 @@ def add_group_sheets(workbook,result,refs,caches,summary_rows):
         sheet['B3']=caption(result);sheet.merge_cells('B3:J3')
         sheet['B4']='Incluído no total selecionado' if included else 'Excluído do total selecionado'
         sheet.merge_cells('B4:J4')
-        sheet['B5']='Valores vinculados à EAP consolidada. A seleção de escopo é feita na aplicação.'
+        sheet['B5']='Valores copiados da EAP consolidada. A seleção de escopo é feita na aplicação.'
         sheet.merge_cells('B5:J5')
         measures=[('Subtotal direto',direct),
             ('Direto por km de corredor',direct/result['scenario']['km']),
