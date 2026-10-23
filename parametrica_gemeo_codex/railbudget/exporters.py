@@ -9,7 +9,7 @@ from datetime import datetime
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile, ZIP_DEFLATED
 from html import escape
-from railbudget.localization import formula_legivel, memoria_quantidade
+from railbudget.localization import formula_legivel, memoria_quantidade, origem_legivel
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -252,7 +252,7 @@ def make_excel(r,catalog):
     eap.append(['']);eap.append(['EAP','Grupo','Código','Fonte','Serviço / descrição','Unidade','Quantidade','Custo unitário','Custo total','Data-base','Chave do preço','Cálculo da quantidade','Critério e referência'])
     for x in r['items']:
         n=eap.max_row+1;name=lookup[x['price_key']]
-        origin={'vp':'Via permanente','p2':'Referência histórica','Ajuste 2':'Regra paramétrica complementar'}.get(x['origin'],x['origin'])
+        origin=origem_legivel(x['origin'])
         reference=f"Regra: {origin}. Referência: {x['sheet']}, item {x['row']}. Critério: {x['note'].rstrip('.')} .".replace(' .','.')
         eap.append([x['eap'],x['group'],x['code'],x['source'],x['label']+' — '+x['description'],
                     x['unit'],x['quantity'],x['unit_cost'],x['total'],x['date'],x['price_key'],memoria_quantidade(x['quantity_formula'],r['context'],x['quantity'],x['unit']),reference])
@@ -388,7 +388,7 @@ def make_word(r):
         d.add_heading(g,2)
         for x in rows:
             d.add_paragraph(f"{x['eap']} | {x['label']} | {x['code']} ({x['source']}, {x['date']})",style='Heading 3')
-            detail=d.add_paragraph(f"{br(x['quantity'],6)} {x['unit']} × {currency(x['unit_cost'])} = {currency(x['total'])}. Memória de cálculo: {formula_legivel(x['quantity_formula'])}. Origem: {x['origin']} / {x['sheet']} / linha {x['row']}.")
+            detail=d.add_paragraph(f"{br(x['quantity'],6)} {x['unit']} × {currency(x['unit_cost'])} = {currency(x['total'])}. Memória de cálculo: {formula_legivel(x['quantity_formula'])}. Origem: {origem_legivel(x['origin'])} / {x['sheet']} / linha {x['row']}.")
             detail.paragraph_format.keep_with_next=True
             d.add_paragraph(x['note'])
     out=BytesIO();d.save(out);return out.getvalue()
@@ -417,7 +417,7 @@ def make_pdf(r,detailed=False):
     else:
         flow.append(PageBreak());flow.append(p('Memória de quantidades e preços','Heading1'))
         for x in r['items']:
-            flow.append(KeepTogether([p(x['group']+' / '+x['label'],'Heading3'),p(f"{x['code']} | {x['source']} | {x['date']}"),p(f"{br(x['quantity'],6)} {x['unit']} × {currency(x['unit_cost'])} = {currency(x['total'])}"),p('Memória de cálculo: '+formula_legivel(x['quantity_formula'])),p(f"Origem: {x['origin']} / {x['sheet']} / linha {x['row']}. "+x['note']),Spacer(1,8)]))
+            flow.append(KeepTogether([p(x['group']+' / '+x['label'],'Heading3'),p(f"{x['code']} | {x['source']} | {x['date']}"),p(f"{br(x['quantity'],6)} {x['unit']} × {currency(x['unit_cost'])} = {currency(x['total'])}"),p('Memória de cálculo: '+formula_legivel(x['quantity_formula'])),p(f"Origem: {origem_legivel(x['origin'])} / {x['sheet']} / linha {x['row']}. "+x['note']),Spacer(1,8)]))
     def footer(c,d):c.setFont(regular,8);c.drawString(32,18,'Gêmeo ferroviário • Orçamento paramétrico');c.drawRightString(page[0]-32,18,str(d.page))
     SimpleDocTemplate(out,pagesize=page,leftMargin=32,rightMargin=32,topMargin=32,bottomMargin=34).build(flow,onFirstPage=footer,onLaterPages=footer)
     return out.getvalue()
