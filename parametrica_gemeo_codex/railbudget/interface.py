@@ -114,11 +114,15 @@ button:focus-visible,[role="tab"]:focus-visible {outline:3px solid #f0a03a!impor
 [data-testid="stHeader"]::before {content:"";position:absolute;inset:0 0 auto;height:5px;background:var(--grad)}
 [data-testid="stSidebar"] {background:linear-gradient(180deg,#ffe9c4 0,#fff4e0 18rem,#fffaf3 100%)}
 [data-testid="stSidebar"] .sidebar-eyebrow {color:#b8322a}
-[data-testid="stSidebar"] .st-key-user_profile_card {background:linear-gradient(145deg,#7e1f19,#b8322a 60%,#c8501f)}
-[data-testid="stSidebar"] .st-key-user_profile_card .sidebar-eyebrow {color:#ffd88a}
-[data-testid="stSidebar"] .st-key-user_profile_card a {color:#ffe3bf!important}
-[data-testid="stSidebar"] .st-key-user_profile_card button {background:#ffffff1f;border-color:#ffffff73;color:#fff}
-[data-testid="stSidebar"] .st-key-user_profile_card button:hover {background:#ffffff33;border-color:#fff;color:#fff}
+[data-testid="stSidebar"] .st-key-user_profile_card {border:1px solid #f0c48a;border-top:0;background:var(--grad) top/100% 6px no-repeat,linear-gradient(150deg,#fffaf0,#ffe9bf);color:#3b2421;box-shadow:0 10px 26px #b8322a1f}
+[data-testid="stSidebar"] .st-key-user_profile_card h3 {color:#5c1a16!important}
+[data-testid="stSidebar"] .st-key-user_profile_card [data-testid="stCaptionContainer"] {color:#896057}
+[data-testid="stSidebar"] .st-key-user_profile_card .sidebar-eyebrow {color:#b8322a}
+[data-testid="stSidebar"] .st-key-user_profile_card a {color:#962620!important}
+[data-testid="stSidebar"] .st-key-user_profile_card .role-badge {background:linear-gradient(90deg,#b8322a,#d0541f);color:#fff}
+[data-testid="stSidebar"] .st-key-user_profile_card .role-test {background:#fff;color:#962620;border:1px solid #e0913c}
+[data-testid="stSidebar"] .st-key-user_profile_card button {background:#fff;border:1px solid #e3a76a;color:#962620}
+[data-testid="stSidebar"] .st-key-user_profile_card button:hover {background:#fff1d9;border-color:#b8322a;color:#7a2018}
 .st-key-hero {border:1px solid transparent;border-top:5px solid transparent;background:linear-gradient(#fff,#fff) padding-box,var(--grad) border-box}
 .st-key-hero h1 {background:linear-gradient(90deg,#8e211b,#c4421f 55%,#b8700d);-webkit-background-clip:text;background-clip:text;color:transparent!important}
 .hero-eyebrow {color:#c4421f}
