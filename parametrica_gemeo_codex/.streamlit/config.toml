@@ -7,8 +7,9 @@ maxUploadSize = 200
 gatherUsageStats = false
 
 [theme]
-primaryColor = "#6D9F8F"
-backgroundColor = "#F7FBF8"
-secondaryBackgroundColor = "#EEF6F1"
-textColor = "#38584F"
+base = "light"
+primaryColor = "#b8322a"
+backgroundColor = "#fffaf3"
+secondaryBackgroundColor = "#fff1d9"
+textColor = "#3b2421"
 font = "sans-serif"

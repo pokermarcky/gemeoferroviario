@@ -385,7 +385,7 @@ def render_vlt_budget():
         display_table(summary,monetary=('Valor (R$)',),height=250)
     with views[1]:
         st.markdown('**Participação no cenário**')
-        st.bar_chart(summary,x='Componente',y='Valor (R$)',horizontal=True,color='#60998e',height=250)
+        st.bar_chart(summary,x='Componente',y='Valor (R$)',horizontal=True,color='#c4421f',height=250)
     with st.expander('Ver grupos do edital e critérios paramétricos',expanded=False):
         detail=pd.DataFrame([{'EAP':item['eap'],'Grupo do edital':item['label'],
             'Aplicação':item['basis'],'Custo-base (R$)':item['baseline_cost'],
@@ -519,7 +519,7 @@ def render_result(r,key,modality='passageiro'):
         with summary_columns[0]:
             display_table(group_frame,monetary=('Custo direto (R$)',),height=320)
         with summary_columns[1]:
-            st.bar_chart(group_frame,x='Grupo',y='Custo direto (R$)',horizontal=True,color='#60998e',height=320)
+            st.bar_chart(group_frame,x='Grupo',y='Custo direto (R$)',horizontal=True,color='#c4421f',height=320)
     with detail_tab:
         with st.expander('EAP completa · serviços e preços',expanded=False):
             frame['Quantidade']=frame['Quantidade'].map(lambda value:br(value,6))
