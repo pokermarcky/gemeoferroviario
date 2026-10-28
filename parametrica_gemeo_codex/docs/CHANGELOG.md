@@ -2,6 +2,15 @@
 
 Ponto de restauração anterior a estas alterações: branch `backup/estavel-2026-10-23` (commit `08fdea8`).
 
+## 2026-10-28 — Documentação atualizada e código sem uso removido (melhoria 4)
+
+- `README.md`: quatro modalidades, botão **Atualizar orçamento** (não "Calcular"), downloads em Excel/PDF/Word, indicadores por km, subterrâneo preliminar (antes dizia que não orçava), sem estações no formulário, bases de referência gravadas em `.runtime/` (somem num *Reboot app*), carteira no Supabase, Excel com valores fixos e estrutura de módulos atual.
+- `docs/PLANO_APRIMORAMENTOS.md`: situação em 28/10 (etapas 1–3 concluídas, 4–5 pendentes), Subterrâneo e Shortline com orçamento, Excel sem PROCV.
+- `docs/VALIDACAO.md`: nota no topo explicando o que mudou desde o registro de 13/09; o registro histórico foi preservado.
+- `AI_MEMORY.md`: contagem de testes, URL publicada, CHANGELOG, branches de restauração e o alerta sobre `RAILPARAMETRIC_TEST_MODE`.
+- Removidos `railbudget/stations.py` e `railbudget/realistic_scene.py`, que não eram importados por nenhum módulo nem teste. Continuam no histórico do Git e na branch `backup/pre-melhorias-2026-10-28`.
+- Novo teste garante que o README só cita módulos existentes. Testes: 112 antes, 113 depois. Sem mudança de cálculo, preços ou dados.
+
 ## 2026-10-28 — Resultado legível de relance (melhoria 3)
 
 - "Participação por grupo": a tabela mostra só os grupos marcados, com a coluna **Participação** (%) e altura ajustada ao número de linhas (antes ficava fixa em 320 px e escondia Material rodante, o maior item do passageiro). Na carga, os grupos desmarcados deixam de aparecer como R$ 0,00.
