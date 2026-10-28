@@ -2,6 +2,17 @@
 
 Ponto de restauração anterior a estas alterações: branch `backup/estavel-2026-10-23` (commit `08fdea8`).
 
+## 2026-10-28 — Desenho do viaduto no elevado (elevado, item 1)
+
+Ponto de restauração destas alterações do elevado: branch `backup/pre-elevado-2026-10-28` (main após o PR #59, commit `8d53516`).
+
+- Novo painel **Desenho do viaduto** no formulário do elevado (Passageiro → Configuração "Elevado"): corte transversal e elevação longitudinal em SVG, nas cores do tema. O desenho muda na hora com via singela/dupla, largura do tabuleiro, altura dos pilares, vão, estacas por apoio, diâmetro, profundidade, tipologia do tabuleiro (vigas, viga U, caixão, misto) e tipologia dos pilares (circular, retangular, parede, pórtico).
+- A via permanente aparece em destaque (trilhos, contratrilhos, dormentes e fixações, lastro e paralastro), com legenda; drenagem do tabuleiro em azul e estrutura em tons neutros.
+- O mesmo desenho substitui o esquema simples da "Síntese estrutural do elevado" no resultado, agora com o número de vãos e apoios calculados. Com trechos homogêneos, mostra o trecho mais extenso.
+- Desenho esquemático, sem escala; as cotas escritas são os valores do cenário. Só exibição: nenhum cálculo, preço, regra ou chave de `rules.json` muda.
+- Novo módulo `railbudget/elevated_drawing.py`; CSS antigo do esquema (`.elevated-scheme`) removido de `interface.py`. Documentação em `docs/ELEVADO_VIA_PERMANENTE.md`.
+- Testes: 117 antes, 121 depois (`tests/test_elevated_drawing.py` e `tests/test_app.py`).
+
 ## 2026-10-28 — Comparar dois cenários lado a lado (melhoria 5)
 
 - Novo bloco **Comparar cenários** no resultado de Passageiro, Carga e Shortline: "Fixar como cenário A" guarda o resultado exibido; depois de alterar o cenário e selecionar Atualizar orçamento, a tela mostra A, B, a diferença em reais e a variação (%) por grupo e nos indicadores (direto, BDI, total, por km, frota e infraestrutura por km), com uma frase-resumo ("Cenário B custa R$ X a mais que o A").

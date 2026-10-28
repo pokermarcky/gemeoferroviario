@@ -17,10 +17,11 @@
 - `gemeodigital_ferrovia`, `renda-fixa-br` e `cadastro` foram excluídos com autorização explícita do proprietário.
 - Não recriar, importar ou vincular automaticamente os três repositórios removidos.
 - O repositório principal não foi renomeado, para preservar as coordenadas da implantação existente no Streamlit Community Cloud.
-- A validação de encerramento registrou 75 testes aprovados; em 28/10/2026 a suíte tem 117.
+- A validação de encerramento registrou 75 testes aprovados; em 28/10/2026 a suíte tem 121.
 - Aplicação publicada: `https://railparametric.streamlit.app/`.
 - Histórico de alterações: `docs/CHANGELOG.md` (uma entrada por PR).
-- Pontos de restauração (branches, pois tags não são publicadas pelas sessões automatizadas): `backup/estavel-2026-10-23` e `backup/pre-melhorias-2026-10-28`.
+- Desenho e custo da via permanente no elevado: `docs/ELEVADO_VIA_PERMANENTE.md`.
+- Pontos de restauração (branches, pois tags não são publicadas pelas sessões automatizadas): `backup/estavel-2026-10-23`, `backup/pre-melhorias-2026-10-28` e `backup/pre-elevado-2026-10-28`.
 - Nunca definir `RAILPARAMETRIC_TEST_MODE` no Streamlit Cloud: essa variável dispensa o login e entra como root.
 
 ## Streamlit Community Cloud

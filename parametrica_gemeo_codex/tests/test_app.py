@@ -365,3 +365,18 @@ def test_comparar_cenarios_fixa_a_e_mostra_diferenca_sem_mudar_o_calculo():
     assert any(x.key=='main_comparison_excel' for x in app.get('download_button'))
     app.button(key='main_clear_a').click().run(timeout=60)
     assert 'main_scenario_a' not in app.session_state
+
+
+def test_elevado_mostra_desenho_do_viaduto_no_formulario_e_no_resultado():
+    app=AppTest.from_file(str(APP)).run(timeout=30)
+    app.selectbox(key='main_configuration').set_value('Elevado').run(timeout=30)
+    assert 'Desenho do viaduto' in {item.label for item in app.expander}
+    drawings=[item.value for item in app.markdown if 'elevated-drawing' in item.value]
+    assert drawings and 'Altura: 8,00 m' in drawings[0]
+    app.number_input(key='main_elevated_height').set_value(15.0).run(timeout=30)
+    drawings=[item.value for item in app.markdown if 'elevated-drawing' in item.value]
+    assert 'Altura: 15,00 m' in drawings[0]
+    app.button(key='main_calculate').click().run(timeout=30)
+    assert not app.exception
+    drawings=[item.value for item in app.markdown if 'elevated-drawing' in item.value]
+    assert len(drawings)==2 and any('vãos · ' in item for item in drawings)
