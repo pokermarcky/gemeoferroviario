@@ -147,6 +147,11 @@ def make_excel(r,catalog):
     for label,val in [('Adicional BDI',r['bdi_amount']),('Total',r['total']),('R$/km corredor',r['per_km']),('R$/km linha',r['per_line_km'])]:
         summary.append([label,val])
     summary.append(['Drenagem',r['scenario']['drainage']]);summary.append(['Vedação',r['scenario']['fence']])
+    if r.get('per_track_km') is not None:
+        summary.append(['R$/km de via (principal + desvios + pátio)',r['per_track_km']])
+    if r.get('fleet_total'):
+        summary.append(['Frota (material rodante, com BDI)',r['fleet_total']])
+        summary.append(['R$/km corredor sem frota',r['per_km_without_fleet']])
     if 'locomotives' in r['scenario'] or 'wagons' in r['scenario']:
         summary.append(['Frota de carga','Não precificada no total'])
         summary.append(['Locomotivas informadas (un/km)',r['scenario'].get('locomotives',0)])

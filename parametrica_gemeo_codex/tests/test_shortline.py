@@ -91,3 +91,19 @@ def test_excel_shortline_traz_premissas_e_grupo_de_patio(model):
     assert 'Desvios de cruzamento' in premises and 'Passagens em nível' in premises
     memory=[row[11] for row in workbook['EAP'].iter_rows(min_row=5,values_only=True) if row[1]==SIDING_GROUP]
     assert memory and all('desvios e pátio' in text for text in memory)
+
+
+def test_custo_por_km_de_via_acompanha_selecao_e_bdi(model):
+    rules,catalog=model
+    result=calculate_shortline(ShortlineParams(),rules,catalog,bdi=.263)
+    track_km=result['scenario']['track_km']
+    chosen=[g for g in SHORTLINE_GROUPS if default_selection(g)]
+    with_bdi=select_groups(result,chosen,bdi_rate=.263)
+    without_bdi=select_groups(result,chosen,bdi_rate=0.0)
+    assert with_bdi['per_track_km']==pytest.approx(with_bdi['total']/track_km,abs=.01)
+    assert without_bdi['per_track_km']==pytest.approx(without_bdi['direct']/track_km,abs=.01)
+    assert with_bdi['per_track_km']<result['per_track_km']  # sinalização fora do recorte
+    assert without_bdi['per_track_km']<with_bdi['per_track_km']
+    summary=load_workbook(BytesIO(make_excel(with_bdi,catalog)))['Resumo']
+    rows={row[0]:row[1] for row in summary.iter_rows(values_only=True) if row and row[0]}
+    assert rows['R$/km de via (principal + desvios + pátio)']==with_bdi['per_track_km']

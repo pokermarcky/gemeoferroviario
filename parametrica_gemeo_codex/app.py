@@ -505,8 +505,7 @@ def render_shortline_budget():
     if not result:return
     st.info('Shortline em superfície com composições SIEC de carga (TR-57 ou UIC 60, conforme a carga por eixo). Passagens em nível, frota, terminais e obras de arte especiais ficam registrados fora do total.')
     render_result(select_groups(result,chosen,bdi_rate=percentage/100 if apply_bdi else 0.0),key,modality='shortline')
-    st.caption(f"Extensão total de via (principal + desvios + pátio): {br(result['scenario']['track_km'],3)} km · "
-        f"custo por km de via: {currency(result['per_track_km'])}".replace('$',r'\$'))
+    st.caption(f"Extensão total de via (principal + desvios + pátio): {br(result['scenario']['track_km'],3)} km.")
     with st.expander('Escopo pendente · fora do total',expanded=False):
         display_table(pd.DataFrame(result['pending_scope']))
 
@@ -624,11 +623,22 @@ def render_result(r,key,modality='passageiro'):
         st.info('Infraestrutura de carga com preços SIEC. Trilho, dormentes, lastro, sublastro e plataforma seguem a carga por eixo e premissas preliminares a validar em projeto. Frota, pátios, terminais e obras de arte especiais ficam fora do total.')
         render_freight_scope(r)
     st.caption('Cenário calculado: '+caption(r))
+    fleet_total=r.get('fleet_total') or 0
     with st.container(key='result_kpis_'+key):
         result_columns=st.columns(3,gap='medium')
         result_columns[0].metric('Total com BDI' if r['scenario']['bdi'] else 'Total sem BDI',currency(r['total']),border=True)
         result_columns[1].metric('Por km de corredor',currency(r['per_km']),border=True)
-        result_columns[2].metric('Por km de linha',currency(r['per_line_km']),border=True)
+        if r.get('per_track_km') is not None:
+            result_columns[2].metric('Por km de via',currency(r['per_track_km']),border=True,
+                help='Total dividido pela via total: linha principal, desvios e pátio.')
+        else:
+            result_columns[2].metric('Por km de linha',currency(r['per_line_km']),border=True)
+        if fleet_total:
+            fleet_columns=st.columns(3,gap='medium')
+            fleet_columns[0].metric('Frota (material rodante)',currency(fleet_total),border=True,
+                help='Custo por composição incluído no total. Não depende da extensão do corredor.')
+            fleet_columns[1].metric('Infraestrutura por km',currency(r['per_km_without_fleet']),border=True,
+                help='Por km de corredor, sem o material rodante. Use este valor para comparar com referências de custo por km de via.')
     financial_caption=f"Custo direto: {currency(r['direct'])} | BDI aplicado: {br(r['scenario']['bdi']*100,6)}% | Acréscimo de BDI: {currency(r['bdi_amount'])}"
     st.caption(financial_caption.replace('$',r'\$'))
     if r['scenario']['configuration']=='Elevado' and modality=='passageiro':
