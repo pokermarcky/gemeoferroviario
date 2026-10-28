@@ -2,7 +2,7 @@
 
 O cabeçalho exibe uma cena panorâmica de ferrovia de carga, trem de passageiros e VLT. A imagem otimizada está em `assets/hero-trens-vermelhos-v1.webp` e acompanha a aplicação publicada.
 
-Aplicação Streamlit para orçamentos paramétricos ferroviários. Passageiros usa a base **SIEC • lastro / AMV nº 14** em superfície ou elevado. Carga tem uma primeira estimativa de **infraestrutura em superfície**, a partir das composições identificadas na mesma base. Ambos apresentam EAP, BDI editável, custos por km e orçamento em Excel.
+Aplicação Streamlit para orçamentos paramétricos ferroviários, publicada em https://railparametric.streamlit.app/. Há quatro modalidades: **Ferrovia de passageiro** (base SIEC • lastro / AMV nº 14 em superfície, elevado ou subterrâneo preliminar), **Ferrovia de carga** (infraestrutura em superfície), **VLT** (edital do Ramal VLT Aeroporto - Castelão) e **Shortline** (carga curta em via singela). Todas apresentam EAP, BDI editável, custos por km e downloads do orçamento.
 
 ## Uso
 
@@ -10,19 +10,21 @@ Aplicação Streamlit para orçamentos paramétricos ferroviários. Passageiros 
 streamlit run app.py
 ```
 
-Abra **ORÇAMENTOS → Ferrovia de passageiro**, informe a extensão, configuração e quantidade de vias, escolha os grupos de serviço e clique em **Calcular orçamento**. O botão **Baixar orçamento em Excel** entrega a planilha do cenário calculado e dos grupos atualmente selecionados. As abas **Resumo geral** e **Detalhamento por grupo** mostram o resultado na página. Estações, BDI, EAP completa e composições detalhadas ficam em painéis recolhíveis para manter a tela principal enxuta.
+Abra **ORÇAMENTOS → Ferrovia de passageiro**, informe a extensão, configuração e quantidade de vias, escolha os grupos de serviço e clique em **Atualizar orçamento**. O bloco **Baixar orçamento** entrega o cenário calculado com os grupos atualmente selecionados em **Excel**, **PDF resumido**, **PDF detalhado** e **Word** (Passageiro, Carga e Shortline; o VLT oferece Excel). As abas **Resumo geral** e **Detalhamento por grupo** mostram o resultado na página: a tabela de participação lista só os grupos marcados e o gráfico ordena do maior para o menor, em R$ milhões. EAP completa e composições detalhadas ficam em painéis recolhíveis.
+
+Os indicadores mostram total, custo por km de corredor e por km de linha. Quando há material rodante, aparecem também a **frota** incluída no total e a **infraestrutura por km** sem a frota, que é o número comparável a referências de custo por km de via. Na Shortline, o terceiro indicador é o custo por **km de via** (linha principal + desvios + pátio); todos acompanham os grupos marcados e o BDI.
 
 **Banco de dutos** aparece entre os grupos de superfície e corresponde ao banco subterrâneo de seis dutos. Em elevado, o mesmo grupo passa a **Canaletas e passa-fios**, conforme as composições aplicáveis. O controle de prazo foi retirado do formulário; o cálculo conserva o prazo de referência interno do modelo para os quantitativos que dependem dele.
 
-A opção **Subterrâneo** está visível, mas não produz orçamento até serem cadastrados quantitativos e preços próprios de túneis e sistemas associados. Em passageiros, as estações pequenas, médias e grandes são lançadas por quantidade e **preço unitário informado pelo usuário**; não há composição pronta do edifício completo na base. É necessário recalcular após alterar essas premissas.
+A opção **Subterrâneo** produz uma estimativa preliminar por equivalência SIEC (`railbudget/underground.py`), com premissa de um tubo circular de 10,00 m por via e aviso explícito na tela: não substitui projeto geotécnico, estrutural, hidráulico, de ventilação ou de segurança. Estações de passageiros não fazem parte do formulário: a base não tem composição pronta do edifício completo.
 
 Em **Ferrovia de carga**, informe extensão, vias e escopo de infraestrutura. O cenário inicial desativa banco de dutos, rede aérea, sinalização e material rodante. AMVs são opcionais. Locomotivas e vagões aparecem como quantidades de escopo, sem preço de aquisição: a SIEC contém custos horários de operação desses veículos, que não podem representar sua compra. A carga por eixo (16 a 25 t) escolhe o trilho (TR-57 até 20 t, UIC 60 acima) e redimensiona dormentes, fixações, lastro, sublastro e plataforma por premissas editáveis, documentadas em `docs/MAPEAMENTO.md` e a validar em projeto. AMVs, drenagem e vedação seguem a referência SIEC. Pátios, terminais, obras de arte, passagens em nível e frota podem ser informados, mas aparecem em lista separada, fora do total; não compare o valor por km de carga e passageiros como se os escopos fossem idênticos.
 
 Em **Shortline**, a aba orça uma ferrovia de carga curta em via singela, em superfície e com tração diesel. Informe a extensão da linha principal, a carga por eixo (16 a 25 t, com TR-57 até 20 t e UIC 60 acima, como na ferrovia de carga), os desvios de cruzamento com seu comprimento útil, as vias de pátio e os AMVs de pátio. Cada desvio soma dois AMVs nº 14. A via de desvios e pátio usa as mesmas composições SIEC da via corrida, sem repetir canteiro, sondagens e administração local. Drenagem, vedação e topografia acompanham apenas a linha principal, e a sinalização começa desmarcada. Passagens em nível, locomotivas, vagões, terminais e obras de arte especiais ficam registrados como escopo pendente, fora do total, porque a SIEC não traz preço de aquisição ou composição completa para eles. O comprimento dos desvios, o leiaute de pátio e o número de AMVs são premissas a validar em projeto. O cálculo está em `railbudget/shortline.py` e reaproveita o motor de carga sem alterá-lo.
 
-Na aba **BASES DE REFERÊNCIA**, as abas Insumos e Serviços oferecem campos para SINAPI, SIURB e SICRO. Arquivos CSV/XLSX de até 200 MB recebem prévia das primeiras linhas e permanecem apenas na sessão atual. Eles **não alteram os preços** até serem mapeados e validados código, unidade, data-base e composição.
+Na aba **BASES DE REFERÊNCIA** há uma área por fonte (SIEC, SINAPI, SIURB, SICRO) e por tipo (Insumos ou Serviços). Todos consultam as bases; só o administrador root envia uma nova tabela (CSV, XLS, XLSX ou XLSM, até 200 MB) com a data-base no formato MM/AAAA. A nova tabela substitui a anterior da mesma fonte e tipo, fica gravada em `.runtime/reference_bases.sqlite3` e recalcula os orçamentos quando há códigos com unidade compatível. Esse arquivo local some quando o Streamlit Community Cloud recria o servidor; reenvie a tabela após um *Reboot app*.
 
-Alterações nas premissas exigem clicar em **Calcular orçamento**; até lá, o total anterior fica oculto. Marcar e desmarcar grupos e alterar o BDI fazem um recorte financeiro imediato do resultado existente. Os resultados de sessão não persistem ao encerrar o servidor.
+Alterações nas premissas exigem clicar em **Atualizar orçamento**; até lá, o resultado anterior continua visível com um aviso. Marcar e desmarcar grupos e alterar o BDI fazem um recorte financeiro imediato do resultado existente. Projetos salvos na **Carteira de Projetos** (barra lateral) persistem no Supabase quando a seção `[storage]` está nos Secrets; detalhes em `docs/AUDITORIA.md`.
 
 ## Bases e premissas
 
@@ -39,20 +41,30 @@ Alterações nas premissas exigem clicar em **Calcular orçamento**; até lá, o
 ```text
 app.py                         interface Streamlit e navegação
 railbudget/engine.py           cenários, seleção, quantitativos e preços
-railbudget/exporters.py        planilha Excel e exportadores internos
+railbudget/elevated.py         elevado: geometria, fundações, trechos e sensibilidade
+railbudget/freight.py          ferrovia de carga e carga por eixo
+railbudget/shortline.py        shortline: desvios, pátio e escopo pendente
+railbudget/underground.py      subterrâneo preliminar
+railbudget/vlt.py              VLT parametrizado pelo edital
+railbudget/exporters.py        Excel, PDF e Word do orçamento
 railbudget/localization.py     rótulos e memórias em português
-railbudget/stations.py         estações com quantidades e preços do usuário
+railbudget/auth.py             login, perfis e permissões
+railbudget/budget_store.py     carteira de projetos (Supabase ou SQLite)
+railbudget/user_workspace.py   barra lateral "Seu espaço" e carteira
+railbudget/reference_*.py      bases de referência enviadas pelo root
 config/rules.json              composições e parâmetros
 config/freight_axle.json       faixas e premissas da carga por eixo
 config/coverage.json           cobertura da EAP de origem
 data/catalog.sqlite           catálogo de preços
 data/scope2_prices.json       referência contratual de material rodante
 docs/MAPEAMENTO.md             decisões técnicas
+docs/CHANGELOG.md              histórico de alterações e pontos de restauração
+docs/AUDITORIA.md              segurança, persistência e Excel (23/10/2026)
 tests/                         regressões de cálculo, interface e exportação
 ```
 
 ## Validação
 
-Execute `python -m pytest -q` com as dependências de `requirements-dev.txt`. As regressões mantêm a reprodução dos quatro totais históricos da Parte 2 para auditoria, além dos cenários SIEC e da geração de documentos. A interface publica somente orçamentos Excel.
+Execute `python -m pytest -q` com as dependências de `requirements-dev.txt` (113 testes em 28/10/2026). As regressões mantêm a reprodução dos quatro totais históricos da Parte 2 para auditoria, além dos cenários SIEC, da interface e da geração de Excel, PDF e Word.
 
-A aplicação pode ser executada localmente ou no Streamlit Community Cloud. As fórmulas e referências do Excel são calculáveis e os identificadores internos do motor não são alterados pelos rótulos de apresentação.
+A aplicação pode ser executada localmente ou no Streamlit Community Cloud. Desde o PR #28 o Excel traz **valores fixos**, sem fórmulas: alterar um preço na planilha não recalcula o orçamento. Os identificadores internos do motor não são alterados pelos rótulos de apresentação.

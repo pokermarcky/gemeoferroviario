@@ -32,3 +32,13 @@ def test_origem_da_regra_aparece_por_extenso():
     assert origem_legivel("vp") == "Via permanente"
     assert origem_legivel("subterraneo") == "Modelo subterrâneo preliminar"
     assert origem_legivel("Premissa do usuário") == "Premissa do usuário"
+
+
+def test_readme_so_cita_modulos_que_existem():
+    import re
+    from pathlib import Path
+    root=Path(__file__).resolve().parents[1]
+    readme=(root/'README.md').read_text(encoding='utf-8')
+    cited=set(re.findall(r'railbudget/[a-z_]+\.py',readme))
+    assert cited and all((root/path).exists() for path in cited)
+    assert 'Calcular orçamento' not in readme  # o botão chama-se Atualizar orçamento

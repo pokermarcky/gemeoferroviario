@@ -1,5 +1,7 @@
 # Registro de validação — 13/09/2026
 
+> **Nota de 28/10/2026.** Este é o registro histórico da validação de setembro. Desde então: o Excel passou a ter valores fixos, sem fórmulas (PR #28), então o teste "alterar um preço na aba de base modificou o orçamento" não se aplica mais; a suíte tem 113 testes; Shortline, carga por eixo e subterrâneo preliminar foram acrescentados. A conferência mais recente do Excel está em `docs/AUDITORIA.md` e o histórico em `docs/CHANGELOG.md`.
+
 Versão das regras: 1.0.0. Interface Streamlit 1.63.0.
 
 ## Dados e cálculo
