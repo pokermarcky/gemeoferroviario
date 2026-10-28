@@ -17,7 +17,7 @@
 - `gemeodigital_ferrovia`, `renda-fixa-br` e `cadastro` foram excluídos com autorização explícita do proprietário.
 - Não recriar, importar ou vincular automaticamente os três repositórios removidos.
 - O repositório principal não foi renomeado, para preservar as coordenadas da implantação existente no Streamlit Community Cloud.
-- A validação de encerramento registrou 75 testes aprovados; em 28/10/2026 a suíte tem 121.
+- A validação de encerramento registrou 75 testes aprovados; em 28/10/2026 a suíte tem 126.
 - Aplicação publicada: `https://railparametric.streamlit.app/`.
 - Histórico de alterações: `docs/CHANGELOG.md` (uma entrada por PR).
 - Desenho e custo da via permanente no elevado: `docs/ELEVADO_VIA_PERMANENTE.md`.

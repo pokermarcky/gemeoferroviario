@@ -2,6 +2,14 @@
 
 Ponto de restauração anterior a estas alterações: branch `backup/estavel-2026-10-23` (commit `08fdea8`).
 
+## 2026-10-28 — Custo da via permanente no elevado por componente (elevado, item 2)
+
+- Novo bloco **Via permanente no elevado** no resultado do elevado (Passageiro): custo direto da via sobre o viaduto separado em Trilhos, Fixações, Dormentes, Lastro e paralastro, Montagem/soldagem/geometria, Contratrilhos de segurança, AMVs e Drenagem do tabuleiro, com **R$/km de via**, **R$/m de viaduto**, participação de cada componente, valor com BDI e a parte da via no custo direto. Gráfico de barras por componente.
+- **Sensibilidade**: gráficos do custo por metro de viaduto (via permanente × estrutura) variando o vão (10 a 45 m) e a altura dos pilares (3 a 30 m), e tabela por tipologia do tabuleiro e via singela/dupla. Cada ponto recalcula o orçamento mudando só uma variável. Resultado no cenário padrão: a via permanente fica em torno de R$ 6.800/m e quase não muda com vão e altura; a estrutura vai de R$ 54 mil/m (vão 10 m) a R$ 26 mil/m (vão 45 m).
+- Só agrupa e divide itens que já existiam: nenhum preço, quantidade, regra ou chave de `rules.json` muda. Respeita os grupos marcados (sem o grupo de AMVs, a linha AMVs fica zerada). "Tipo de via" ficou como tipologia do tabuleiro e nº de vias, porque a base SIEC só tem via sobre lastro; via em laje exigiria uma composição de preço nova.
+- Novo módulo `railbudget/elevated_track.py`; `app.py` ganha `render_elevated_track_cost`. Documentação em `docs/ELEVADO_VIA_PERMANENTE.md`.
+- Testes: 121 antes, 126 depois (`tests/test_elevated_track.py` e `tests/test_app.py`).
+
 ## 2026-10-28 — Desenho do viaduto no elevado (elevado, item 1)
 
 Ponto de restauração destas alterações do elevado: branch `backup/pre-elevado-2026-10-28` (main após o PR #59, commit `8d53516`).

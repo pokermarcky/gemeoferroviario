@@ -380,3 +380,15 @@ def test_elevado_mostra_desenho_do_viaduto_no_formulario_e_no_resultado():
     assert not app.exception
     drawings=[item.value for item in app.markdown if 'elevated-drawing' in item.value]
     assert len(drawings)==2 and any('vãos · ' in item for item in drawings)
+
+
+def test_elevado_detalha_custo_da_via_permanente_e_sensibilidade():
+    app=AppTest.from_file(str(APP)).run(timeout=30)
+    app.selectbox(key='main_configuration').set_value('Elevado').run(timeout=30)
+    app.button(key='main_calculate').click().run(timeout=30)
+    assert not app.exception
+    labels=[item.label for item in app.metric]
+    assert {'Via permanente (custo direto)','Por km de via','Por metro de viaduto','Parte do custo direto'}.issubset(labels)
+    texts=' '.join(item.value for item in app.markdown)
+    assert 'Via permanente no elevado' in texts and 'Sensibilidade do custo por metro de viaduto' in texts
+    assert app.session_state['main_track_sensitivity'][1]
