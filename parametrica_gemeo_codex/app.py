@@ -11,6 +11,7 @@ from railbudget.elevated import (calculate_elevated, sensitivity, DECK_FACTORS, 
 from railbudget.exporters import make_excel, make_pdf, make_word, currency, br, caption
 from railbudget.interface import apply_theme
 from railbudget.elevated_drawing import elevated_svg, drawing_parameters
+from railbudget.elevated_track import track_breakdown, track_sensitivity
 from railbudget.static_scene_v2 import static_header_v2
 from railbudget.freight import (calculate_freight, axle_class, load_axle_config, platform_width,
     freight_input_signature, PENDING_FIELDS)
@@ -565,6 +566,93 @@ def result_group_label(group,result):
     return label
 
 
+TRACK_COLOR='#b8322a';STRUCTURE_COLOR='#2f74b5'
+BR_NUMBER="replace(replace(replace(format(datum.value, ',.1~f'), /,/g, '_'), /[.]/g, ','), /_/g, '.')"
+
+
+def track_sensitivity_chart(rows,variable,title):
+    """Linhas de custo por metro de viaduto: via permanente e estrutura, no mesmo eixo."""
+    data=pd.DataFrame([row for row in rows if row['Variável']==variable])
+    if data.empty:return
+    long=data.melt(id_vars=['Valor'],value_vars=['Via permanente (R$/m)','Estrutura do viaduto (R$/m)'],
+        var_name='Parcela',value_name='R$/m')
+    long['Parcela']=long['Parcela'].str.replace(' (R$/m)','',regex=False)
+    long['R$ mil/m']=long['R$/m']/1000
+    long['Custo']=long['R$/m'].map(currency)+' por m'
+    long['Valor exibido']=long['Valor'].map(lambda value:br(value,2)+' m')
+    color=alt.Color('Parcela:N',scale=alt.Scale(domain=['Via permanente','Estrutura do viaduto'],
+        range=[TRACK_COLOR,STRUCTURE_COLOR]),legend=alt.Legend(orient='top',title=None))
+    base=alt.Chart(long).encode(
+        x=alt.X('Valor:Q',title=title,axis=alt.Axis(labelExpr=BR_NUMBER,grid=False)),
+        y=alt.Y('R$ mil/m:Q',title='R$ mil por metro de viaduto',axis=alt.Axis(labelExpr=BR_NUMBER,tickCount=5)),
+        color=color,tooltip=[alt.Tooltip('Parcela:N'),alt.Tooltip('Valor exibido:N',title=title),
+            alt.Tooltip('Custo:N',title='Custo direto')])
+    chart=(base.mark_line(strokeWidth=2)+base.mark_point(filled=True,size=64)).properties(height=240)
+    st.altair_chart(chart,use_container_width=True)
+
+
+def render_elevated_track_cost(result,key):
+    """Custo paramétrico da via permanente no elevado, por componente, e sensibilidade."""
+    breakdown=track_breakdown(result)
+    scenario=result['scenario']
+    with st.container(border=True,key='elevated_track_cost'):
+        st.markdown('### Via permanente no elevado')
+        st.caption('Custo direto dos itens de via sobre o viaduto (trilhos, fixações, dormentes, lastro, montagem, '
+            'contratrilhos, AMVs e drenagem do tabuleiro), com os mesmos preços e quantidades do orçamento. '
+            'Respeita os grupos marcados.')
+        if not breakdown['direct']:
+            st.info('Nenhum item de via permanente no recorte atual. Marque o grupo de via permanente para ver este detalhamento.')
+            return
+        metrics=st.columns(4)
+        metrics[0].metric('Via permanente (custo direto)',currency(breakdown['direct']),border=True)
+        metrics[1].metric('Por km de via',currency(breakdown['per_track_km']),border=True,
+            help=f"Divide pela via total: {br(breakdown['track_km'],3)} km ({scenario['km']} km × {scenario['lines']} via(s)).")
+        metrics[2].metric('Por metro de viaduto',currency(breakdown['per_viaduct_m']),border=True,
+            help=f"Divide pela extensão do viaduto: {br(breakdown['viaduct_m'],0)} m.")
+        metrics[3].metric('Parte do custo direto',br(breakdown['share_of_direct'],1)+'%',border=True,
+            help='Participação da via permanente no custo direto do recorte selecionado.')
+        st.caption((f"Com BDI de {br(scenario['bdi']*100,2)}%: {currency(breakdown['with_bdi'])} no total e "
+            f"{currency(breakdown['per_track_km_with_bdi'])} por km de via.").replace('$',r'\$'))
+        frame=pd.DataFrame(breakdown['rows'])
+        frame['Participação']=frame.pop('Participação (%)').map(lambda value:br(value,1)+'%')
+        shown=frame[frame['Custo direto (R$)']>0]
+        display_table(shown,monetary=('Custo direto (R$)','R$/km de via','R$/m de viaduto'),height=table_height(len(shown)))
+        participation_chart(shown,'Componente','Custo direto (R$)',height=30*len(shown)+20)
+        st.markdown('**Sensibilidade do custo por metro de viaduto**')
+        st.caption('Cada ponto recalcula o orçamento mudando só uma variável; as demais premissas ficam como no cenário. '
+            'Mostra por que a via permanente quase não muda com vão e altura, enquanto a estrutura muda bastante.'
+            +(' Com trechos homogêneos, o vão ou a altura testados valem para todos os trechos.' if len(scenario.get('elevated_segments') or [])>1 else ''))
+        groups=set(result.get('selected_groups',result['groups']))
+        signature=sha256(repr((scenario,sorted(groups))).encode()).hexdigest()
+        cache_key=key+'_track_sensitivity'
+        cached=st.session_state.get(cache_key)
+        if not cached or cached[0]!=signature:
+            try:
+                scenario_data=dict(scenario)
+                segment_data=scenario_data.pop('elevated_segments',[]) or None
+                rows=track_sensitivity(Scenario(**scenario_data),rules,catalog,segment_data,groups)
+            except (ValueError,KeyError,TypeError) as exc:
+                st.error('Sensibilidade não calculada: '+str(exc));return
+            cached=(signature,rows);st.session_state[cache_key]=cached
+        rows=cached[1]
+        charts=st.columns(2,gap='large')
+        with charts[0]:track_sensitivity_chart(rows,'Vão (m)','Vão entre pilares (m)')
+        with charts[1]:track_sensitivity_chart(rows,'Altura dos pilares (m)','Altura dos pilares (m)')
+        deck=pd.DataFrame([row for row in rows if row['Variável'] in ('Tipologia do tabuleiro','Via')])
+        if not deck.empty:
+            deck_table=deck.rename(columns={'Valor':'Opção'})[['Variável','Opção','Via permanente (R$/m)',
+                'Estrutura do viaduto (R$/m)','Via permanente (R$/km de via)']]
+            st.markdown('**Tipologia do tabuleiro e número de vias**')
+            display_table(deck_table,monetary=('Via permanente (R$/m)','Estrutura do viaduto (R$/m)',
+                'Via permanente (R$/km de via)'),height=table_height(len(deck_table)))
+            st.caption('A tipologia do tabuleiro muda a estrutura, não a via: a base SIEC só tem via sobre lastro. '
+                'Na via dupla o custo por metro de viaduto sobe, mas o custo por km de via cai, porque a estrutura e o paralastro são compartilhados.')
+        with st.expander('Ver tabela completa da sensibilidade',expanded=False):
+            full=pd.DataFrame(rows).drop(columns=['Ordem'])
+            full['Valor']=full['Valor'].map(lambda value:br(value,2) if isinstance(value,float) else value)
+            display_table(full,monetary=('Via permanente (R$/m)','Estrutura do viaduto (R$/m)','Via permanente (R$/km de via)'))
+
+
 def render_elevated_summary(result,key):
     elevated=result.get('elevated')
     if not elevated:return
@@ -722,6 +810,7 @@ def render_result(r,key,modality='passageiro'):
     st.caption(financial_caption.replace('$',r'\$'))
     if r['scenario']['configuration']=='Elevado' and modality=='passageiro':
         render_elevated_summary(r,key)
+        render_elevated_track_cost(r,key)
     render_project_save_action(key, r)
     columns={'eap':'EAP','group':'Grupo','code':'Código','source':'Fonte','label':'Aplicação','description':'Descrição','unit':'Unidade','quantity':'Quantidade','unit_cost':'Custo unitário (R$)','total':'Custo total (R$)','date':'Data-base'}
     frame=pd.DataFrame(r['items'])[list(columns)].rename(columns=columns) if r['items'] else pd.DataFrame(columns=columns.values())
