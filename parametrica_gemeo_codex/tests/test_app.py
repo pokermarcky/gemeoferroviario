@@ -348,3 +348,20 @@ def test_resumo_mostra_so_grupos_marcados_bdi_com_duas_casas_e_shortline_desatua
     app.number_input(key='shortline_km').set_value(20.0).run(timeout=60)
     assert any('alterou o cenário' in x.value for x in app.info)
     assert any(x.key=='shortline_excel' for x in app.get('download_button'))  # resultado anterior continua visível
+
+
+def test_comparar_cenarios_fixa_a_e_mostra_diferenca_sem_mudar_o_calculo():
+    app=AppTest.from_file(str(APP)).run(timeout=60)
+    assert not app.exception
+    total_before=app.session_state['results']['main']['total']
+    app.button(key='main_pin_a').click().run(timeout=60)
+    assert not app.exception
+    assert app.session_state['main_scenario_a']['result']['total']==total_before
+    app.selectbox(key='main_lines').set_value(2).run(timeout=60)
+    app.button(key='main_calculate').click().run(timeout=60)
+    assert not app.exception
+    assert app.session_state['results']['main']['total']>total_before
+    assert any('Cenário B custa' in x.value and 'a mais' in x.value for x in app.markdown)
+    assert any(x.key=='main_comparison_excel' for x in app.get('download_button'))
+    app.button(key='main_clear_a').click().run(timeout=60)
+    assert 'main_scenario_a' not in app.session_state

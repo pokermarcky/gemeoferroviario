@@ -12,6 +12,8 @@ streamlit run app.py
 
 Abra **ORÇAMENTOS → Ferrovia de passageiro**, informe a extensão, configuração e quantidade de vias, escolha os grupos de serviço e clique em **Atualizar orçamento**. O bloco **Baixar orçamento** entrega o cenário calculado com os grupos atualmente selecionados em **Excel**, **PDF resumido**, **PDF detalhado** e **Word** (Passageiro, Carga e Shortline; o VLT oferece Excel). As abas **Resumo geral** e **Detalhamento por grupo** mostram o resultado na página: a tabela de participação lista só os grupos marcados e o gráfico ordena do maior para o menor, em R$ milhões. EAP completa e composições detalhadas ficam em painéis recolhíveis.
 
+No fim do resultado, **Comparar cenários** fixa o resultado atual como cenário A; depois de mudar o cenário e atualizar, mostra a diferença por grupo e nos indicadores, com download em Excel.
+
 Os indicadores mostram total, custo por km de corredor e por km de linha. Quando há material rodante, aparecem também a **frota** incluída no total e a **infraestrutura por km** sem a frota, que é o número comparável a referências de custo por km de via. Na Shortline, o terceiro indicador é o custo por **km de via** (linha principal + desvios + pátio); todos acompanham os grupos marcados e o BDI.
 
 **Banco de dutos** aparece entre os grupos de superfície e corresponde ao banco subterrâneo de seis dutos. Em elevado, o mesmo grupo passa a **Canaletas e passa-fios**, conforme as composições aplicáveis. O controle de prazo foi retirado do formulário; o cálculo conserva o prazo de referência interno do modelo para os quantitativos que dependem dele.
@@ -47,6 +49,7 @@ railbudget/shortline.py        shortline: desvios, pátio e escopo pendente
 railbudget/underground.py      subterrâneo preliminar
 railbudget/vlt.py              VLT parametrizado pelo edital
 railbudget/exporters.py        Excel, PDF e Word do orçamento
+railbudget/comparison.py       comparação de dois cenários (A × B)
 railbudget/localization.py     rótulos e memórias em português
 railbudget/auth.py             login, perfis e permissões
 railbudget/budget_store.py     carteira de projetos (Supabase ou SQLite)
@@ -65,6 +68,6 @@ tests/                         regressões de cálculo, interface e exportação
 
 ## Validação
 
-Execute `python -m pytest -q` com as dependências de `requirements-dev.txt` (113 testes em 28/10/2026). As regressões mantêm a reprodução dos quatro totais históricos da Parte 2 para auditoria, além dos cenários SIEC, da interface e da geração de Excel, PDF e Word.
+Execute `python -m pytest -q` com as dependências de `requirements-dev.txt` (117 testes em 28/10/2026). As regressões mantêm a reprodução dos quatro totais históricos da Parte 2 para auditoria, além dos cenários SIEC, da interface e da geração de Excel, PDF e Word.
 
 A aplicação pode ser executada localmente ou no Streamlit Community Cloud. Desde o PR #28 o Excel traz **valores fixos**, sem fórmulas: alterar um preço na planilha não recalcula o orçamento. Os identificadores internos do motor não são alterados pelos rótulos de apresentação.

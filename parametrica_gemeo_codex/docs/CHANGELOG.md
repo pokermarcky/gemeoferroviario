@@ -2,6 +2,13 @@
 
 Ponto de restauração anterior a estas alterações: branch `backup/estavel-2026-10-23` (commit `08fdea8`).
 
+## 2026-10-28 — Comparar dois cenários lado a lado (melhoria 5)
+
+- Novo bloco **Comparar cenários** no resultado de Passageiro, Carga e Shortline: "Fixar como cenário A" guarda o resultado exibido; depois de alterar o cenário e selecionar Atualizar orçamento, a tela mostra A, B, a diferença em reais e a variação (%) por grupo e nos indicadores (direto, BDI, total, por km, frota e infraestrutura por km), com uma frase-resumo ("Cenário B custa R$ X a mais que o A").
+- Botões para fixar o atual como novo A, limpar e baixar a comparação em Excel (contas com download ilimitado). O cenário A fica só na sessão do navegador.
+- Funcionalidade aditiva: novo módulo `railbudget/comparison.py`, que apenas lê resultados já calculados. Nenhum cálculo, regra, preço ou dado salvo muda. O VLT não tem comparação nesta versão.
+- Testes: 113 antes, 117 depois (`tests/test_comparison.py` e `tests/test_app.py`).
+
 ## 2026-10-28 — Documentação atualizada e código sem uso removido (melhoria 4)
 
 - `README.md`: quatro modalidades, botão **Atualizar orçamento** (não "Calcular"), downloads em Excel/PDF/Word, indicadores por km, subterrâneo preliminar (antes dizia que não orçava), sem estações no formulário, bases de referência gravadas em `.runtime/` (somem num *Reboot app*), carteira no Supabase, Excel com valores fixos e estrutura de módulos atual.
