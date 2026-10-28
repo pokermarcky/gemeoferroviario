@@ -98,9 +98,10 @@ def test_navegacao_e_controles_solicitados():
     assert app.selectbox(key='main_configuration').options == ['Superfície', 'Elevado', 'Subterrâneo']
     assert app.checkbox(key='main_grupo_5').label == 'Banco de dutos'
     assert not any(x.label == 'Prazo da obra (meses)' for x in app.number_input)
+    documents=[('excel','Excel'),('pdf_resumo','PDF resumido'),('pdf_detalhado','PDF detalhado'),('word','Word')]
     assert [(x.key, x.proto.label) for x in app.get('download_button')] == [
-        ('main_excel', 'Baixar orçamento em Excel'), ('cargo_excel', 'Baixar orçamento em Excel'),
-        ('vlt_excel','Baixar orçamento em Excel'),('shortline_excel','Baixar orçamento em Excel')]
+        *[('main_'+k,label) for k,label in documents],*[('cargo_'+k,label) for k,label in documents],
+        ('vlt_excel','Baixar orçamento em Excel'),*[('shortline_'+k,label) for k,label in documents]]
     assert not any(x.key == 'main_prepare' for x in app.button)
     assert {x.key for x in app.button if x.label=='Atualizar orçamento'}=={
         'main_calculate','cargo_calculate','vlt_calculate','shortline_calculate'}
@@ -280,7 +281,8 @@ def test_carga_orca_so_infraestrutura_com_siec():
     assert cargo['scenario']['freight_premises']['ballast_depth']==.40
     assert {p['key']:p['quantity'] for p in cargo['pending_scope']}['bridge_length']==150
     assert cargo['scenario']['yards']==2
-    assert {x.key for x in app.get('download_button')}=={'main_excel','cargo_excel','vlt_excel','shortline_excel'}
+    assert {x.key for x in app.get('download_button')}=={'vlt_excel',*(f'{tab}_{k}' for tab in ('main','cargo','shortline')
+        for k in ('excel','pdf_resumo','pdf_detalhado','word'))}
 
 
 def test_shortline_calcula_salva_e_reabre_para_edicao(monkeypatch,tmp_path):
@@ -313,3 +315,21 @@ def test_shortline_calcula_salva_e_reabre_para_edicao(monkeypatch,tmp_path):
     assert app.number_input(key='shortline_km').value==25.0
     assert app.number_input(key='shortline_level_crossings').value==6
     assert not any('Atualizar orçamento' in x.value for x in app.info if 'alterou' in x.value)
+
+
+def test_demonstracao_tem_um_unico_download_em_qualquer_formato_inclusive_vlt(monkeypatch):
+    import time
+    monkeypatch.delenv('RAILPARAMETRIC_TEST_MODE')
+    app=AppTest.from_file(str(APP))
+    app.session_state['local_auth']={'role':'test','issued_at':time.time()}
+    app.run(timeout=60)
+    assert not app.exception
+    keys={x.key for x in app.get('download_button')}
+    assert {'main_excel','main_pdf_resumo','main_pdf_detalhado','main_word','vlt_excel'}<=keys
+    app.session_state['trial_excel_downloads']=1
+    app.run(timeout=60)
+    assert not app.exception
+    assert not app.get('download_button')
+    assert any('download de demonstração já foi utilizado' in x.value for x in app.info)
+    source=APP.read_text(encoding='utf-8')
+    assert "key='vlt_excel',icon=':material/download:',on_click=register_trial_download" in source

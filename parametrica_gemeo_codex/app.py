@@ -7,7 +7,7 @@ from railbudget.engine import (Scenario, load_model, calculate, select_groups,
     FOUNDATION_OPTIONS, foundation_diameters, foundation_capacity)
 from railbudget.elevated import (calculate_elevated, sensitivity, DECK_FACTORS, PIER_FACTORS,
     GEOTECH_FACTORS, METHOD_FACTORS, EXECUTION_FACTORS)
-from railbudget.exporters import make_excel, currency, br, caption
+from railbudget.exporters import make_excel, make_pdf, make_word, currency, br, caption
 from railbudget.interface import apply_theme
 from railbudget.static_scene_v2 import static_header_v2
 from railbudget.freight import (calculate_freight, axle_class, load_axle_config, platform_width,
@@ -39,6 +39,20 @@ def data(version):return load_model(ROOT)
 
 @st.cache_data(ttl=900,max_entries=8,show_spinner=False)
 def excel_orcamento(result,price_catalog):return make_excel(result,{**price_catalog,**result.get('custom_prices',{})})
+
+@st.cache_data(ttl=900,max_entries=8,show_spinner=False)
+def documentos_orcamento(result):
+    """Relatório Word e PDFs (resumo e detalhado) do recorte exibido."""
+    return make_word(result),make_pdf(result,False),make_pdf(result,True)
+
+@st.cache_data(ttl=900,max_entries=4,show_spinner=False)
+def excel_vlt(result):return make_vlt_excel(result)
+
+
+def register_trial_download(downloads_used):
+    """Consome o download da demonstração, qualquer que seja o formato baixado."""
+    if budget_download_limit(current_user) is not None:
+        st.session_state.trial_excel_downloads=downloads_used+1
 
 version=(ROOT/'data/catalog.sqlite').stat().st_mtime_ns,(ROOT/'config/rules.json').stat().st_mtime_ns
 rules,base_catalog=data(version)
@@ -420,11 +434,16 @@ def render_vlt_budget():
             for item in result['items']])
         display_table(detail,monetary=('Custo-base (R$)','Custo no cenário (R$)'),height=520)
     for warning in result['warnings']:st.caption('• '+warning)
-    if can_download_budget(current_user,int(st.session_state.get('trial_excel_downloads',0))):
-        st.download_button('Baixar orçamento em Excel',make_vlt_excel(result),
+    downloads_used=int(st.session_state.get('trial_excel_downloads',0))
+    if can_download_budget(current_user,downloads_used):
+        st.download_button('Baixar orçamento em Excel',excel_vlt(result),
             file_name='orcamento_vlt_aeroporto_castelao.xlsx',
             mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            key='vlt_excel',icon=':material/download:')
+            key='vlt_excel',icon=':material/download:',on_click=register_trial_download,args=(downloads_used,))
+        if budget_download_limit(current_user) is not None:
+            st.caption('Demonstração: este é o único download disponível nesta sessão.')
+    elif budget_download_limit(current_user) is not None:
+        st.info('O download de demonstração já foi utilizado nesta sessão.')
 
 
 def render_shortline_budget():
@@ -691,19 +710,25 @@ def render_result(r,key,modality='passageiro'):
     used_catalog={item['price_key']:catalog[item['price_key']] for item in r['items'] if item['price_key'] in catalog}
     downloads_used=int(st.session_state.get('trial_excel_downloads',0))
     if can_download_budget(current_user,downloads_used):
-        def register_trial_download():
-            if budget_download_limit(current_user) is not None:
-                st.session_state.trial_excel_downloads=downloads_used+1
-        st.download_button('Baixar orçamento em Excel',excel_orcamento(r,used_catalog),
-            file_name='orcamento_ferrovia_'+modality+'.xlsx',
-            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            key=key+'_excel',icon=':material/download:',on_click=register_trial_download)
+        word,pdf_summary,pdf_detail=documentos_orcamento(r)
+        downloads=[
+            ('Excel',excel_orcamento(r,used_catalog),'excel','.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','table_view'),
+            ('PDF resumido',pdf_summary,'pdf_resumo','_resumo.pdf','application/pdf','picture_as_pdf'),
+            ('PDF detalhado',pdf_detail,'pdf_detalhado','_detalhado.pdf','application/pdf','picture_as_pdf'),
+            ('Word',word,'word','_relatorio.docx','application/vnd.openxmlformats-officedocument.wordprocessingml.document','description'),
+        ]
+        st.markdown('**Baixar orçamento**')
+        with st.container(horizontal=True,key=key+'_downloads'):
+            for label,data,suffix,extension,mime,icon in downloads:
+                st.download_button(label,data,file_name='orcamento_ferrovia_'+modality+extension,mime=mime,
+                    key=key+'_'+suffix,icon=f':material/{icon}:',on_click=register_trial_download,args=(downloads_used,))
+        st.caption('Excel com EAP, premissas e abas por grupo; PDF e Word com a memória de cálculo em português.')
         if budget_download_limit(current_user) is not None:
-            st.caption('Demonstração: este é o único download de Excel disponível nesta sessão.')
+            st.caption('Demonstração: um único download nesta sessão, em qualquer formato.')
     elif budget_download_limit(current_user) is not None:
         st.info('O download de demonstração já foi utilizado nesta sessão.')
     else:
-        st.info('O perfil de demonstração permite conhecer e calcular, mas não gera a planilha Excel.')
+        st.info('O perfil de demonstração permite conhecer e calcular, mas não gera arquivos do orçamento.')
 
 def reference_card(source,kind):
     slot=(source,kind)

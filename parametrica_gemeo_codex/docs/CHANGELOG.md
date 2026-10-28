@@ -2,6 +2,13 @@
 
 Ponto de restauração anterior a estas alterações: branch `backup/estavel-2026-10-23` (commit `08fdea8`).
 
+## 2026-10-28 — Downloads em PDF e Word; limite da demonstração no VLT (melhoria 2)
+
+- Passageiro, Carga e Shortline passam a oferecer, além do Excel, **PDF resumido**, **PDF detalhado** e **relatório Word**. Os geradores (`make_pdf`, `make_word` em `exporters.py`) já existiam e eram testados, mas não tinham botão. Os arquivos refletem o recorte exibido (grupos marcados e BDI).
+- O botão do Excel passa a se chamar "Excel" dentro do bloco "Baixar orçamento"; a chave interna `<aba>_excel` não muda.
+- Demonstração: continua com um único download por sessão, agora em qualquer formato. O Excel do VLT não consumia esse limite e foi corrigido; o arquivo do VLT também passou a ser guardado em cache em vez de regenerado a cada interação.
+- Sem mudança de cálculo, preços ou dados. Testes: 110 antes, 111 depois.
+
 ## 2026-10-28 — Indicadores por km corretos (melhoria 1)
 
 Ponto de restauração destas melhorias: branch `backup/pre-melhorias-2026-10-28` (main após o PR #54/#53).
