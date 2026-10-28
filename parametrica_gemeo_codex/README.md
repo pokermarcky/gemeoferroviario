@@ -44,6 +44,7 @@ Alterações nas premissas exigem clicar em **Atualizar orçamento**; até lá, 
 app.py                         interface Streamlit e navegação
 railbudget/engine.py           cenários, seleção, quantitativos e preços
 railbudget/elevated.py         elevado: geometria, fundações, trechos e sensibilidade
+railbudget/elevated_drawing.py desenho do elevado (corte e elevação em SVG)
 railbudget/freight.py          ferrovia de carga e carga por eixo
 railbudget/shortline.py        shortline: desvios, pátio e escopo pendente
 railbudget/underground.py      subterrâneo preliminar
@@ -68,6 +69,6 @@ tests/                         regressões de cálculo, interface e exportação
 
 ## Validação
 
-Execute `python -m pytest -q` com as dependências de `requirements-dev.txt` (117 testes em 28/10/2026). As regressões mantêm a reprodução dos quatro totais históricos da Parte 2 para auditoria, além dos cenários SIEC, da interface e da geração de Excel, PDF e Word.
+Execute `python -m pytest -q` com as dependências de `requirements-dev.txt` (121 testes em 28/10/2026). As regressões mantêm a reprodução dos quatro totais históricos da Parte 2 para auditoria, além dos cenários SIEC, da interface e da geração de Excel, PDF e Word.
 
 A aplicação pode ser executada localmente ou no Streamlit Community Cloud. Desde o PR #28 o Excel traz **valores fixos**, sem fórmulas: alterar um preço na planilha não recalcula o orçamento. Os identificadores internos do motor não são alterados pelos rótulos de apresentação.

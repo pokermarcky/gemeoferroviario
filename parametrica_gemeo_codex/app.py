@@ -10,6 +10,7 @@ from railbudget.elevated import (calculate_elevated, sensitivity, DECK_FACTORS, 
     GEOTECH_FACTORS, METHOD_FACTORS, EXECUTION_FACTORS)
 from railbudget.exporters import make_excel, make_pdf, make_word, currency, br, caption
 from railbudget.interface import apply_theme
+from railbudget.elevated_drawing import elevated_svg, drawing_parameters
 from railbudget.static_scene_v2 import static_header_v2
 from railbudget.freight import (calculate_freight, axle_class, load_axle_config, platform_width,
     freight_input_signature, PENDING_FIELDS)
@@ -247,6 +248,11 @@ def budget_controls(key,freight=False):
                 transitions=int(transitions),transition_unit_cost=float(transition_cost),
                 noise_barrier_length=float(barrier_length),noise_barrier_height=float(barrier_height),
                 noise_barrier_unit_cost=float(barrier_cost))
+            with st.expander('Desenho do viaduto',expanded=True):
+                st.caption('Corte transversal e elevação atualizados com os valores acima. A via permanente aparece em destaque.'
+                    +(' Com trechos homogêneos, o desenho mostra o trecho mais extenso.' if len(segment_records)>1 else ''))
+                drawing_scenario=dict(elevated_parameters,lines=lines,km=float(km))
+                st.markdown(elevated_svg(drawing_parameters(drawing_scenario)),unsafe_allow_html=True)
 
     service_step='3' if elevated_parameters else '2'
     bdi_step='4' if elevated_parameters else '3'
@@ -577,13 +583,7 @@ def render_elevated_summary(result,key):
             f"extensão total {br(elevated['total_pile_length'],2)} m."
         )
         st.caption(elevated['recommendation'])
-        st.markdown(
-            '<div class="elevated-scheme"><div class="scheme-rail"></div>'
-            '<div class="scheme-deck"></div><div class="scheme-pier p1"></div>'
-            '<div class="scheme-pier p2"></div><div class="scheme-pier p3"></div>'
-            f'<span class="scheme-span">Vão predominante: {br(scenario["elevated_span"],2)} m</span>'
-            f'<span class="scheme-height">Altura: {br(scenario["elevated_height"],2)} m</span></div>',
-            unsafe_allow_html=True)
+        st.markdown(elevated_svg(drawing_parameters(scenario,elevated)),unsafe_allow_html=True)
         first_group=next((group for group in result['groups'] if group.startswith('1 ')),None)
         if first_group in result.get('selected_groups',result['groups']):
             structure=pd.DataFrame([{'Componente estrutural':name,'Custo direto (R$)':value}
