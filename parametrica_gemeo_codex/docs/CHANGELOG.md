@@ -2,6 +2,14 @@
 
 Ponto de restauração anterior a estas alterações: branch `backup/estavel-2026-10-23` (commit `08fdea8`).
 
+## 2026-10-28 — Resultado legível de relance (melhoria 3)
+
+- "Participação por grupo": a tabela mostra só os grupos marcados, com a coluna **Participação** (%) e altura ajustada ao número de linhas (antes ficava fixa em 320 px e escondia Material rodante, o maior item do passageiro). Na carga, os grupos desmarcados deixam de aparecer como R$ 0,00.
+- Gráfico de barras ordenado do maior para o menor, eixo em **R$ milhões** com vírgula decimal e ponto de milhar, e valor exato ao passar o mouse. Mesma cor do tema (#c4421f). O VLT usa o mesmo gráfico.
+- BDI exibido com duas casas ("26,30%" em vez de "26,300000%").
+- Shortline: ao alterar um campo, o resultado anterior continua visível com o aviso para atualizar, como nas outras abas (antes a tela de resultado sumia).
+- Sem mudança de cálculo, preços ou dados. Testes: 111 antes, 112 depois.
+
 ## 2026-10-28 — Downloads em PDF e Word; limite da demonstração no VLT (melhoria 2)
 
 - Passageiro, Carga e Shortline passam a oferecer, além do Excel, **PDF resumido**, **PDF detalhado** e **relatório Word**. Os geradores (`make_pdf`, `make_word` em `exporters.py`) já existiam e eram testados, mas não tinham botão. Os arquivos refletem o recorte exibido (grupos marcados e BDI).

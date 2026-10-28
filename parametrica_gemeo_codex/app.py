@@ -1,6 +1,7 @@
 from pathlib import Path
 from hashlib import sha256
 import re
+import altair as alt
 import pandas as pd
 import streamlit as st
 from railbudget.engine import (Scenario, load_model, calculate, select_groups,
@@ -356,6 +357,25 @@ def display_table(frame, monetary=(), height=None):
     st.dataframe(shown,**options)
 
 
+def table_height(rows):
+    """Altura que mostra todas as linhas da tabela, sem rolagem interna."""
+    return 38*(rows+1)+4
+
+
+def participation_chart(frame,label,value,height):
+    """Barras ordenadas do maior para o menor, com eixo em milhões de reais no padrão brasileiro."""
+    data=frame[[label,value]].copy()
+    data['Milhões']=data[value]/1e6
+    data['Valor']=data[value].map(currency)
+    chart=alt.Chart(data).mark_bar(color='#c4421f',cornerRadiusEnd=3).encode(
+        x=alt.X('Milhões:Q',title='R$ milhões',axis=alt.Axis(
+            labelExpr="replace(replace(replace(format(datum.value, ',.1~f'), /,/g, '_'), /[.]/g, ','), /_/g, '.')",grid=True,tickCount=5)),
+        y=alt.Y(f'{label}:N',sort='-x',title=None,axis=alt.Axis(labelLimit=180)),
+        tooltip=[alt.Tooltip(f'{label}:N',title=label),alt.Tooltip('Valor:N',title=value)],
+    ).properties(height=height)
+    st.altair_chart(chart,use_container_width=True)
+
+
 def render_project_save_action(key, result, disabled=False):
     """Grava o cenário recalculado no mesmo projeto que está em edição."""
     context = st.session_state.get("budget_edit_context")
@@ -423,10 +443,10 @@ def render_vlt_budget():
     views=st.columns([1,1.1],gap='large')
     with views[0]:
         st.markdown('**Composição por implantação**')
-        display_table(summary,monetary=('Valor (R$)',),height=250)
+        display_table(summary,monetary=('Valor (R$)',),height=table_height(len(summary)))
     with views[1]:
         st.markdown('**Participação no cenário**')
-        st.bar_chart(summary,x='Componente',y='Valor (R$)',horizontal=True,color='#c4421f',height=250)
+        participation_chart(summary,'Componente','Valor (R$)',max(160,44*len(summary)))
     with st.expander('Ver grupos do edital e critérios paramétricos',expanded=False):
         detail=pd.DataFrame([{'EAP':item['eap'],'Grupo do edital':item['label'],
             'Aplicação':item['basis'],'Custo-base (R$)':item['baseline_cost'],
@@ -519,7 +539,7 @@ def render_shortline_budget():
             st.session_state.results.pop(key,None);st.error(str(exc));return
     stale=st.session_state.get(key+'_calculated_inputs')!=params
     if stale:
-        st.info('Você alterou o cenário. Selecione Atualizar orçamento para conferir os novos valores.');return
+        st.info('Você alterou o cenário. Selecione Atualizar orçamento para conferir os novos valores.')
     result=st.session_state.results.get(key)
     if not result:return
     st.info('Shortline em superfície com composições SIEC de carga (TR-57 ou UIC 60, conforme a carga por eixo). Passagens em nível, frota, terminais e obras de arte especiais ficam registrados fora do total.')
@@ -658,7 +678,7 @@ def render_result(r,key,modality='passageiro'):
                 help='Custo por composição incluído no total. Não depende da extensão do corredor.')
             fleet_columns[1].metric('Infraestrutura por km',currency(r['per_km_without_fleet']),border=True,
                 help='Por km de corredor, sem o material rodante. Use este valor para comparar com referências de custo por km de via.')
-    financial_caption=f"Custo direto: {currency(r['direct'])} | BDI aplicado: {br(r['scenario']['bdi']*100,6)}% | Acréscimo de BDI: {currency(r['bdi_amount'])}"
+    financial_caption=f"Custo direto: {currency(r['direct'])} | BDI aplicado: {br(r['scenario']['bdi']*100,2)}% | Acréscimo de BDI: {currency(r['bdi_amount'])}"
     st.caption(financial_caption.replace('$',r'\$'))
     if r['scenario']['configuration']=='Elevado' and modality=='passageiro':
         render_elevated_summary(r,key)
@@ -669,12 +689,19 @@ def render_result(r,key,modality='passageiro'):
     with summary_tab:
         st.caption('Visão consolidada do total selecionado. Consulte o detalhamento para conferir cada serviço, quantidade, código, fonte e preço.')
         st.subheader('Participação por grupo')
-        group_frame=pd.DataFrame([{'Grupo':result_group_label(g,r),'Custo direto (R$)':v} for g,v in r['groups'].items()])
-        summary_columns=st.columns([1,1.15],gap='large')
-        with summary_columns[0]:
-            display_table(group_frame,monetary=('Custo direto (R$)',),height=320)
-        with summary_columns[1]:
-            st.bar_chart(group_frame,x='Grupo',y='Custo direto (R$)',horizontal=True,color='#c4421f',height=320)
+        selected=[group for group in r['scope_summary'] if group['selected']]
+        group_frame=pd.DataFrame([{'Grupo':result_group_label(group['group'],r),'Custo direto (R$)':group['direct'],
+            'Participação':br(group['share'],1)+'%'} for group in selected],columns=['Grupo','Custo direto (R$)','Participação'])
+        if group_frame.empty:
+            st.info('Nenhum grupo selecionado. Marque ao menos um grupo para ver a participação.')
+        else:
+            summary_columns=st.columns([1,1.15],gap='large')
+            with summary_columns[0]:
+                display_table(group_frame,monetary=('Custo direto (R$)',),height=table_height(len(group_frame)))
+            with summary_columns[1]:
+                participation_chart(group_frame,'Grupo','Custo direto (R$)',max(160,36*len(group_frame)))
+            if len(selected)<len(r['scope_summary']):
+                st.caption('Somente os grupos marcados aparecem aqui; os demais não entram no total.')
     with detail_tab:
         with st.expander('EAP completa · serviços e preços',expanded=False):
             frame['Quantidade']=frame['Quantidade'].map(lambda value:br(value,6))
