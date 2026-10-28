@@ -89,3 +89,27 @@ A base SIEC só tem via sobre lastro. "Tipo de via" foi tratado como tipologia d
 - `railbudget/elevated_track.py`: `track_breakdown(resultado)` e `track_sensitivity(cenário, regras, catálogo, trechos, grupos)`.
 - `app.py`: `render_elevated_track_cost` e `track_sensitivity_chart` (cores validadas para daltonismo: via `#b8322a`, estrutura `#2f74b5`).
 - Testes: `tests/test_elevated_track.py` (soma confere item a item, AMVs = grupo 5, divisões por km de via e metro, recorte de grupos, varredura de vão/altura/tabuleiro/vias, trechos) e `tests/test_app.py` (bloco e sensibilidade na tela).
+
+## 3. Desenho e via permanente nos arquivos baixados
+
+### Onde aparece
+
+Ao baixar o orçamento de um cenário com elevado, os quatro arquivos levam o desenho:
+
+- **Excel**: aba nova **Desenho do elevado** (a última da pasta), com a imagem e a legenda "sem escala". A aba **Elevado** ganha as linhas "Via permanente no elevado" (custo direto por componente, R$/km de via, R$/m de viaduto e participação) e o total.
+- **Word** e **PDF resumido**: seções **Desenho do elevado** e **Via permanente no elevado** logo após o resultado do cenário, antes da memória de cálculo.
+- **PDF detalhado (EAP)**: as mesmas duas seções antes da EAP detalhada.
+
+Cenários sem elevado não mudam. A sensibilidade (gráficos de vão e altura) continua só na tela, porque recalcula o orçamento várias vezes.
+
+### Como a imagem é gerada
+
+- `railbudget/drawing_image.py` desenha a imagem PNG a partir do mesmo SVG da tela (`elevated_svg`), usando só o Pillow (que já vem com o reportlab e o Streamlit) e as fontes Vera do reportlab. Não há dependência nova nem biblioteca de sistema (Cairo), então funciona no Streamlit Community Cloud sem mudar `requirements.txt`.
+- As cores saem do próprio SVG: qualquer mudança de cor em `railbudget/elevated_drawing.py` (por exemplo, um tema mais suave) chega automaticamente aos arquivos.
+- A imagem é feita uma vez por cenário (cache) e reaproveitada nos quatro formatos; leva cerca de meio segundo.
+- O limite de download da demonstração não muda: os botões e a contagem são os mesmos; só o conteúdo dos arquivos ganhou o desenho.
+- Nenhum cálculo muda: a tabela da via permanente usa `track_breakdown`, a mesma da tela.
+
+### Testes
+
+`tests/test_desenho_downloads.py`: imagem em todas as combinações de tabuleiro e pilar, cor herdada do desenho, presença do desenho e da via permanente no Excel, Word e nos dois PDFs, ausência em cenário sem elevado e valores do orçamento inalterados.

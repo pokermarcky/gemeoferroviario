@@ -2,6 +2,13 @@
 
 Ponto de restauração anterior a estas alterações: branch `backup/estavel-2026-10-23` (commit `08fdea8`).
 
+## 2026-10-28 — Desenho do viaduto nos arquivos baixados (elevado, item 3)
+
+- Ao baixar um orçamento com elevado, o **Excel**, o **Word**, o **PDF resumido** e o **PDF detalhado** passam a trazer o desenho do viaduto (corte transversal e elevação longitudinal) e a tabela **Via permanente no elevado** (custo por componente, R$/km de via, R$/m de viaduto, participação e total com BDI). No Excel, o desenho fica numa aba nova "Desenho do elevado", no fim da pasta.
+- A imagem é gerada a partir do mesmo SVG da tela, com Pillow e as fontes do reportlab, sem dependência nova. As cores vêm do desenho da tela, então mudanças de tema chegam aos arquivos.
+- Só conteúdo dos arquivos: nenhum cálculo, preço ou regra muda, e o limite de download da demonstração continua igual. Cenários sem elevado não mudam.
+- Novo módulo `railbudget/drawing_image.py`; `railbudget/exporters.py` inclui as seções. Documentação em `docs/ELEVADO_VIA_PERMANENTE.md` (seção 3).
+- Testes: 25 novos em `tests/test_desenho_downloads.py`.
 ## 2026-10-28 — Tons mais sóbrios no lugar do laranja vivo
 
 Ponto de restauração: branch `backup/pre-tema-sobrio-2026-10-28` (main após o PR #61, commit `a429cdc`).

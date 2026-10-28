@@ -10,17 +10,20 @@ from xml.etree import ElementTree as ET
 from zipfile import ZipFile, ZIP_DEFLATED
 from html import escape
 from railbudget.localization import formula_legivel, memoria_quantidade, origem_legivel
+from railbudget.drawing_image import elevated_drawing_png
+from railbudget.elevated_track import track_breakdown
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.formatting.rule import FormulaRule
 from openpyxl.chart import BarChart, Reference
 from openpyxl.worksheet.pagebreak import Break
+from openpyxl.drawing.image import Image as XLImage
 from docx import Document
 from docx.shared import Cm, Pt, RGBColor
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer, PageBreak, KeepTogether
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer, PageBreak, KeepTogether, Image as PDFImage
 from reportlab.lib.pagesizes import A4, A3, landscape
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
@@ -36,6 +39,20 @@ def font_pdf():
         pdfmetrics.registerFont(TTFont('Vera',str(pasta/'Vera.ttf')))
         pdfmetrics.registerFont(TTFont('VeraBd',str(pasta/'VeraBd.ttf')))
     return 'Vera','VeraBd'
+
+DRAWING_CAPTION='Desenho esquemático do elevado (corte transversal e elevação longitudinal), sem escala. Cotas = valores do cenário.'
+
+def elevated_track_rows(r):
+    """Linhas da via permanente no elevado (mesmo cálculo da tela), ou None sem elevado ou sem itens de via."""
+    if not r.get('elevated'):return None
+    breakdown=track_breakdown(r)
+    if not breakdown['direct']:return None
+    rows=[row for row in breakdown['rows'] if row['Custo direto (R$)']>0]
+    return breakdown,rows
+
+def png_size(data):
+    """Largura e altura em pixels de um PNG."""
+    return int.from_bytes(data[16:20],'big'),int.from_bytes(data[20:24],'big')
 
 def br(v, digits=2):
     return f'{v:,.{digits}f}'.replace(',','X').replace('.',',').replace('X','.')
@@ -260,6 +277,16 @@ def make_excel(r,catalog):
             elevated_sheet.append(['Indicador gerencial',name,value,unit,'','Resultado derivado do cenário calculado.'])
         for component,value in r['elevated']['components'].items():
             elevated_sheet.append(['Custo estrutural',component,value,'R$','','Custo direto dentro do grupo Via permanente.'])
+        track=elevated_track_rows(r)
+        if track:
+            breakdown,rows=track
+            for row in rows:
+                elevated_sheet.append(['Via permanente no elevado',row['Componente'],row['Custo direto (R$)'],'R$','',
+                    f"{currency(row['R$/km de via'])} por km de via; {currency(row['R$/m de viaduto'])} por metro de viaduto; "
+                    f"{br(row['Participação (%)'],1)}% da via permanente."])
+            elevated_sheet.append(['Via permanente no elevado','Total da via permanente (custo direto)',breakdown['direct'],'R$','',
+                f"{currency(breakdown['per_track_km'])} por km de via; {currency(breakdown['per_viaduct_m'])} por metro de viaduto; "
+                f"{br(breakdown['share_of_direct'],1)}% do custo direto."])
     sheets={};lookup={}
     used={x['price_key'] for x in r['items']}
     for k in sorted(used):
@@ -320,6 +347,17 @@ def make_excel(r,catalog):
                 for col in range(1,7):elevated_sheet.cell(row,col).fill=PatternFill('solid',fgColor='F8FAFC')
     for sh in sheets.values():sh.column_dimensions['C'].width=75;sh.column_dimensions['G'].width=100
     add_group_sheets(w,r,refs,caches,{'direct':direct_row,'bdi':bdi_row,'total':total_row})
+    drawing=elevated_drawing_png(r)
+    if drawing:
+        # Fica no fim da pasta: as abas anteriores têm valores calculados gravados por posição.
+        sheet=w.create_sheet('Desenho do elevado')
+        sheet['A1']='Desenho do elevado';sheet['A1'].font=Font(name='Arial',size=15,bold=True,color=NAVY)
+        sheet['A2']=DRAWING_CAPTION;sheet['A2'].font=Font(name='Arial',size=10,italic=True,color='64748B')
+        picture=XLImage(BytesIO(drawing));width,height=png_size(drawing)
+        picture.width=1000;picture.height=round(1000*height/width)
+        sheet.add_image(picture,'A4')
+        sheet.sheet_properties.pageSetUpPr.fitToPage=True
+        sheet.page_setup.orientation='landscape';sheet.page_setup.fitToWidth=1;sheet.page_setup.fitToHeight=1
     data=BytesIO();w.save(data)
     return data.getvalue()
 
@@ -398,6 +436,20 @@ def make_word(r):
         return t
     table(['Grupo','Direto'],[[g,currency(v)] for g,v in r['groups'].items()]+[['Total com BDI',currency(r['total'])],['R$/km corredor',currency(r['per_km'])],['R$/km linha',currency(r['per_line_km'])]],[10,7])
     p=r['scenario'];d.add_paragraph(f"Drenagem {p['drainage']}; vedação {p['fence']}; {p['amvs']} AMV(s) no corredor; banco de dutos {'sim' if p['ducts'] else 'não'}; topografia {'sim' if p['topography'] else 'não'}; rede aérea {'sim' if p['overhead'] else 'não'}; sinalização {'sim' if p['signaling'] else 'não'} ({p['detection'].lower()}); material rodante {'sim' if p['rolling_stock'] else 'não'} ({p['trainsets']} composição(ões)); BDI {br(p['bdi']*100,6)}%.")
+    drawing=elevated_drawing_png(r)
+    if drawing:
+        d.add_heading('Desenho do elevado',1)
+        d.add_picture(BytesIO(drawing),width=Cm(17))
+        d.add_paragraph(DRAWING_CAPTION).runs[0].italic=True
+    track=elevated_track_rows(r)
+    if track:
+        breakdown,rows=track
+        d.add_heading('Via permanente no elevado',1)
+        table(['Componente','Custo direto','R$/km de via','R$/m de viaduto','Participação'],
+            [[x['Componente'],currency(x['Custo direto (R$)']),currency(x['R$/km de via']),currency(x['R$/m de viaduto']),br(x['Participação (%)'],1)+'%'] for x in rows]
+            +[['Total',currency(breakdown['direct']),currency(breakdown['per_track_km']),currency(breakdown['per_viaduct_m']),'100,0%']],[5,3.2,3.2,3.2,2.4])
+        d.add_paragraph(f"Com BDI: {currency(breakdown['with_bdi'])} no total e {currency(breakdown['per_track_km_with_bdi'])} por km de via. "
+            f"A via permanente é {br(breakdown['share_of_direct'],1)}% do custo direto do recorte.")
     d.add_heading('Fontes e limites',1)
     d.add_paragraph('; '.join(f'{k}: {v} linhas' for k,v in r['counts'].items()))
     for note in r['warnings']:d.add_paragraph(note)
@@ -429,6 +481,21 @@ def make_pdf(r,detailed=False):
     flow.append(t(['Grupo','Custo direto'],[[g,currency(v)] for g,v in r['groups'].items()]+[['Total com BDI',currency(r['total'])],['R$/km corredor',currency(r['per_km'])],['R$/km linha',currency(r['per_line_km'])]],[340,180] if not detailed else [650,470]))
     sc=r['scenario'];flow += [Spacer(1,14),p(f"Drenagem: {sc['drainage']} | Vedação: {sc['fence']} | AMVs: {sc['amvs']} | Dutos: {'sim' if sc['ducts'] else 'não'} | Topografia: {'sim' if sc['topography'] else 'não'} | Rede aérea: {'sim' if sc['overhead'] else 'não'} | Sinalização: {'sim' if sc['signaling'] else 'não'} ({sc['detection'].lower()}) | Material rodante: {sc['trainsets'] if sc['rolling_stock'] else 0} composição(ões) | BDI: {br(sc['bdi']*100,6)}%"),Spacer(1,10)]
     for note in r['warnings']:flow.extend([p(note),Spacer(1,7)])
+    drawing=elevated_drawing_png(r)
+    if drawing:
+        width,height=png_size(drawing);frame=page[0]-64;shown=min(frame,900)
+        flow.append(KeepTogether([p('Desenho do elevado','Heading2'),PDFImage(BytesIO(drawing),width=shown,height=shown*height/width),
+            Spacer(1,4),p(DRAWING_CAPTION),Spacer(1,10)]))
+    track=elevated_track_rows(r)
+    if track:
+        breakdown,rows=track
+        flow.append(p('Via permanente no elevado','Heading2'))
+        flow.append(t(['Componente','Custo direto','R$/km de via','R$/m de viaduto','Participação'],
+            [[x['Componente'],currency(x['Custo direto (R$)']),currency(x['R$/km de via']),currency(x['R$/m de viaduto']),br(x['Participação (%)'],1)+'%'] for x in rows]
+            +[['Total',currency(breakdown['direct']),currency(breakdown['per_track_km']),currency(breakdown['per_viaduct_m']),'100,0%']],
+            [136,100,100,100,94] if not detailed else [400,180,180,180,120]))
+        flow.extend([Spacer(1,6),p(f"Com BDI: {currency(breakdown['with_bdi'])} no total e {currency(breakdown['per_track_km_with_bdi'])} por km de via. "
+            f"A via permanente é {br(breakdown['share_of_direct'],1)}% do custo direto do recorte."),Spacer(1,10)])
     flow.append(p('Fontes por linha: '+'; '.join(f'{k}: {v}' for k,v in r['counts'].items())))
     flow.append(p('Origem: VPCODEX2026 + CODEX_PARAMETRICO_GERAL. SIEC junho/2026. Regra '+r['rule_version']))
     if detailed:
