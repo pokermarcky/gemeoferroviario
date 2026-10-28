@@ -375,7 +375,7 @@ def participation_chart(frame,label,value,height):
     data=frame[[label,value]].copy()
     data['Milhões']=data[value]/1e6
     data['Valor']=data[value].map(currency)
-    chart=alt.Chart(data).mark_bar(color='#c4421f',cornerRadiusEnd=3).encode(
+    chart=alt.Chart(data).mark_bar(color='#a3483a',cornerRadiusEnd=3).encode(
         x=alt.X('Milhões:Q',title='R$ milhões',axis=alt.Axis(
             labelExpr="replace(replace(replace(format(datum.value, ',.1~f'), /,/g, '_'), /[.]/g, ','), /_/g, '.')",grid=True,tickCount=5)),
         y=alt.Y(f'{label}:N',sort='-x',title=None,axis=alt.Axis(labelLimit=180)),
