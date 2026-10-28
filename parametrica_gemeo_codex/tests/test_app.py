@@ -333,3 +333,18 @@ def test_demonstracao_tem_um_unico_download_em_qualquer_formato_inclusive_vlt(mo
     assert any('download de demonstração já foi utilizado' in x.value for x in app.info)
     source=APP.read_text(encoding='utf-8')
     assert "key='vlt_excel',icon=':material/download:',on_click=register_trial_download" in source
+
+
+def test_resumo_mostra_so_grupos_marcados_bdi_com_duas_casas_e_shortline_desatualizada():
+    app=AppTest.from_file(str(APP)).run(timeout=60)
+    assert not app.exception
+    assert any('BDI aplicado: 26,30%' in x.value for x in app.caption)
+    assert not any('26,300000' in x.value for x in app.caption)
+    cargo_tables=[t.value for t in app.dataframe if 'Participação' in t.value.columns]
+    assert cargo_tables and all(len(t)>0 for t in cargo_tables)
+    groups=[set(t['Grupo']) for t in cargo_tables]
+    assert any('Rede aérea' not in g and 'Via permanente' in g for g in groups)  # carga: desmarcados ficam fora
+    assert "sort='-x'" in APP.read_text(encoding='utf-8')  # gráfico do maior para o menor
+    app.number_input(key='shortline_km').set_value(20.0).run(timeout=60)
+    assert any('alterou o cenário' in x.value for x in app.info)
+    assert any(x.key=='shortline_excel' for x in app.get('download_button'))  # resultado anterior continua visível
