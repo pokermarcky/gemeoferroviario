@@ -24,6 +24,7 @@ from railbudget.auth import (budget_download_limit, can, can_download_budget, is
 from railbudget.budget_store import ensure_budget, update_budget
 from railbudget.reference_store import load_reference_bases, save_reference_base
 from railbudget.user_workspace import render_user_sidebar
+from railbudget.comparison import compare_results, comparison_excel
 
 ROOT=Path(__file__).resolve().parent
 
@@ -639,6 +640,45 @@ def render_elevated_summary(result,key):
                 else:display_table(sensitivity_frame,monetary=('Cenário inferior (R$)','Cenário-base (R$)','Cenário superior (R$)'))
 
 
+def render_comparison(r,key):
+    """Compara o resultado exibido com um cenário fixado antes; só lê os valores já calculados."""
+    slot=key+'_scenario_a'
+    with st.container(border=True,key=key+'_comparison'):
+        st.markdown('**Comparar cenários**')
+        stored=st.session_state.get(slot)
+        if not stored:
+            st.caption('Fixe este resultado como cenário A, altere o que quiser, selecione Atualizar orçamento e veja a diferença por grupo.')
+            if st.button('Fixar como cenário A',key=key+'_pin_a',icon=':material/push_pin:'):
+                st.session_state[slot]={'result':r,'caption':caption(r)}
+                st.rerun()
+            return
+        st.caption('Cenário A: '+stored['caption'])
+        st.caption('Cenário B (atual): '+caption(r))
+        rows=compare_results(stored['result'],r,label=lambda group:result_group_label(group,r))
+        frame=pd.DataFrame([{'Item':row['item'],'Cenário A (R$)':row['a'],'Cenário B (R$)':row['b'],
+            'Diferença B − A (R$)':row['difference'],
+            'Variação':'—' if row['percent'] is None else ('+' if round(row['percent'],1)>0 else '')+br(round(row['percent'],1) or 0.0,1)+'%'}
+            for row in rows])
+        display_table(frame,monetary=('Cenário A (R$)','Cenário B (R$)','Diferença B − A (R$)'),height=table_height(len(frame)))
+        total=next((row for row in rows if row['item']=='Total'),None)
+        if total and not total['difference']:
+            st.markdown('**Os cenários A e B têm o mesmo total.**')
+        elif total:
+            direction='a mais' if total['difference']>0 else 'a menos'
+            message=(f"**Cenário B custa {currency(abs(total['difference']))} {direction} que o A**"
+                +('.' if total['percent'] is None else f" ({br(abs(total['percent']),1)}%)."))
+            st.markdown(message.replace('$',r'\$'))
+        with st.container(horizontal=True):
+            if st.button('Fixar o atual como novo A',key=key+'_repin_a',icon=':material/push_pin:'):
+                st.session_state[slot]={'result':r,'caption':caption(r)};st.rerun()
+            if st.button('Limpar comparação',key=key+'_clear_a',icon=':material/close:'):
+                st.session_state.pop(slot,None);st.rerun()
+            if can_download_budget(current_user,int(st.session_state.get('trial_excel_downloads',0))) and budget_download_limit(current_user) is None:
+                st.download_button('Baixar comparação (Excel)',comparison_excel(rows,stored['caption'],caption(r)),
+                    file_name=f'comparacao_{key}.xlsx',mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    key=key+'_comparison_excel',icon=':material/download:')
+
+
 def render_freight_scope(r):
     """Premissas de carga e escopo pendente, exibidos separadamente do total."""
     freight=r.get('freight')
@@ -731,6 +771,7 @@ def render_result(r,key,modality='passageiro'):
                             'unit_cost':'Custo unitário (R$)','total':'Custo total (R$)'})
                         detail['Quantidade']=detail['Quantidade'].map(lambda value:br(value,6))
                         display_table(detail,monetary=('Custo unitário (R$)','Custo total (R$)'))
+    render_comparison(r,key)
     if not r['items']:
         st.info('Nenhum serviço incluído no total. Selecione ao menos um grupo com serviços para gerar o orçamento em Excel.')
         return
