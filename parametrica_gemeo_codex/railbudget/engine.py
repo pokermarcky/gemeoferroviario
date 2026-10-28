@@ -57,6 +57,13 @@ def select_groups(result, selected_groups, bdi_rate=None):
     for group in out['scope_summary']:
         group['total']=money(group['direct']+group['bdi_amount'])
         group['per_km_with_bdi']=money(group['total']/km)
+    # Indicadores derivados do recorte: frota separada da infraestrutura e via total da shortline.
+    fleet=money(sum(g['total'] for g in out['scope_summary'] if g['selected'] and g['group'].startswith('9 ')))
+    out['fleet_total']=fleet
+    out['per_km_without_fleet']=money((total-fleet)/km)
+    track_km=result['scenario'].get('track_km')
+    if track_km:
+        out['per_track_km']=money(total/track_km)
     if chosen!=set(result['groups']):
         out['warnings'].append('Recorte financeiro: grupos incluídos no total: '+
             (', '.join(out['selected_groups']) or 'nenhum')+

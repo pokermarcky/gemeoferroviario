@@ -2,6 +2,16 @@
 
 Ponto de restauração anterior a estas alterações: branch `backup/estavel-2026-10-23` (commit `08fdea8`).
 
+## 2026-10-28 — Indicadores por km corretos (melhoria 1)
+
+Ponto de restauração destas melhorias: branch `backup/pre-melhorias-2026-10-28` (main após o PR #54/#53).
+
+- Shortline: o custo por km de via passa a acompanhar os grupos marcados e o BDI. Antes vinha do orçamento completo (com sinalização e BDI, mesmo desmarcados): no cenário padrão a tela mostrava R$ 7.099.006,38; o valor correto é R$ 7.000.316,78 com BDI. O terceiro cartão da Shortline agora é "Por km de via" (principal + desvios + pátio) em vez de "Por km de linha", que repetia o valor por km de corredor.
+- Passageiro: quando há material rodante, dois cartões novos mostram a frota incluída no total e a **infraestrutura por km** sem a frota. Os cartões existentes não mudam.
+- Excel (aba Resumo): linhas novas "R$/km de via" (Shortline) e "Frota" / "R$/km corredor sem frota" (quando há frota).
+- `select_groups` (engine.py) ganha chaves aditivas `fleet_total`, `per_km_without_fleet` e `per_track_km`; nenhum total, regra, preço ou dado salvo muda.
+- Testes: 108 antes, 110 depois.
+
 ## 2026-10-23 — Aba Shortline (PR #53)
 
 - Aba **Shortline** preenchida: ferrovia de carga curta em via singela, superfície, tração diesel. Linha principal pelo motor de carga (`calculate_freight`, carga por eixo de 16 a 25 t com TR-57 ou UIC 60), desvios de cruzamento e vias de pátio com as mesmas composições SIEC da via corrida (sem repetir canteiro, sondagens e administração local), 2 AMVs por desvio + AMVs de pátio, BDI editável, Excel e reabertura de projetos salvos.

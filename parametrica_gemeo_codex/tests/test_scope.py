@@ -77,3 +77,16 @@ def test_segregated_excel_and_selected_documents(model):
         text=''.join(p.extract_text() for p in PdfReader(BytesIO(files[name])).pages)
         assert currency(chosen['total']) in text
         assert 'Recorte financeiro' in text
+
+
+def test_frota_separada_do_custo_por_km_de_infraestrutura():
+    rules,catalog=load_model()
+    full=calculate(Scenario(km=1,rolling_stock=True,trainsets=1),rules,catalog)
+    fleet_group=next(g for g in full['groups'] if g.startswith('9 '))
+    chosen=select_groups(full,list(full['groups']))
+    fleet=next(g for g in chosen['scope_summary'] if g['group']==fleet_group)['total']
+    assert chosen['fleet_total']==fleet>0
+    assert chosen['per_km_without_fleet']==money(chosen['total']-fleet)
+    without=select_groups(full,[g for g in full['groups'] if g!=fleet_group])
+    assert without['fleet_total']==0 and without['per_km_without_fleet']==without['per_km']
+    assert 'per_track_km' not in chosen
