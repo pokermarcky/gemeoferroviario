@@ -2,6 +2,15 @@
 
 Ponto de restauração anterior a estas alterações: branch `backup/estavel-2026-10-23` (commit `08fdea8`).
 
+## 2026-10-28 — Tons mais sóbrios no lugar do laranja vivo
+
+Ponto de restauração: branch `backup/pre-tema-sobrio-2026-10-28` (main após o PR #61, commit `a429cdc`).
+
+- A pedido do Marcelo, o laranja e o amarelo vivos do tema foram trocados por tons sóbrios da mesma família: terracota `#a0614c` no lugar de `#e2712a` e ocre suave `#c9ad80` no lugar de `#f4b63f`. O vermelho principal `#b8322a` continua.
+- Vale para o gráfico de participação por grupo (`#a3483a`), o céu da ilustração do topo, o degradê dos destaques (cabeçalho do resultado, indicadores, cartão "Seu espaço", abas selecionadas), os fundos creme (menos amarelados), as bordas e o contorno de foco, e para o desenho do viaduto (dormentes, lastro e paralastro).
+- Só aparência: nenhum cálculo, preço, regra ou dado muda.
+- Testes: 126 antes, 129 depois (`tests/test_tema_sobrio.py`).
+
 ## 2026-10-28 — Custo da via permanente no elevado por componente (elevado, item 2)
 
 - Novo bloco **Via permanente no elevado** no resultado do elevado (Passageiro): custo direto da via sobre o viaduto separado em Trilhos, Fixações, Dormentes, Lastro e paralastro, Montagem/soldagem/geometria, Contratrilhos de segurança, AMVs e Drenagem do tabuleiro, com **R$/km de via**, **R$/m de viaduto**, participação de cada componente, valor com BDI e a parte da via no custo direto. Gráfico de barras por componente.

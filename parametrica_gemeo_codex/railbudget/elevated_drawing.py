@@ -7,7 +7,7 @@ from html import escape
 import math
 
 # Cores do tema: via permanente em destaque, estrutura em tons neutros.
-RAIL='#b8322a';GUARD_RAIL='#7a1f1a';SLEEPER='#e2712a';BALLAST='#f4b63f';CURB='#c9862a'
+RAIL='#b8322a';GUARD_RAIL='#7a1f1a';SLEEPER='#a0614c';BALLAST='#c9ad80';CURB='#9c8466'
 CONCRETE='#d9cdc6';CONCRETE_DARK='#b9a79e';STEEL='#6f6a73';SOIL='#e8dcc8';PILE='#a88f80'
 DRAIN='#5b84a8';TEXT='#3b2421';MUTED='#7d6460'
 

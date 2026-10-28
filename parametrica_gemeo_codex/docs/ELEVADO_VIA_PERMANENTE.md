@@ -18,7 +18,7 @@ Ponto de restauração anterior: branch `backup/pre-elevado-2026-10-28` (main em
 | Corte transversal | guarda-corpos, canaletas do tabuleiro, paralastro, lastro, dormentes, fixações, trilhos, contratrilhos, laje de distribuição, vigas, travessa, pilar, descida de drenagem, bloco e estacas | via singela/dupla, largura do tabuleiro, altura, tipologia do tabuleiro, tipologia dos pilares, estacas por apoio, diâmetro e profundidade |
 | Elevação longitudinal | 2 a 4 vãos típicos com tabuleiro, via, pilares, blocos, estacas e descidas | vão (distância entre pilares) e altura |
 
-Cores: via permanente em vermelho, laranja e amarelo do tema (`#b8322a`, `#e2712a`, `#f4b63f`); drenagem em azul; estrutura em tons neutros.
+Cores: via permanente em vermelho, terracota e ocre suave do tema (`#b8322a`, `#a0614c`, `#c9ad80`); drenagem em azul; estrutura em tons neutros.
 
 ### Regras do desenho
 

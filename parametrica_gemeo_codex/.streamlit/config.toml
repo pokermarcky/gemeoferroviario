@@ -10,6 +10,6 @@ gatherUsageStats = false
 base = "light"
 primaryColor = "#b8322a"
 backgroundColor = "#fffaf3"
-secondaryBackgroundColor = "#fff1d9"
+secondaryBackgroundColor = "#f7efe4"
 textColor = "#3b2421"
 font = "sans-serif"
