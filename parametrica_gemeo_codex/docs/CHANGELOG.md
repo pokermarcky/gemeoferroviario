@@ -10,6 +10,7 @@ Ponto de restauração anterior a estas alterações: branch `backup/estavel-202
 - Travessa em martelo sobre pilar único. Na elevação, aparelhos de apoio entre tabuleiro e travessa, e o terreno alinhado com o do corte.
 - O mesmo desenho vai para a tela, o Excel (aba "Desenho do elevado"), o Word e os PDFs. Só desenho: nenhum cálculo ou preço muda.
 - Teste novo em `tests/test_elevated_drawing.py`: em todas as combinações de vias, larguras (4 a 20 m), tabuleiros e pilares, cada aparelho de apoio fica sobre a travessa.
+
 ## 2026-11-05 — Administrador extra (login "teste")
 
 - `railbudget/auth.py` passa a ler uma quarta conta administrativa opcional em `[local_admin_extra]` nos Secrets, com os mesmos poderes do root. Uso pedido: login `teste` com acesso geral.
