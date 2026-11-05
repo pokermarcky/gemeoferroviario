@@ -2,6 +2,14 @@
 
 Ponto de restauração anterior a estas alterações: branch `backup/estavel-2026-10-23` (commit `08fdea8`).
 
+## 2026-11-05 — Desenho do viaduto: vigas apoiadas e detalhes corrigidos
+
+- Corte transversal: as vigas das extremidades ficavam fora da travessa (soltas no ar), porque a travessa tinha 62% da largura do tabuleiro e as vigas iam até 80%. Agora a travessa cobre todas as vigas, e cada viga apoia nela por um aparelho de apoio (novo na legenda). Vale para via singela e dupla e para todas as tipologias de tabuleiro e pilar.
+- Guarda-corpo desenhado como barreira de concreto na borda da laje; ralo de drenagem junto a ele; o tubo de drenagem não cruza mais o tabuleiro na diagonal (desce por fora das vigas, passa sob a travessa e desce junto ao pilar).
+- Via em posições reais: entrevia de 4,50 m na via dupla, paralastro na base do lastro e sem sobrepor o guarda-corpo; lastro nunca invertido em tabuleiro estreito.
+- Travessa em martelo sobre pilar único. Na elevação, aparelhos de apoio entre tabuleiro e travessa, e o terreno alinhado com o do corte.
+- O mesmo desenho vai para a tela, o Excel (aba "Desenho do elevado"), o Word e os PDFs. Só desenho: nenhum cálculo ou preço muda.
+- Teste novo em `tests/test_elevated_drawing.py`: em todas as combinações de vias, larguras (4 a 20 m), tabuleiros e pilares, cada aparelho de apoio fica sobre a travessa.
 ## 2026-11-05 — Administrador extra (login "teste")
 
 - `railbudget/auth.py` passa a ler uma quarta conta administrativa opcional em `[local_admin_extra]` nos Secrets, com os mesmos poderes do root. Uso pedido: login `teste` com acesso geral.
