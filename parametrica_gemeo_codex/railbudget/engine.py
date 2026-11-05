@@ -143,9 +143,25 @@ def foundation_capacity(kind,diameter):
     return FOUNDATION_CAPACITIES[kind][match]
 
 
+def _plain_code(value):
+    """Compara códigos SIEC com ou sem o prefixo "SIEC-" e com qualquer separador."""
+    text=re.sub(r'^SIEC[\s:._/-]*','',str(value or '').strip().upper())
+    return re.sub(r'[^A-Z0-9]','',text)
+
+
 def _catalog_key_by_code(catalog,code):
-    matches=[key for key,row in catalog.items() if row.get('code')==code and row.get('price') is not None]
+    """Localiza o serviço de fundação no catálogo ativo.
+
+    Uma base enviada pelo usuário pode trazer o código sem o prefixo "SIEC-"
+    (ex.: 02.01.04.400.01). Por isso a comparação ignora prefixo e separadores.
+    O item já vinculado às regras (que recebe o preço da base enviada) tem
+    preferência sobre a cópia acrescentada pelo upload.
+    """
+    wanted=_plain_code(code)
+    matches=[key for key,row in catalog.items()
+        if row.get('source','SIEC')=='SIEC' and _plain_code(row.get('code'))==wanted and row.get('price') is not None]
     if not matches:raise ValueError('A base ativa não possui o serviço de fundação '+code+'.')
+    matches.sort(key=lambda key:catalog[key].get('status')=='upload')
     return matches[0]
 
 def load_model(root=ROOT):

@@ -301,3 +301,21 @@ def embedded_inventory(catalog: dict) -> dict[tuple[str, str], dict]:
         entry["periods"].add(str(item.get("date") or "Sem data-base"))
         entry["count"] += 1
     return inventory
+
+
+def stale_price_warning(items: list[dict], bases: dict[tuple[str, str], ReferenceBase]) -> str | None:
+    """Avisa quando itens do orçamento não foram encontrados na base enviada e mantêm o preço anterior."""
+    stale = []
+    for item in items:
+        parts = str(item.get("price_key", "")).split("|")
+        slot = (item.get("source"), parts[1] if len(parts) > 1 else "")
+        base = bases.get(slot)
+        if base is None or str(item.get("provenance", "")).startswith("Upload ativo"):
+            continue
+        stale.append(f'{item.get("code")} ({item.get("date") or "data-base anterior"})')
+    if not stale:
+        return None
+    unique = list(dict.fromkeys(stale))
+    shown = ", ".join(unique[:8]) + (f" e mais {len(unique) - 8}" if len(unique) > 8 else "")
+    return (f"{len(unique)} código(s) usados neste orçamento não estão na base enviada "
+            f"e mantiveram o preço da data-base anterior: {shown}.")
