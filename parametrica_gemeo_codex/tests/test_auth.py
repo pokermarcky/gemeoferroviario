@@ -51,9 +51,10 @@ def test_tres_contas_administrativas_sao_lidas_dos_secrets(monkeypatch):
         "local_admin":{"username":"principal","password_hash":"h1"},
         "local_admin_secondary":{"username":"admin","password_hash":"h2"},
         "local_admin_backup":{"username":"contingencia","password_hash":"h3"},
+        "local_admin_extra":{"username":"Teste","password_hash":"h4"},
     }
     monkeypatch.setattr("railbudget.auth._secrets_section",lambda name:sections.get(name,{}))
-    assert _admin_accounts()==[("principal","h1"),("admin","h2"),("contingencia","h3")]
+    assert _admin_accounts()==[("principal","h1"),("admin","h2"),("contingencia","h3"),("teste","h4")]
 
 
 def test_somente_primeira_conta_e_root_principal(monkeypatch):
@@ -77,3 +78,13 @@ def test_tela_de_login_e_unica_sem_abas_por_perfil():
     assert 'with st.form("login_form"' in source
     assert 'st.tabs(["Administrador", "Conhecer o sistema"])' not in source
     assert 'form_submit_button("Entrar"' in source
+
+
+def test_admin_extra_com_login_teste_entra_como_root(monkeypatch):
+    import time
+    import railbudget.auth as auth
+    monkeypatch.setattr(auth,"_admin_accounts",lambda:[("principal","h1"),("teste","h4")])
+    monkeypatch.setattr(auth.st,"session_state",{"local_auth":{"role":"root","username":"teste","issued_at":time.time()}})
+    assert auth._local_user().role=="root"
+    monkeypatch.setattr(auth.st,"session_state",{"local_auth":{"role":"test","issued_at":time.time()}})
+    assert auth._local_user().role=="test"

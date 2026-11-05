@@ -67,7 +67,7 @@ def _secrets_section(name):
 
 def _admin_accounts():
     accounts=[]
-    for section_name in ("local_admin", "local_admin_secondary", "local_admin_backup"):
+    for section_name in ("local_admin", "local_admin_secondary", "local_admin_backup", "local_admin_extra"):
         section=_secrets_section(section_name)
         username=str(section.get("username", "")).strip().lower() if section else ""
         password_hash=str(section.get("password_hash", "")) if section else ""

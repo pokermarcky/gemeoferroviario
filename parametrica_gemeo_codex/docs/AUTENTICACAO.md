@@ -5,6 +5,13 @@
 - **root**: conta local cadastrada exclusivamente em `[local_admin]` nos Secrets. Pode usar todas as funções.
 - **administrador secundário**: conta cadastrada em `[local_admin_secondary]`, com os mesmos poderes completos do root.
 - **root de contingência**: segunda conta independente em `[local_admin_backup]`.
+- **administrador extra**: quarta conta opcional em `[local_admin_extra]`, com os mesmos poderes completos do root (por exemplo, login `teste` para avaliação). Se usar o login `teste`, a senha cadastrada no hash entra como administrador; a senha antiga de demonstração continua entrando no perfil limitado.
+
+Para gerar o hash de uma senha, rode no seu computador:
+
+```
+python -c "import base64,os,hashlib,getpass;s=os.urandom(16);p=getpass.getpass('Senha: ');d=hashlib.pbkdf2_hmac('sha256',p.encode(),s,600000,dklen=32);print('pbkdf2_sha256$600000$'+base64.b64encode(s).decode()+'$'+base64.b64encode(d).decode())"
+```
 - **test**: login local `teste`. Pode conhecer, calcular, salvar temporariamente e baixar um único orçamento em Excel por sessão. Não pode alterar bases.
 
 As restrições são verificadas no código antes de criar uploads ou downloads. Não dependem apenas da aparência da tela.

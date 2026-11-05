@@ -2,6 +2,13 @@
 
 Ponto de restauração anterior a estas alterações: branch `backup/estavel-2026-10-23` (commit `08fdea8`).
 
+## 2026-11-05 — Administrador extra (login "teste")
+
+- `railbudget/auth.py` passa a ler uma quarta conta administrativa opcional em `[local_admin_extra]` nos Secrets, com os mesmos poderes do root. Uso pedido: login `teste` com acesso geral.
+- A senha não está no repositório: só o hash PBKDF2 vai para os Secrets do Streamlit. Sem a seção nova, nada muda.
+- Com o login `teste`, a senha do hash entra como administrador; a senha antiga de demonstração continua no perfil limitado.
+- Documentação em `docs/AUTENTICACAO.md` e `.streamlit/secrets.example.toml`. Testes: 1 novo.
+
 ## 2026-11-05 — Correção urgente: site não abria depois da atualização
 
 - Depois dos PRs #64 e #65, o Streamlit Cloud mostrou "ImportError: cannot import name 'stale_price_warning'" ao abrir o site, mesmo após Reboot. O arquivo `reference_data.py` da main tem a função; o servidor estava lendo uma versão anterior do módulo.
