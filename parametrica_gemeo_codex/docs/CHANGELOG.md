@@ -2,6 +2,15 @@
 
 Ponto de restauração anterior a estas alterações: branch `backup/estavel-2026-10-23` (commit `08fdea8`).
 
+## 2026-11-05 — Elevado: três opções retiradas do formulário
+
+Ponto de restauração: branch `backup/pre-correcao-base-2026-11-05`.
+
+- Saíram da tela do elevado os painéis **Dividir o corredor em trechos homogêneos**, **Soluções estruturais e método executivo** e **Obras singulares e proteção acústica**.
+- O cálculo continua com os valores padrão que essas opções tinham fechadas (um trecho só, coeficientes 1,00, sem vãos especiais, encontros ou barreira acústica). Nenhum preço, regra ou quantidade muda: o total do cenário padrão é o mesmo de antes.
+- O desenho do viaduto continua no formulário, no resultado e nos arquivos baixados (Excel, aba "Desenho do elevado"; Word; PDF resumido e detalhado), conferido com a base de agosto/2026.
+- Documentação: `docs/ELEVADO_VIA_PERMANENTE.md`, seção 4. Teste novo em `tests/test_app.py`.
+
 ## 2026-11-05 — Correção: elevado com base SIEC enviada sem o prefixo "SIEC-"
 
 Ponto de restauração: branch `backup/pre-correcao-base-2026-11-05` (main após o PR #63, commit `84dada4`).
