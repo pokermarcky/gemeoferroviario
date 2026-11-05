@@ -113,3 +113,16 @@ Cenários sem elevado não mudam. A sensibilidade (gráficos de vão e altura) c
 ### Testes
 
 `tests/test_desenho_downloads.py`: imagem em todas as combinações de tabuleiro e pilar, cor herdada do desenho, presença do desenho e da via permanente no Excel, Word e nos dois PDFs, ausência em cenário sem elevado e valores do orçamento inalterados.
+
+## 4. Opções retiradas do formulário (2026-11-05)
+
+A pedido do Marcelo, o formulário do elevado deixou de mostrar três painéis:
+
+- **Dividir o corredor em trechos homogêneos**: o corredor inteiro usa a geometria informada no topo (um único trecho).
+- **Soluções estruturais e método executivo**: ficam fixos os valores padrão de antes: tabuleiro "Vigas pré-moldadas com laje", pilar "Pilar único circular", geotecnia "Intermediária", método "Montagem com guindaste" e execução "Frente livre" (todos com coeficiente 1,00).
+- **Obras singulares e proteção acústica**: ficam zerados como antes (vãos especiais 0 m, encontros e transições 0, barreira acústica 0 m), então não somam nada.
+
+O cálculo é o mesmo que o site fazia com esses painéis fechados: nenhum preço ou regra mudou. O código que trata trechos e coeficientes continua no motor (`railbudget/elevated.py`), então as opções podem voltar à tela sem refazer contas. A sensibilidade do resultado (vão, altura, tabuleiro, vias) e o desenho do viaduto continuam iguais, inclusive no Excel, no Word e nos dois PDFs.
+
+Teste: `tests/test_app.py::test_elevado_sem_opcoes_removidas_mantem_valores_padrao` (painéis e campos sumiram, cenário usa os valores padrão e o total bate com o motor).
+

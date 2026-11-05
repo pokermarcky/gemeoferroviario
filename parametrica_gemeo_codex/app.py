@@ -6,8 +6,7 @@ import pandas as pd
 import streamlit as st
 from railbudget.engine import (Scenario, load_model, calculate, select_groups,
     FOUNDATION_OPTIONS, foundation_diameters, foundation_capacity)
-from railbudget.elevated import (calculate_elevated, sensitivity, DECK_FACTORS, PIER_FACTORS,
-    GEOTECH_FACTORS, METHOD_FACTORS, EXECUTION_FACTORS)
+from railbudget.elevated import calculate_elevated, sensitivity
 from railbudget.exporters import make_excel, make_pdf, make_word, currency, br, caption
 from railbudget.interface import apply_theme
 from railbudget.elevated_drawing import elevated_svg, drawing_parameters
@@ -139,7 +138,7 @@ def budget_controls(key,freight=False):
     if not freight and configuration=='Elevado':
         with st.container(border=True,key=key+'_elevated_panel'):
             st.markdown('**2. Parâmetros estruturais do elevado**')
-            st.caption('Configure primeiro o trecho predominante. Abra somente os painéis necessários para detalhar soluções ou variações do corredor.')
+            st.caption('Informe a geometria do viaduto e, se precisar, ajuste as fundações.')
             geometry=st.columns(4)
             height=geometry[0].number_input('Altura média dos pilares (m)',min_value=3.0,max_value=30.0,
                 value=8.0,step=.5,format='%.2f',key=key+'_elevated_height')
@@ -180,65 +179,17 @@ def budget_controls(key,freight=False):
                 else:
                     st.info('Sugestão preliminar: hélice contínua oferece boa produtividade quando há acesso para equipamento. Confirme diâmetro e profundidade por sondagens e cargas de projeto.')
                 st.caption('As alternativas e os diâmetros exibidos possuem serviços correspondentes na base SIEC vigente. A escolha é orçamentária preliminar, não um dimensionamento.')
-            with st.expander('Dividir o corredor em trechos homogêneos',expanded=False):
-                use_segments=st.checkbox('Usar geometrias diferentes ao longo do corredor',
-                    key=key+'_elevated_use_segments',help='Permite variar altura, vão e fundação sem duplicar canteiro e administração.')
-                if use_segments:
-                    editor_key=key+'_elevated_segments_editor'
-                    if editor_key not in st.session_state:
-                        st.session_state[editor_key]=pd.DataFrame([{'Trecho':'Trecho 1','Extensão (km)':float(km),
-                            'Altura (m)':float(height),'Vão (m)':float(span),'Fundação':foundation,
-                            'Diâmetro (m)':float(diameter),'Profundidade (m)':float(foundation_depth),
-                            'Estacas/apoio':int(piles),'Interferência':interference}])
-                    segments=st.data_editor(st.session_state[editor_key],num_rows='dynamic',hide_index=True,
-                        width='stretch',key=editor_key+'_widget',column_config={
-                            'Trecho':st.column_config.TextColumn('Trecho',width='medium',required=True),
-                            'Extensão (km)':st.column_config.NumberColumn('Extensão (km)',min_value=.01,format='%.3f',required=True),
-                            'Altura (m)':st.column_config.NumberColumn('Altura (m)',min_value=3.,max_value=30.,format='%.2f',required=True),
-                            'Vão (m)':st.column_config.NumberColumn('Vão (m)',min_value=10.,max_value=45.,format='%.2f',required=True),
-                            'Fundação':st.column_config.SelectboxColumn('Fundação',options=list(FOUNDATION_OPTIONS),required=True),
-                            'Diâmetro (m)':st.column_config.NumberColumn('Diâmetro (m)',min_value=.16,max_value=.90,format='%.2f',required=True),
-                            'Profundidade (m)':st.column_config.NumberColumn('Profundidade (m)',min_value=5.,max_value=60.,format='%.2f',required=True),
-                            'Estacas/apoio':st.column_config.NumberColumn('Estacas/apoio',min_value=2,max_value=16,step=1,required=True),
-                            'Interferência':st.column_config.SelectboxColumn('Interferência',options=['Baixa','Média','Alta'],required=True)})
-                    segment_records=segments.to_dict('records')
-                    segment_sum=sum(float(row.get('Extensão (km)',0) or 0) for row in segment_records)
-                    delta=segment_sum-float(km)
-                    message=f'Soma dos trechos: {br(segment_sum,3)} km · corredor: {br(km,3)} km'
-                    if abs(delta)<=.001:st.success(message)
-                    else:st.warning(message+' · ajuste a diferença de '+br(abs(delta),3)+' km.')
-                else:
-                    segment_records=[]
-                    st.caption('Desativado: o corredor inteiro usará a geometria predominante informada acima.')
-            with st.expander('Soluções estruturais e método executivo',expanded=False):
-                technical=st.columns(2)
-                deck_type=technical[0].selectbox('Tipologia do tabuleiro',list(DECK_FACTORS),key=key+'_elevated_deck_type')
-                pier_type=technical[1].selectbox('Tipologia dos pilares',list(PIER_FACTORS),key=key+'_elevated_pier_type')
-                geotech=technical[0].selectbox('Condição geotécnica',list(GEOTECH_FACTORS),index=1,key=key+'_elevated_geotech')
-                method=technical[1].selectbox('Método executivo',list(METHOD_FACTORS),key=key+'_elevated_method')
-                execution=st.selectbox('Condição de execução',list(EXECUTION_FACTORS),key=key+'_elevated_execution')
-                factor_summary=(f'Tabuleiro ×{br(DECK_FACTORS[deck_type][0],2)} · Pilares ×{br(PIER_FACTORS[pier_type][0],2)} · '
-                    f'Geotecnia ×{br(GEOTECH_FACTORS[geotech][0],2)} · Método ×{br(METHOD_FACTORS[method][0],2)} · '
-                    f'Execução ×{br(EXECUTION_FACTORS[execution][0],2)}')
-                st.caption('Coeficientes declarados no resultado: '+factor_summary+'.')
-            with st.expander('Obras singulares e proteção acústica',expanded=False):
-                st.caption('Provisões separadas e editáveis; não são apresentadas como preços SIEC.')
-                specials=st.columns(2)
-                special_length=specials[0].number_input('Extensão de vãos especiais (m)',min_value=0.,max_value=float(km)*1000,
-                    value=0.,step=10.,key=key+'_elevated_special_length')
-                special_addition=specials[1].number_input('Adicional dos vãos especiais (%)',min_value=0.,max_value=500.,
-                    value=50.,step=5.,key=key+'_elevated_special_addition')
-                transitions=specials[0].number_input('Encontros e transições (un)',min_value=0,max_value=1000,value=0,step=1,
-                    key=key+'_elevated_transitions')
-                transition_cost=specials[1].number_input('Provisão por encontro/transição (R$)',min_value=0.,max_value=1e10,
-                    value=2000000.,step=100000.,key=key+'_elevated_transition_cost')
-                barrier=st.columns(3)
-                barrier_length=barrier[0].number_input('Barreira acústica (m)',min_value=0.,max_value=float(km)*2000,
-                    value=0.,step=50.,key=key+'_elevated_barrier_length')
-                barrier_height=barrier[1].number_input('Altura da barreira (m)',min_value=.5,max_value=10.,
-                    value=3.,step=.5,key=key+'_elevated_barrier_height')
-                barrier_cost=barrier[2].number_input('Custo da barreira (R$/m²)',min_value=0.,max_value=1e7,
-                    value=2500.,step=100.,key=key+'_elevated_barrier_cost')
+            # Trechos homogêneos, soluções estruturais e obras singulares saíram da tela
+            # (pedido do Marcelo, 2026-11-05). O cálculo segue com os mesmos valores padrão
+            # que essas opções tinham quando ficavam fechadas/desligadas.
+            standard=Scenario()
+            segment_records=[]
+            deck_type,pier_type=standard.deck_type,standard.pier_type
+            geotech,method,execution=standard.geotechnical_condition,standard.construction_method,standard.execution_constraint
+            special_length,special_addition=standard.special_span_length,standard.special_span_addition
+            transitions,transition_cost=standard.transitions,standard.transition_unit_cost
+            barrier_length,barrier_height,barrier_cost=(standard.noise_barrier_length,
+                standard.noise_barrier_height,standard.noise_barrier_unit_cost)
             elevated_parameters=dict(elevated_height=float(height),elevated_span=float(span),
                 elevated_width_single=float(width_single),elevated_width_double=float(width_double),
                 foundation_type=foundation,foundation_depth=float(foundation_depth),
@@ -250,8 +201,7 @@ def budget_controls(key,freight=False):
                 noise_barrier_length=float(barrier_length),noise_barrier_height=float(barrier_height),
                 noise_barrier_unit_cost=float(barrier_cost))
             with st.expander('Desenho do viaduto',expanded=True):
-                st.caption('Corte transversal e elevação atualizados com os valores acima. A via permanente aparece em destaque.'
-                    +(' Com trechos homogêneos, o desenho mostra o trecho mais extenso.' if len(segment_records)>1 else ''))
+                st.caption('Corte transversal e elevação atualizados com os valores acima. A via permanente aparece em destaque.')
                 drawing_scenario=dict(elevated_parameters,lines=lines,km=float(km))
                 st.markdown(elevated_svg(drawing_parameters(drawing_scenario)),unsafe_allow_html=True)
 

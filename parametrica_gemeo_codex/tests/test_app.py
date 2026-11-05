@@ -203,24 +203,35 @@ def test_elevado_de_passageiros_tem_controles_estruturais_e_recalcula():
     assert result['elevated']['active_width']==8
 
 
-def test_elevado_avancado_organiza_solucoes_em_paineis_recolhiveis():
+def test_elevado_sem_opcoes_removidas_mantem_valores_padrao():
+    """Trechos homogêneos, soluções estruturais e obras singulares saíram da tela (2026-11-05)."""
+    from railbudget.elevated import calculate_elevated
+    from railbudget.engine import Scenario, load_model
+
     app=AppTest.from_file(str(APP)).run(timeout=30)
     app.selectbox(key='main_configuration').set_value('Elevado').run(timeout=30)
     labels={item.label for item in app.expander}
-    assert {'Fundações e condição urbana','Dividir o corredor em trechos homogêneos',
-        'Soluções estruturais e método executivo','Obras singulares e proteção acústica'}.issubset(labels)
-    assert app.selectbox(key='main_elevated_deck_type').options[0]=='Vigas pré-moldadas com laje'
-    assert app.selectbox(key='main_elevated_pier_type').options[-1]=='Pórtico'
-    app.selectbox(key='main_elevated_deck_type').set_value('Viga-caixão pré-moldada segmental')
-    app.selectbox(key='main_elevated_pier_type').set_value('Pórtico')
-    app.number_input(key='main_elevated_transitions').set_value(2)
+    assert 'Fundações e condição urbana' in labels
+    assert 'Desenho do viaduto' in labels
+    assert not labels & {'Dividir o corredor em trechos homogêneos',
+        'Soluções estruturais e método executivo','Obras singulares e proteção acústica'}
+    keys={widget.key for widget in [*app.selectbox,*app.number_input,*app.checkbox]}
+    for removed in ('main_elevated_deck_type','main_elevated_pier_type','main_elevated_geotech',
+        'main_elevated_method','main_elevated_execution','main_elevated_transitions',
+        'main_elevated_special_length','main_elevated_barrier_length','main_elevated_use_segments'):
+        assert removed not in keys
     app.button(key='main_calculate').click().run(timeout=30)
     assert not app.exception
     result=app.session_state['results']['main']
-    assert result['scenario']['deck_type']=='Viga-caixão pré-moldada segmental'
-    assert result['scenario']['pier_type']=='Pórtico'
-    assert result['scenario']['transitions']==2
-    assert result['elevated']['indicators']['Custo por apoio']>0
+    standard=Scenario()
+    for field in ('deck_type','pier_type','geotechnical_condition','construction_method','execution_constraint',
+        'special_span_length','special_span_addition','transitions','transition_unit_cost',
+        'noise_barrier_length','noise_barrier_height','noise_barrier_unit_cost'):
+        assert result['scenario'][field]==getattr(standard,field)
+    assert len(result['scenario']['elevated_segments'])==1
+    rules,catalog=load_model()
+    expected=calculate_elevated(Scenario(configuration='Elevado',bdi=result['scenario']['bdi']),rules,catalog)
+    assert result['total']==expected['total']
     assert app.button(key='main_sensitivity_button')
 
 
