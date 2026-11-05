@@ -2,6 +2,12 @@
 
 Ponto de restauração anterior a estas alterações: branch `backup/estavel-2026-10-23` (commit `08fdea8`).
 
+## 2026-11-05 — Correção urgente: site não abria depois da atualização
+
+- Depois dos PRs #64 e #65, o Streamlit Cloud mostrou "ImportError: cannot import name 'stale_price_warning'" ao abrir o site, mesmo após Reboot. O arquivo `reference_data.py` da main tem a função; o servidor estava lendo uma versão anterior do módulo.
+- O `app.py` não depende mais desse nome para abrir: usa a função do módulo se ela existir e, se não existir, uma cópia local do mesmo aviso. Nenhum cálculo ou preço muda.
+- Teste novo em `tests/test_app.py` abre o app com uma versão antiga do módulo na memória (antes da correção ele reproduzia o mesmo ImportError).
+
 ## 2026-11-05 — Elevado: três opções retiradas do formulário
 
 Ponto de restauração: branch `backup/pre-correcao-base-2026-11-05`.

@@ -18,8 +18,32 @@ from railbudget.underground import calculate_underground
 from railbudget.vlt import calculate_vlt, make_vlt_excel
 from railbudget.shortline import (AMVS_PER_SIDING, SHORTLINE_GROUPS, ShortlineParams,
     calculate_shortline, default_selection)
-from railbudget.reference_data import (SOURCES, KINDS, parse_reference, apply_reference_bases, stale_price_warning,
+from railbudget.reference_data import (SOURCES, KINDS, parse_reference, apply_reference_bases,
     embedded_inventory, normalized_excel)
+import railbudget.reference_data as _reference_data
+
+
+def _aviso_local_precos_anteriores(items,bases):
+    """Cópia de segurança do aviso de preços antigos.
+
+    Usada se o servidor ainda tiver uma versão de reference_data.py sem
+    stale_price_warning (aconteceu no Streamlit Cloud em 2026-11-05). Assim
+    o site nunca deixa de abrir por causa desse aviso.
+    """
+    stale=[]
+    for item in items:
+        parts=str(item.get('price_key','')).split('|')
+        base=bases.get((item.get('source'),parts[1] if len(parts)>1 else ''))
+        if base is None or str(item.get('provenance','')).startswith('Upload ativo'):continue
+        stale.append(f"{item.get('code')} ({item.get('date') or 'data-base anterior'})")
+    if not stale:return None
+    unique=list(dict.fromkeys(stale))
+    shown=', '.join(unique[:8])+(f' e mais {len(unique)-8}' if len(unique)>8 else '')
+    return (f'{len(unique)} código(s) usados neste orçamento não estão na base enviada '
+            f'e mantiveram o preço da data-base anterior: {shown}.')
+
+
+stale_price_warning=getattr(_reference_data,'stale_price_warning',_aviso_local_precos_anteriores)
 from railbudget.auth import (budget_download_limit, can, can_download_budget, is_primary_root,
     primary_root_context, require_user)
 from railbudget.budget_store import ensure_budget, update_budget
