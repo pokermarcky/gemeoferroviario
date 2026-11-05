@@ -15,15 +15,17 @@ Ponto de restauração anterior: branch `backup/pre-elevado-2026-10-28` (main em
 
 | Vista | Elementos | Muda com |
 |---|---|---|
-| Corte transversal | guarda-corpos, canaletas do tabuleiro, paralastro, lastro, dormentes, fixações, trilhos, contratrilhos, laje de distribuição, vigas, travessa, pilar, descida de drenagem, bloco e estacas | via singela/dupla, largura do tabuleiro, altura, tipologia do tabuleiro, tipologia dos pilares, estacas por apoio, diâmetro e profundidade |
-| Elevação longitudinal | 2 a 4 vãos típicos com tabuleiro, via, pilares, blocos, estacas e descidas | vão (distância entre pilares) e altura |
+| Corte transversal | guarda-corpos de concreto, ralos de drenagem, paralastro, lastro, dormentes, fixações, trilhos, contratrilhos, laje de distribuição, vigas, aparelhos de apoio, travessa, pilar, descida de drenagem, bloco e estacas | via singela/dupla, largura do tabuleiro, altura, tipologia do tabuleiro, tipologia dos pilares, estacas por apoio, diâmetro e profundidade |
+| Elevação longitudinal | 2 a 4 vãos típicos com tabuleiro, via, aparelhos de apoio, travessas, pilares, blocos, estacas e descidas | vão (distância entre pilares) e altura |
 
 Cores: via permanente em vermelho, terracota e ocre suave do tema (`#b8322a`, `#a0614c`, `#c9ad80`); drenagem em azul; estrutura em tons neutros.
 
 ### Regras do desenho
 
 - É **esquemático e sem escala**: a largura é desenhada até 30 px/m (limitada para caber 20 m) e a altura do pilar cresce com a altura real entre 70 e 200 px. As cotas escritas são sempre os valores reais do cenário.
-- Tipologia do tabuleiro: "Vigas pré-moldadas com laje" desenha vigas I (3 na singela, 5 na dupla); "Viga U" desenha uma calha por via; as duas "Viga-caixão" desenham uma seção caixão; "Misto aço-concreto" desenha vigas metálicas.
+- Geometria do corte (revisada em 05/11/2026): as vigas encostam na laje e **todas** apoiam na travessa por aparelhos de apoio; a travessa é sempre larga o bastante para receber a viga externa. De cada borda para dentro: guarda-corpo (0,40 m), faixa de drenagem e paralastro (0,20 m). Entrevia da via dupla de 4,50 m (reduzida até 3,80 m só em tabuleiro estreito); lastro com base de até 4,40 m por via. A drenagem desce pelo ralo junto ao guarda-corpo, atravessa a laje por fora das vigas, passa sob a travessa e desce junto ao pilar (antes cruzava o tabuleiro na diagonal).
+- Travessa em martelo (mais alta no meio) sobre pilar único; reta no pórtico.
+- Tipologia do tabuleiro: "Vigas pré-moldadas com laje" desenha vigas I (uma a cada 2,2 m de largura, mínimo 3: 3 na singela de 7 m, 5 na dupla de 11 m); "Viga U" desenha vigas U fechadas pela laje; as duas "Viga-caixão" desenham uma seção caixão; "Misto aço-concreto" desenha vigas metálicas.
 - Tipologia dos pilares: circular (com sombreamento), retangular, pilar-parede (largo) e pórtico (dois pilares com travessa).
 - Estacas: até 8 desenhadas no corte (metade das estacas do apoio quando há 4 ou mais, por ser uma vista); o texto informa a quantidade real, o diâmetro e a profundidade.
 - Com trechos homogêneos, o desenho usa o trecho mais extenso.
