@@ -19,7 +19,7 @@ from railbudget.underground import calculate_underground
 from railbudget.vlt import calculate_vlt, make_vlt_excel
 from railbudget.shortline import (AMVS_PER_SIDING, SHORTLINE_GROUPS, ShortlineParams,
     calculate_shortline, default_selection)
-from railbudget.reference_data import (SOURCES, KINDS, parse_reference, apply_reference_bases,
+from railbudget.reference_data import (SOURCES, KINDS, parse_reference, apply_reference_bases, stale_price_warning,
     embedded_inventory, normalized_excel)
 from railbudget.auth import (budget_download_limit, can, can_download_budget, is_primary_root,
     primary_root_context, require_user)
@@ -335,6 +335,8 @@ def budget_controls(key,freight=False):
             result=calculate_freight(p,axle,rules,catalog,freight_premises,freight_pending) if freight else calculate_underground(p,rules,catalog) if subterraneo else calculate_elevated(p,rules,catalog,segment_records or None) if configuration=='Elevado' else calculate(p,rules,catalog)
             if freight:
                 result['warnings'].append('Frota fora do total: '+br(locomotives,2)+' locomotiva(s) equivalente(s)/km, '+br(wagons,2)+' vagão(ões) equivalente(s)/km. Pátios, terminais, pontes e passagens em nível também não foram orçados.')
+            stale_notice=stale_price_warning(result.get('items',[]),enabled_bases)
+            if stale_notice:result['warnings'].append(stale_notice)
             st.session_state.results[key]=result
             st.session_state[key+'_reference_signature']=reference_signature
             elevated_inputs=tuple(repr(value) for value in elevated_parameters.values()) if elevated_parameters else ()

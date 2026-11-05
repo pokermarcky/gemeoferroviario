@@ -2,6 +2,16 @@
 
 Ponto de restauração anterior a estas alterações: branch `backup/estavel-2026-10-23` (commit `08fdea8`).
 
+## 2026-11-05 — Correção: elevado com base SIEC enviada sem o prefixo "SIEC-"
+
+Ponto de restauração: branch `backup/pre-correcao-base-2026-11-05` (main após o PR #63, commit `84dada4`).
+
+- **Problema**: depois de ativar a base SIEC de agosto/2026, o elevado parava com "A base ativa não possui o serviço de fundação SIEC-02.01.04.400.01".
+- **Causa**: a planilha enviada traz os códigos sem o prefixo (ex.: `02.01.04.400.01`). A atualização de preços já reconhecia esses códigos, mas trocava o código do item pelo texto da planilha. A busca da mobilização e das estacas da fundação comparava o texto exato `SIEC-02.01.04.400.01` e não encontrava nada. Não faltava serviço na base.
+- **Correção**: a busca dos serviços de fundação ignora o prefixo "SIEC" e os separadores, e usa o item já vinculado ao orçamento, com o preço da base de agosto/2026. Nenhum preço, regra ou quantidade muda.
+- **Aviso novo**: se algum código usado no orçamento não estiver na base enviada, o resultado (e os arquivos baixados) mostram quais códigos ficaram com o preço da data-base anterior, em vez de misturar datas sem avisar.
+- Testes: 8 novos em `tests/test_base_sem_prefixo.py`.
+
 ## 2026-10-28 — Desenho do viaduto nos arquivos baixados (elevado, item 3)
 
 - Ao baixar um orçamento com elevado, o **Excel**, o **Word**, o **PDF resumido** e o **PDF detalhado** passam a trazer o desenho do viaduto (corte transversal e elevação longitudinal) e a tabela **Via permanente no elevado** (custo por componente, R$/km de via, R$/m de viaduto, participação e total com BDI). No Excel, o desenho fica numa aba nova "Desenho do elevado", no fim da pasta.
