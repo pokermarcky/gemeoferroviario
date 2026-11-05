@@ -403,3 +403,20 @@ def test_elevado_detalha_custo_da_via_permanente_e_sensibilidade():
     texts=' '.join(item.value for item in app.markdown)
     assert 'Via permanente no elevado' in texts and 'Sensibilidade do custo por metro de viaduto' in texts
     assert app.session_state['main_track_sensitivity'][1]
+
+
+def test_app_importa_com_modulo_antigo_na_memoria():
+    """Simula o Streamlit Cloud após uma atualização: railbudget antigo ainda carregado."""
+    import sys
+    import types
+    import railbudget.reference_data as atual
+
+    antigo=types.ModuleType('railbudget.reference_data')
+    for nome in ('SOURCES','KINDS','parse_reference','apply_reference_bases','embedded_inventory','normalized_excel'):
+        setattr(antigo,nome,getattr(atual,nome))
+    sys.modules['railbudget.reference_data']=antigo
+    try:
+        app=AppTest.from_file(str(APP)).run(timeout=60)
+        assert not app.exception
+    finally:
+        sys.modules['railbudget.reference_data']=atual
